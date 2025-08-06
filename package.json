@@ -1,0 +1,15 @@
+{
+  "name": "supplies-tracking",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "lint": "eslint Code.gs",
+    "test": "npm run lint"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "vite": "^5.2.0"
+  }
+}
