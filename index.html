@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <title>Supplies Ordering</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Minimal utility classes -->
+  <style>
+    body {font-family: Arial, sans-serif; margin:0;}
+    .flex {display:flex;} .hidden{display:none;} .p-2{padding:0.5rem;} .p-4{padding:1rem;}
+    .m-2{margin:0.5rem;} .text-center{text-align:center;} .text-sm{font-size:0.875rem;}
+    .btn{background:#1a73e8;color:#fff;padding:0.5rem 1rem;border:none;border-radius:4px;}
+    .btn:disabled{background:#9e9e9e;}
+    .input{padding:0.5rem;border:1px solid #ccc;border-radius:4px;}
+    .nav-mobile{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ddd;}
+    .nav-desktop{position:fixed;top:0;bottom:0;width:200px;background:#fff;border-right:1px solid #ddd;}
+    @media(min-width:481px){.nav-mobile{display:none;} .nav-desktop{display:block;} .main{margin-left:200px;}}
+    @media(max-width:480px){.nav-desktop{display:none;} .main{padding-bottom:60px;}}
+    .chip{padding:0.25rem 0.5rem;border-radius:9999px;color:#fff;font-size:0.75rem;}
+    .PENDING{background:#fbc02d;} .APPROVED{background:#4caf50;} .DENIED{background:#f44336;} .ON-HOLD{background:#9e9e9e;}
+    .modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;}
+    .modal-content{background:#fff;padding:1rem;border-radius:8px;max-width:90%;}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script type="module" src="https://www.gstatic.com/charts/loader.js"></script>
+</head>
+<body>
+  <!-- Sidebar for desktop -->
+  <nav class="nav-desktop p-2">
+    <ul>
+      <li><button class="btn m-2" data-view="request">Request Supplies</button></li>
+      <li><button class="btn m-2" data-view="my">My Requests</button></li>
+      <li><button class="btn m-2" data-view="approve">Approvals</button></li>
+      <li><button class="btn m-2" data-view="analytics">Spend Analytics</button></li>
+      <li><button id="devNav" class="btn m-2 hidden" data-view="dev">Dev Console</button></li>
+    </ul>
+  </nav>
+  <!-- Bottom nav for mobile -->
+  <nav class="nav-mobile flex justify-between">
+    <button class="btn flex-1" data-view="request">Request</button>
+    <button class="btn flex-1" data-view="my">My Requests</button>
+    <button class="btn flex-1" data-view="approve">Approvals</button>
+    <button class="btn flex-1" data-view="analytics">Analytics</button>
+    <button id="devNavM" class="btn flex-1 hidden" data-view="dev">Dev</button>
+  </nav>
+
+  <main id="app" class="main p-4"></main>
+
+  <!-- Flowchart modal -->
+  <div id="flowModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="m-2">
+        <div class="mermaid">
+          graph LR
+            A[Submit] --> B{Review}
+            B -->|Approve| C[Order]
+            B -->|Deny| D[Notify]
+        </div>
+        <label class="flex m-2"><input type="checkbox" id="ackChk" class="m-2">I understand</label>
+        <button id="ackBtn" class="btn" disabled>Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    mermaid.initialize({startOnLoad:true});
+    google.charts.load('current', {'packages':['corechart']});
+
+    const userEmail = '<?= userEmail ?>';
+
+    const views = {
+      request: renderRequest,
+      my: renderMyRequests,
+      approve: renderApprovals,
+      analytics: renderAnalytics,
+      dev: renderDev
+    };
+
+    document.querySelectorAll('button[data-view]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const v = btn.getAttribute('data-view');
+        render(v);
+      });
+    });
+
+    function render(view){
+      views[view]();
+    }
+
+    /** Request Supplies view */
+    function renderRequest(){
+      google.script.run.withSuccessHandler(buildCatalog).getCatalog();
+      function buildCatalog(items){
+        const app = document.getElementById('app');
+        app.innerHTML = `
+          <h2 class="text-center">Request Supplies</h2>
+          <input id="catSearch" class="input m-2" placeholder="Search...">
+          <table class="m-2" id="catTable"></table>
+          <button id="submitBtn" class="btn m-2" disabled>Submit</button>
+        `;
+        const table = document.getElementById('catTable');
+        items.forEach(item=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${item.desc}</td><td>$${item.price}</td><td><input type='number' min='0' class='input qty'></td>`;
+          table.appendChild(tr);
+        });
+        document.getElementById('submitBtn').onclick = ()=> showFlowModal();
+      }
+    }
+
+    /** Flowchart acknowledgement */
+    function showFlowModal(){
+      const modal = document.getElementById('flowModal');
+      modal.classList.remove('hidden');
+      const chk = document.getElementById('ackChk');
+      const btn = document.getElementById('ackBtn');
+      chk.onchange=()=> btn.disabled=!chk.checked;
+      btn.onclick=()=>{modal.classList.add('hidden'); alert('Submitted!');};
+    }
+
+    /** My Requests */
+    function renderMyRequests(){
+      google.script.run.withSuccessHandler(build).listMyOrders();
+      function build(rows){
+        const app = document.getElementById('app');
+        app.innerHTML='<h2 class="text-center">My Requests</h2>';
+        rows.forEach(r=>{
+          const div=document.createElement('div');
+          div.className='p-2 m-2';
+          div.innerHTML=`<span>${r.item}</span> <span class="chip ${r.status}">${r.status}</span>`;
+          app.appendChild(div);
+        });
+      }
+    }
+
+    /** Approvals */
+    function renderApprovals(){
+      google.script.run.withSuccessHandler(build).listPendingOrders();
+      function build(rows){
+        const app = document.getElementById('app');
+        app.innerHTML='<h2 class="text-center">Approvals</h2><button id="approveAll" class="btn m-2">Approve All</button>';
+        rows.forEach(r=>{
+          const div=document.createElement('div');
+          div.className='p-2 m-2';
+          div.innerHTML=`<input type='checkbox' value='${r.id}'> ${r.item} (${r.requester})`;
+          app.appendChild(div);
+        });
+        document.getElementById('approveAll').onclick=()=>{
+          const ids=[...app.querySelectorAll('input[type=checkbox]:checked')].map(c=>c.value);
+          google.script.run.decideOrders(ids,'APPROVED','');
+        };
+      }
+    }
+
+    /** Analytics */
+    function renderAnalytics(){
+      google.script.run.withSuccessHandler(build).getSpendAnalytics();
+      function build(data){
+        const app=document.getElementById('app');
+        app.innerHTML='<h2 class="text-center">Spend Analytics</h2><div id="chart1" style="height:300px"></div>';
+        google.charts.setOnLoadCallback(()=>{
+          const arr = [['Month','Total']];
+          for(const m in data.monthly){arr.push([m, data.monthly[m]]);}
+          const chart=new google.visualization.ColumnChart(document.getElementById('chart1'));
+          chart.draw(google.visualization.arrayToDataTable(arr));
+        });
+      }
+    }
+
+    /** Dev console */
+    function renderDev(){
+      const app=document.getElementById('app');
+      app.innerHTML='<h2>Developer Console</h2><p>Manage catalog, budgets, and roles.</p>';
+    }
+
+    // Show developer nav if user is developer
+    google.script.run.withSuccessHandler(function(list){
+      if(list.includes(userEmail)){
+        document.getElementById('devNav').classList.remove('hidden');
+        document.getElementById('devNavM').classList.remove('hidden');
+      }
+    }).getDeveloperEmails();
+
+    render('request');
+  </script>
+</body>
+</html>
