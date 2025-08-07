@@ -33,9 +33,27 @@ const CHAT_WEBHOOK = 'https://chat.googleapis.com/v1/spaces/...'; // replace wit
 
 /** Utility helpers */
 
-/** Returns the active user's email. */
+/** Returns the signed-in user's email using OAuth for cross-domain accounts. */
 function getUserEmail() {
-  return Session.getActiveUser().getEmail();
+  let email = Session.getActiveUser().getEmail();
+  if (email) {
+    return email;
+  }
+
+  try {
+    const token = ScriptApp.getOAuthToken();
+    const response = UrlFetchApp.fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: 'Bearer ' + token },
+      muteHttpExceptions: true,
+    });
+    const data = JSON.parse(response.getContentText());
+    if (data.email) {
+      return data.email;
+    }
+  } catch (err) {
+    // Ignore and fall through.
+  }
+  return '';
 }
 
 /** Check if user is part of Leadership Team. */
