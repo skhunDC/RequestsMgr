@@ -29,7 +29,7 @@ This serves `index.html` and enables ES modules. No build step is required for A
 - Maintain WCAG AA contrast; interactive elements follow Google Material patterns.
 
 ## Auth Flow
-- The app relies on `Session.getActiveUser().getEmail()` to identify the signed-in Google account.
+- The app identifies the signed-in Google account using the OAuth `userinfo` endpoint, falling back to `Session.getActiveUser()` when possible.
 - Only the following Leadership Team email addresses can access the main UI by default:
   `skhun@dublincleaners.com`, `ss.sku@protonmail.com`, `brianmbutler77@gmail.com`, `brianbutler@dublincleaners.com`,
   `rbrown5940@gmail.com`, `rbrown@dublincleaners.com`, `davepdublincleaners@gmail.com`, `lisamabr@yahoo.com`,
