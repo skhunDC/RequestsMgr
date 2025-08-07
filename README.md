@@ -30,7 +30,11 @@ This serves `index.html` and enables ES modules. No build step is required for A
 
 ## Auth Flow
 - The app relies on `Session.getActiveUser().getEmail()` to identify the signed-in Google account.
-- Only emails within the `dublincleaners.com` domain can access the main UI.
+- Only the following Leadership Team email addresses can access the main UI by default:
+  `skhun@dublincleaners.com`, `ss.sku@protonmail.com`, `brianmbutler77@gmail.com`, `brianbutler@dublincleaners.com`,
+  `rbrown5940@gmail.com`, `rbrown@dublincleaners.com`, `davepdublincleaners@gmail.com`, `lisamabr@yahoo.com`,
+  `dddale40@gmail.com`, `nismosil85@gmail.com`, `mlackey@dublincleaners.com`, `china99@mail.com`.
+  Update `LT_EMAILS` in `Code.gs` to modify this list.
 - The Developer Console is restricted to predefined developer emails or those added via the console.
 
 ## Testing
