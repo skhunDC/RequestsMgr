@@ -12,8 +12,21 @@ const SHEET_AUDIT = 'Audit';
 const STATIC_DEVS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
 const DEV_PROP_KEY = 'DEV_LIST';
 
-// Allow only Leadership Team emails (domain specific or explicit list)
-const LT_DOMAIN = 'dublincleaners.com';
+// Allowed Leadership Team email addresses
+const LT_EMAILS = [
+  'skhun@dublincleaners.com',
+  'ss.sku@protonmail.com',
+  'brianmbutler77@gmail.com',
+  'brianbutler@dublincleaners.com',
+  'rbrown5940@gmail.com',
+  'rbrown@dublincleaners.com',
+  'davepdublincleaners@gmail.com',
+  'lisamabr@yahoo.com',
+  'dddale40@gmail.com',
+  'nismosil85@gmail.com',
+  'mlackey@dublincleaners.com',
+  'china99@mail.com'
+];
 
 // Google Chat webhook for notifications
 const CHAT_WEBHOOK = 'https://chat.googleapis.com/v1/spaces/...'; // replace with real webhook
@@ -27,7 +40,7 @@ function getUserEmail() {
 
 /** Check if user is part of Leadership Team. */
 function isLtUser(email) {
-  return email && email.toLowerCase().endsWith('@' + LT_DOMAIN);
+  return email ? LT_EMAILS.includes(email.toLowerCase()) : false;
 }
 
 /** Get developer emails including dynamic list from script properties. */
