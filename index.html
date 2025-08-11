@@ -186,7 +186,7 @@
   function loadMyRequests() {
     google.script.run
       .withSuccessHandler(rows => renderMyRequests(rows))
-      .listMyOrders({ email: store.session.email });
+      .listMyOrders();
   }
 
   function renderMyRequests(rows) {
