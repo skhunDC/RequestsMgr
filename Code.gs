@@ -98,7 +98,7 @@ function getCatalog(req) {
 }
 
 function addCatalogItem(req) {
-  return withLock_(() => {
+  return withScriptLock_(() => {
     const { description, category } = req;
     const sheet = getSs_().getSheetByName(SHEET_CATALOG);
     const sku = uuid_();
@@ -108,7 +108,7 @@ function addCatalogItem(req) {
 }
 
 function setCatalogArchived(req) {
-  return withLock_(() => {
+  return withScriptLock_(() => {
     const { sku, archived } = req;
     const sheet = getSs_().getSheetByName(SHEET_CATALOG);
     const values = sheet.getDataRange().getValues();
@@ -123,31 +123,50 @@ function setCatalogArchived(req) {
   });
 }
 
-function submitOrder(payload) {
-  const session = getSession();
-  if (!session.isLt) throw new Error('Forbidden');
-  const sheet = getSs_().getSheetByName(SHEET_ORDERS);
-  const ids = [];
-  const nowIso = nowIso_();
-  withLock_(() => {
-    payload.lines.forEach(line => {
-      const id = uuid_();
-      const approver = resolveApprover_(line);
-      sheet.appendRow([
-        id,
-        nowIso,
-        session.email,
-        line.description,
-        Number(line.qty),
-        'PENDING',
-        approver
+
+/**
+ * Submit a supply request.
+ * Expected payload: { requester, items: [{desc, qty}], approver }
+ * Returns: { ok:true, id, message }
+ */
+function submitRequest(payload) {
+  if (!payload || !payload.requester || !payload.items || !payload.items.length) {
+    throw new Error('Invalid payload: requester and at least one item are required.');
+  }
+
+  return withScriptLock_(function () {
+    var ss = SpreadsheetApp.getActive();
+    var sh = ss.getSheetByName('Orders');
+    if (!sh) throw new Error('Orders sheet not found.');
+
+    var now = new Date();
+    var rows = [];
+    // Ensure minimal columns: id | ts | requester | item | qty | est_cost | status | approver | decision_ts | override? | justification
+    // For this minimal flow we only need qty, description (item), status, approver; others can be blank/defaults.
+    var status = 'PENDING';
+    var approver = payload.approver || '';
+    var estCost = ''; // leave blank if not calculated
+
+    payload.items.forEach(function (it) {
+      if (!it || !it.desc || !it.qty) return;
+      var id = Utilities.getUuid();
+      rows.push([
+        id, now, payload.requester, it.desc, Number(it.qty) || 0, estCost,
+        status, approver, '', '', '' // decision_ts, override?, justification
       ]);
-      ids.push(id);
-      const html = `<p>${session.email} requested ${line.qty} × ${line.description}.</p>`;
-      GmailApp.sendEmail(approver, 'Supply Request', '', { htmlBody: html });
     });
+
+    if (!rows.length) throw new Error('No valid items to submit.');
+
+    // Append in one batch
+    sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+
+    return {
+      ok: true,
+      id: rows[0][0],
+      message: 'Request submitted: ' + rows.length + ' item(s).'
+    };
   });
-  return ids;
 }
 
 function listMyOrders(req) {
@@ -175,7 +194,7 @@ function listPendingApprovals() {
 function decideOrder(req) {
   const session = getSession();
   if (!session.isAdmin) throw new Error('Forbidden');
-  return withLock_(() => {
+  return withScriptLock_(() => {
     const { id, decision } = req;
     const sheet = getSs_().getSheetByName(SHEET_ORDERS);
     const values = sheet.getDataRange().getValues();
@@ -213,17 +232,40 @@ function nowIso_() {
   return new Date().toISOString();
 }
 
-function withLock_(fn) {
-  // Standalone scripts don't have a document context, so `getDocumentLock`
-  // can return `null`. Use a script lock instead to avoid null dereference
-  // errors when submitting orders.
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+/**
+ * Safe wrapper to run a critical section under a Script lock.
+ * Ensures we never call waitLock on a null/undefined object and always release.
+ * @param {Function} fn - function to run while locked; may return a value
+ * @returns {*} fn() result
+ */
+function withScriptLock_(fn) {
+  // Never shadow LockService. Always get a fresh lock object.
+  var lock = LockService.getScriptLock();
+  if (!lock || typeof lock.tryLock !== 'function') {
+    throw new Error('LockService unavailable: script lock not obtained.');
+  }
+
+  var acquired = false;
   try {
+    // Prefer tryLock to fail fast, then wait if needed.
+    acquired = lock.tryLock(30000);
+    if (!acquired) {
+      lock.waitLock(30000); // throws if cannot acquire
+      acquired = true;
+    }
     return fn();
   } finally {
-    lock.releaseLock();
+    // Release only if successfully acquired
+    try {
+      if (acquired) lock.releaseLock();
+    } catch (e) {
+      // swallow release errors to avoid masking root cause
+    }
   }
+}
+
+function getActiveUserEmail() {
+  return Session.getActiveUser().getEmail() || '';
 }
 
 function getAdmins_() {
@@ -237,7 +279,7 @@ function init_() {
   let sheet = ss.getSheetByName(SHEET_ORDERS);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_ORDERS);
-    sheet.appendRow(['id', 'ts', 'requester', 'description', 'qty', 'status', 'approver']);
+    sheet.appendRow(['id', 'ts', 'requester', 'description', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification']);
   }
   sheet = ss.getSheetByName(SHEET_CATALOG);
   if (!sheet) {

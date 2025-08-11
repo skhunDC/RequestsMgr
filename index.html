@@ -173,22 +173,31 @@
   function submitHandler() {
     if (store.cart.lines.length === 0) return toast('Add at least one item.');
     setSubmitting(true);
-    const payload = { lines: store.cart.lines.map(l => ({ description: l.description, qty: l.qty })) };
+
+    const payload = {
+      requester: store.session.email,
+      items: store.cart.lines.map(l => ({ desc: l.description, qty: l.qty })),
+      approver: ''
+    };
 
     google.script.run
-      .withSuccessHandler(ids => {
-        store.cart.lines = [];
-        renderCart();
-        navigate('myRequests');
-        loadMyRequests();
-        toast('Request sent for approval.');
+      .withSuccessHandler(res => {
         setSubmitting(false);
+        if (res && res.ok) {
+          store.cart.lines = [];
+          renderCart();
+          navigate('myRequests');
+          loadMyRequests();
+          toast(res.message || 'Submitted!');
+        } else {
+          toast('Submit failed.');
+        }
       })
       .withFailureHandler(err => {
-        toast('Submit failed: ' + (err && err.message ? err.message : err));
         setSubmitting(false);
+        toast('Submit failed: ' + (err && err.message ? err.message : err));
       })
-      .submitOrder(payload);
+      .submitRequest(payload);
   }
 
   function loadMyRequests() {
