@@ -23,7 +23,8 @@
     .modal-content{background:#fff;padding:1rem;border-radius:8px;max-width:90%;}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-  <script type="module" src="https://www.gstatic.com/charts/loader.js"></script>
+  <!-- Google Charts loader must be a classic script, not a module -->
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
   <!-- Intro modal displayed on first load -->
@@ -91,7 +92,11 @@
     };
 
     // Bind intro modal behaviour once the DOM is ready
-    document.addEventListener('DOMContentLoaded', bindIntroModal);
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bindIntroModal);
+    } else {
+      bindIntroModal();
+    }
 
     function bindIntroModal(){
       const modal = document.getElementById('introModal');
