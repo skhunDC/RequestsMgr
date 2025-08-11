@@ -19,10 +19,7 @@
     @media(max-width:480px){.nav-desktop{display:none;} .main{padding-bottom:60px;}}
     .chip{padding:0.25rem 0.5rem;border-radius:9999px;color:#fff;font-size:0.75rem;}
     .PENDING{background:#fbc02d;} .APPROVED{background:#4caf50;} .DENIED{background:#f44336;} .ON-HOLD{background:#9e9e9e;}
-    .modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;}
-    .modal-content{background:#fff;padding:1rem;border-radius:8px;max-width:90%;}
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
   <!-- Google Charts loader must be a classic script, not a module -->
   <script src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
@@ -50,25 +47,7 @@
   <!-- Main app content -->
   <main id="app" class="main p-4" tabindex="-1"></main>
 
-  <!-- Flowchart modal -->
-  <div id="flowModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="flowTitle" aria-hidden="true" tabindex="-1">
-    <div class="modal-content">
-      <div class="m-2">
-        <h2 id="flowTitle" class="text-center">Request Process</h2>
-        <div class="mermaid">
-          graph LR
-            A[Submit] --> B{Review}
-            B -->|Approve| C[Order]
-            B -->|Deny| D[Notify]
-        </div>
-        <label class="flex m-2"><input type="checkbox" id="ackChk" class="m-2">I understand</label>
-        <button id="ackBtn" class="btn" type="button" disabled aria-disabled="true">Continue</button>
-      </div>
-    </div>
-  </div>
-
   <script type="module">
-    mermaid.initialize({startOnLoad:true});
     google.charts.load('current', {'packages':['corechart']});
 
     const userEmail = '<?= userEmail ?>';
@@ -110,41 +89,9 @@
           tr.innerHTML = `<td>${item.desc}</td><td>$${item.price}</td><td><input type='number' min='0' class='input qty'></td>`;
           table.appendChild(tr);
         });
-        document.getElementById('submitBtn').onclick = ()=> showFlowModal();
+        // Submission handling will be implemented separately
+        document.getElementById('submitBtn').onclick = ()=> {};
       }
-    }
-
-    /** Flowchart acknowledgement */
-    function showFlowModal(){
-      const modal = document.getElementById('flowModal');
-      modal.classList.remove('hidden');
-      modal.removeAttribute('aria-hidden');
-      modal.focus();
-
-      const chk = document.getElementById('ackChk');
-      const btn = document.getElementById('ackBtn');
-
-      // reset state each time modal is shown
-      chk.checked = false;
-      btn.disabled = true;
-      btn.setAttribute('aria-disabled','true');
-
-      // enable the button only when acknowledgement checkbox is checked
-      const toggle = () => {
-        const enabled = chk.checked;
-        btn.disabled = !enabled;
-        btn.setAttribute('aria-disabled', String(!enabled));
-      };
-      chk.onchange = toggle;
-
-      // dismiss the modal and return to the main view
-      const handleContinue = () => {
-        if (btn.disabled) return;
-        modal.classList.add('hidden');
-        modal.setAttribute('aria-hidden','true');
-        render('request');
-      };
-      btn.addEventListener('click', handleContinue, { once: true });
     }
 
     /** My Requests */
