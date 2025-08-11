@@ -1,158 +1,284 @@
-<!-- index.html -->
-<!DOCTYPE html><html>
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="UTF-8">
   <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Supplies Tracker</title>
   <style>
-    :root{--bg:#0b0c0f;--card:#12141a;--text:#eaeaea;--muted:#9aa0a6;--accent:#4c8bf5;}
-    body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,Segoe UI,Roboto,Arial;}
-    .tabs{display:flex;gap:8px;padding:12px;position:sticky;top:0;background:var(--bg);border-bottom:1px solid #222}
-    .tab{padding:8px 12px;border-radius:10px;background:#1c1f27;cursor:pointer}
-    .tab.active{background:var(--accent);color:white}
-    .container{padding:12px}
-    .card{background:var(--card);border:1px solid #222;border-radius:14px;padding:12px;margin-bottom:12px}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:8px;border-bottom:1px solid #222}
-    th{color:var(--muted);text-align:left}
-    input,select,button,textarea{background:#10131a;color:var(--text);border:1px solid #2a2f3a;border-radius:10px;padding:8px}
-    button.primary{background:var(--accent);border:none;color:white}
-    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
-    .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 14px;border-radius:10px;display:none}
+    body{font-family:Arial,sans-serif;margin:0;padding:0;}
+    header{display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.5rem;background:#1a73e8;color:#fff;}
+    header img{height:125px;}
+    header h1{font-size:1.25rem;margin:0;}
+    nav{display:flex;gap:0.5rem;padding:0.5rem;background:#f5f5f5;flex-wrap:wrap;}
+    nav button{flex:1 1 auto;}
+    .hidden{display:none;}
+    .btn{background:#1a73e8;color:#fff;border:none;border-radius:4px;padding:0.5rem 1rem;}
+    .btn:disabled{background:#9e9e9e;}
+    .input{padding:0.5rem;border:1px solid #ccc;border-radius:4px;}
+    table{width:100%;border-collapse:collapse;margin-top:0.5rem;}
+    th,td{padding:0.5rem;border-bottom:1px solid #ddd;}
+    .chip{display:inline-block;padding:0.25rem 0.5rem;margin:0.25rem;border-radius:16px;background:#eee;cursor:pointer;font-size:0.8rem;}
+    .chip.active{background:#1a73e8;color:#fff;}
+    ul{list-style:none;padding:0;}
+    ul li{margin:0.25rem 0;}
   </style>
 </head>
 <body>
-  <div class="tabs">
-    <div class="tab active" data-view="request">Request</div>
-    <div class="tab" data-view="mine">My Requests</div>
-    <div class="tab" data-view="approvals">Approvals</div>
-  </div>
-  <div class="container">
-    <section id="view-request" class="card">
-      <h3>Request Supplies</h3>
-      <div class="row">
-        <input id="item" placeholder="Item description">
-        <input id="qty" type="number" min="1" placeholder="Qty">
-        <input id="est_cost" type="number" step="0.01" placeholder="Est. Cost">
-        <select id="override"><option value="false">Override? No</option><option value="true">Override? Yes</option></select>
-        <input id="cost_center" placeholder="Cost Center">
-        <input id="gl_code" placeholder="GL Code">
-      </div>
-      <textarea id="justification" placeholder="Justification (40+ chars if override)"></textarea>
-      <div style="margin-top:10px">
-        <button class="primary" id="btn-submit">Submit</button>
-      </div>
-    </section>
-
-    <section id="view-mine" class="card" style="display:none">
-      <h3>My Requests</h3>
-      <table id="tbl-mine"><thead><tr>
-        <th>TS</th><th>Item</th><th>Qty</th><th>Est Cost</th><th>Status</th>
-      </tr></thead><tbody></tbody></table>
-    </section>
-
-    <section id="view-approvals" class="card" style="display:none">
-      <h3>Approvals</h3>
-      <div style="margin-bottom:8px;display:flex;gap:8px">
-        <button id="btn-approve" class="primary">Approve Selected</button>
-        <button id="btn-deny">Deny Selected</button>
-        <input id="decision-comment" placeholder="Comment (optional)">
-      </div>
-      <table id="tbl-approvals"><thead><tr>
-        <th></th><th>TS</th><th>Requester</th><th>Item</th><th>Qty</th><th>Est Cost</th><th>Status</th>
-      </tr></thead><tbody></tbody></table>
-    </section>
-  </div>
-
-  <div class="toast" id="toast"></div>
-
+  <header>
+    <img src="https://www.dublincleaners.com/wp-content/uploads/2025/06/LogosHQ.png" alt="Dublin Cleaners logo">
+    <h1>Supplies Order & Tracking</h1>
+  </header>
+  <nav id="nav">
+    <button class="btn" data-view="request">Request</button>
+    <button class="btn" data-view="myRequests">My Requests</button>
+    <button class="btn hidden" data-view="approvals" id="approveNav">Approvals</button>
+    <button class="btn hidden" data-view="catalog" id="catalogNav">Catalog</button>
+  </nav>
+  <main id="main" class="p-2"></main>
   <script type="module">
-    const tabs = document.querySelectorAll('.tab');
-    const views = {
-      request: document.getElementById('view-request'),
-      mine: document.getElementById('view-mine'),
-      approvals: document.getElementById('view-approvals'),
-    };
-    tabs.forEach(t => t.addEventListener('click', () => {
-      tabs.forEach(x=>x.classList.remove('active')); t.classList.add('active');
-      const v = t.dataset.view;
-      Object.entries(views).forEach(([k,el])=> el.style.display = (k===v)?'block':'none');
-      if(v==='mine') refreshMine();
-      if(v==='approvals') refreshApprovals();
-    }));
+  const store = {
+    session: null,
+    cart: { lines: [] },
+    route: 'request'
+  };
 
-    document.getElementById('btn-submit').addEventListener('click', async () => {
-      const payload = readRequestForm();
-      const ok = validatePayload(payload);
-      if(!ok) return;
-      run('router_', {action:'submitOrder', payload: JSON.stringify(payload)}, (res)=>{
-        if(!res.ok){ return toast(res.error||'Submit failed'); }
-        toast('Submitted');
-        // Navigate to My Requests and refresh
-        document.querySelector('.tab[data-view="mine"]').click();
-      }, (err)=> toast('Submit failed: '+err));
+  google.script.run.withSuccessHandler(s => {
+    store.session = s;
+    if (!s.isLt) {
+      document.body.innerHTML = '<p class="p-2">Access denied</p>';
+      return;
+    }
+    if (s.isAdmin) {
+      document.getElementById('approveNav').classList.remove('hidden');
+      document.getElementById('catalogNav').classList.remove('hidden');
+    }
+    document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
+    renderRoute();
+  }).getSession();
+
+  function navigate(route) {
+    store.route = route;
+    renderRoute();
+  }
+
+  function renderRoute() {
+    const main = document.getElementById('main');
+    main.innerHTML = '';
+    if (store.route === 'request') return renderRequest(main);
+    if (store.route === 'myRequests') return loadMyRequests();
+    if (store.route === 'approvals') return loadApprovals();
+    if (store.route === 'catalog') return renderCatalog(main);
+  }
+
+  function renderRequest(main) {
+    main.innerHTML = `<h2>Request Supplies</h2>
+      <input id="search" class="input" placeholder="Search">
+      <div id="chips"></div>
+      <table id="stock"><thead><tr><th>Description</th><th>Category</th><th>Qty</th><th></th></tr></thead><tbody></tbody></table>
+      <h3>Custom Item</h3>
+      <div><input id="cDesc" class="input" placeholder="Description"> <input id="cQty" type="number" min="1" value="1" class="input" style="width:4rem;"> <button id="cAdd" class="btn">Add</button></div>
+      <h3>Cart</h3>
+      <ul id="cartList"></ul>
+      <button id="submitBtn" class="btn" disabled>Submit</button>`;
+
+    const tbody = main.querySelector('#stock tbody');
+    const chipsDiv = main.querySelector('#chips');
+    ['All', 'Office', 'Cleaning', 'Operations'].forEach(c => {
+      const chip = document.createElement('span');
+      chip.textContent = c;
+      chip.dataset.cat = c;
+      chip.className = 'chip' + (c === 'All' ? ' active' : '');
+      chip.onclick = () => {
+        chipsDiv.querySelectorAll('.chip').forEach(ch => ch.classList.remove('active'));
+        chip.classList.add('active');
+        filter();
+      };
+      chipsDiv.appendChild(chip);
+    });
+    document.getElementById('search').addEventListener('input', filter);
+    let items = [];
+    google.script.run.withSuccessHandler(list => { items = list; filter(); }).getCatalog({});
+
+    function filter() {
+      const q = document.getElementById('search').value.toLowerCase();
+      const cat = chipsDiv.querySelector('.chip.active').dataset.cat;
+      tbody.innerHTML = '';
+      items.filter(it => {
+        const matchText = it.description.toLowerCase().includes(q);
+        const matchCat = cat === 'All' || it.category === cat;
+        return !it.archived && matchText && matchCat;
+      }).forEach(it => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${it.description}</td><td>${it.category}</td><td><button class="qm">-</button><input type="number" value="1" min="1" class="qty" style="width:3rem;"><button class="qp">+</button></td><td><button class="add btn" data-desc="${it.description}">Add</button></td>`;
+        const qty = tr.querySelector('.qty');
+        tr.querySelector('.qm').onclick = () => qty.value = Math.max(1, qty.value - 1);
+        tr.querySelector('.qp').onclick = () => qty.value = Number(qty.value) + 1;
+        tr.querySelector('.add').onclick = () => addLine(it.description, Number(qty.value));
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('cAdd').onclick = () => {
+      const desc = document.getElementById('cDesc').value.trim();
+      const qty = Number(document.getElementById('cQty').value);
+      addLine(desc, qty);
+      document.getElementById('cDesc').value = '';
+      document.getElementById('cQty').value = '1';
+    };
+
+    submitBtn = document.getElementById('submitBtn');
+    submitBtn.addEventListener('click', submitHandler);
+    renderCart();
+    updateSubmitState();
+  }
+
+  function addLine(desc, qty = 1) {
+    if (!desc || qty < 1) return;
+    store.cart.lines.push({ description: desc.trim(), qty: Number(qty) });
+    renderCart();
+    updateSubmitState();
+  }
+
+  let submitBtn;
+  function renderCart() {
+    const ul = document.getElementById('cartList');
+    if (!ul) return;
+    ul.innerHTML = '';
+    store.cart.lines.forEach((l, i) => {
+      const li = document.createElement('li');
+      li.textContent = `${l.qty} × ${l.description}`;
+      const btn = document.createElement('button');
+      btn.textContent = '✕';
+      btn.onclick = () => {
+        store.cart.lines.splice(i, 1);
+        renderCart();
+        updateSubmitState();
+      };
+      li.appendChild(btn);
+      ul.appendChild(li);
+    });
+  }
+
+  function updateSubmitState() {
+    if (!submitBtn) return;
+    submitBtn.disabled = store.cart.lines.length === 0;
+  }
+
+  function setSubmitting(is) {
+    if (!submitBtn) return;
+    submitBtn.disabled = is || store.cart.lines.length === 0;
+    submitBtn.textContent = is ? 'Submitting…' : 'Submit';
+  }
+
+  function submitHandler() {
+    if (store.cart.lines.length === 0) return toast('Add at least one item.');
+    setSubmitting(true);
+    const payload = { lines: store.cart.lines.map(l => ({ description: l.description, qty: l.qty })) };
+
+    google.script.run
+      .withSuccessHandler(ids => {
+        store.cart.lines = [];
+        renderCart();
+        navigate('myRequests');
+        loadMyRequests();
+        toast('Request sent for approval.');
+        setSubmitting(false);
+      })
+      .withFailureHandler(err => {
+        toast('Submit failed: ' + (err && err.message ? err.message : err));
+        setSubmitting(false);
+      })
+      .submitOrder(payload);
+  }
+
+  function loadMyRequests() {
+    google.script.run
+      .withSuccessHandler(rows => renderMyRequests(rows))
+      .listMyOrders({ email: store.session.email });
+  }
+
+  function renderMyRequests(rows) {
+    const main = document.getElementById('main');
+    main.innerHTML = '<h2>My Requests</h2><table><thead><tr><th>Date</th><th>Description</th><th>Qty</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>';
+    const tbody = main.querySelector('tbody');
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.ts}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td>${r.approver}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function loadApprovals() {
+    google.script.run
+      .withSuccessHandler(rows => renderApprovals(rows))
+      .listPendingApprovals();
+  }
+
+  function renderApprovals(rows) {
+    const main = document.getElementById('main');
+    main.innerHTML = '<h2>Pending Approvals</h2><table><thead><tr><th>Date</th><th>Requester</th><th>Description</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
+    const tbody = main.querySelector('tbody');
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.ts}</td><td>${r.requester}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td><button class="btn ap">Approve</button> <button class="btn dn">Deny</button></td>`;
+      tr.querySelector('.ap').onclick = () => decide(r.id, 'APPROVED');
+      tr.querySelector('.dn').onclick = () => decide(r.id, 'DENIED');
+      tbody.appendChild(tr);
     });
 
-    document.getElementById('btn-approve').addEventListener('click', ()=> bulkDecision('APPROVED'));
-    document.getElementById('btn-deny').addEventListener('click', ()=> bulkDecision('DENIED'));
+    function decide(id, decision) {
+      google.script.run
+        .withSuccessHandler(() => loadApprovals())
+        .decideOrder({ id, decision });
+    }
+  }
 
-    function readRequestForm(){
-      return {
-        item: val('#item'),
-        qty: Number(val('#qty')||0),
-        est_cost: Number(val('#est_cost')||0),
-        override: val('#override')==='true',
-        justification: val('#justification')||'',
-        cost_center: val('#cost_center')||'',
-        gl_code: val('#gl_code')||'',
-      };
+  function renderCatalog(main) {
+    main.innerHTML = '<h2>Catalog Manager</h2><div><input id="nDesc" class="input" placeholder="Description"> <select id="nCat" class="input"><option>Office</option><option>Cleaning</option><option>Operations</option></select> <button id="nAdd" class="btn">Add</button></div><table><thead><tr><th>Description</th><th>Category</th><th>Archived</th><th></th></tr></thead><tbody></tbody></table>';
+    const tbody = main.querySelector('tbody');
+    function load() {
+      google.script.run.withSuccessHandler(items => {
+        tbody.innerHTML = '';
+        items.forEach(it => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${it.description}</td><td>${it.category}</td><td>${it.archived}</td><td><button class="btn tg">${it.archived ? 'Unarchive' : 'Archive'}</button></td>`;
+          tr.querySelector('.tg').onclick = () => {
+            google.script.run.withSuccessHandler(load).setCatalogArchived({ sku: it.sku, archived: !it.archived });
+          };
+          tbody.appendChild(tr);
+        });
+      }).getCatalog({ includeArchived: true });
     }
-    function validatePayload(p){
-      if(!p.item) return toast('Item is required'), false;
-      if(!(p.qty>0)) return toast('Qty must be > 0'), false;
-      if(p.override && (!p.justification || p.justification.trim().length<40))
-        return toast('Justification must be at least 40 characters for overrides.'), false;
-      return true;
-    }
-    function refreshMine(){
-      run('router_', {action:'listMyRequests'}, (res)=>{
-        if(!res.ok) return toast(res.error||'Load failed');
-        renderRows('#tbl-mine tbody', res.data, (o)=>`
-          <tr><td>${fmt(o.ts)}</td><td>${esc(o.item)}</td><td>${o.qty}</td><td>${money(o.est_cost)}</td><td>${o.status}</td></tr>
-        `);
-      }, (e)=> toast('Load failed: '+e));
-    }
-    function refreshApprovals(){
-      run('router_', {action:'listApprovals'}, (res)=>{
-        if(!res.ok) return toast(res.error||'Load failed');
-        renderRows('#tbl-approvals tbody', res.data, (o)=>`
-          <tr data-id="${o.id}">
-            <td><input type="checkbox" class="pick"></td>
-            <td>${fmt(o.ts)}</td><td>${esc(o.requester)}</td><td>${esc(o.item)}</td>
-            <td>${o.qty}</td><td>${money(o.est_cost)}</td><td>${o.status}</td>
-          </tr>
-        `);
-      }, (e)=> toast('Load failed: '+e));
-    }
-    function bulkDecision(decision){
-      const ids = [...document.querySelectorAll('#tbl-approvals tbody .pick:checked')]
-        .map(cb => cb.closest('tr').dataset.id);
-      if(ids.length===0) return toast('Select at least one row');
-      const comment = val('#decision-comment');
-      run('router_', {action:'bulkDecision', payload: JSON.stringify({ids, decision, comment})}, (res)=>{
-        if(!res.ok) return toast(res.error||'Update failed');
-        toast(decision+' complete');
-        refreshApprovals();
-      }, (e)=> toast('Update failed: '+e));
-    }
+    load();
+    main.querySelector('#nAdd').onclick = () => {
+      const desc = main.querySelector('#nDesc').value.trim();
+      const cat = main.querySelector('#nCat').value;
+      if (desc) {
+        google.script.run.withSuccessHandler(() => {
+          main.querySelector('#nDesc').value = '';
+          load();
+        }).addCatalogItem({ description: desc, category: cat });
+      }
+    };
+  }
 
-    function run(fn, args, onSuccess, onFailure){
-      google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure)[fn](args.action, args.payload);
-    }
-    function renderRows(sel, arr, tpl){ const body=document.querySelector(sel); body.innerHTML = arr.map(tpl).join(''); }
-    const val = (s)=>document.querySelector(s).value;
-    const esc = (s)=> s? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') : '';
-    const fmt = (d)=> d ? new Date(d).toLocaleString() : '';
-    const money = (n)=> isFinite(n)? ('$'+Number(n).toFixed(2)) : '';
-    function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',1800); }
+  function toast(msg) {
+    const div = document.createElement('div');
+    div.textContent = msg;
+    Object.assign(div.style, {
+      position: 'fixed',
+      bottom: '1rem',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: '#323232',
+      color: '#fff',
+      padding: '0.5rem 1rem',
+      borderRadius: '4px',
+      zIndex: '1000'
+    });
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 3000);
+  }
   </script>
-</body></html>
+</body>
+</html>
