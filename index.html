@@ -66,6 +66,9 @@
     .chip.active{background:#1a73e8;color:#fff;}
     ul{list-style:none;padding:0;}
     ul li{margin:0.25rem 0;}
+    .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;}
+    .modal.hidden{display:none;}
+    .modal > div{background:#fff;padding:1rem;border-radius:4px;max-width:600px;width:90%;max-height:80vh;overflow:auto;}
   </style>
 </head>
 <body>
@@ -78,6 +81,7 @@
     <button class="btn" data-view="myRequests">My Requests</button>
     <button class="btn hidden" data-view="approvals" id="approveNav">Approvals</button>
     <button class="btn hidden" data-view="catalog" id="catalogNav">Catalog</button>
+    <button class="btn hidden" data-view="dev" id="devNav">Dev Console</button>
   </nav>
   <main id="main" class="p-2"></main>
   <script>
@@ -148,26 +152,40 @@
     window.zebraRefresh = stripeAll;
   })();
   </script>
+  <script>const BOOTSTRAP = <?!= JSON.stringify(BOOTSTRAP) ?>;</script>
   <script type="module">
   const store = {
-    session: null,
+    session: { email: BOOTSTRAP.email, role: BOOTSTRAP.role, devConsoleAllowed: BOOTSTRAP.devConsoleAllowed },
     cart: { lines: [] },
     route: 'request'
   };
 
-  google.script.run.withSuccessHandler(s => {
-    store.session = s;
-    if (!s.isLt) {
-      document.body.innerHTML = '<p class="p-2">Access denied</p>';
-      return;
-    }
-    if (s.isAdmin) {
+  if (!BOOTSTRAP.isLoggedIn) {
+    document.body.innerHTML = '<div class="p-4">Please log into your Google account, then refresh.</div>';
+  } else {
+    if (['approver','developer','super_admin'].includes(store.session.role)) {
       document.getElementById('approveNav').classList.remove('hidden');
+    }
+    if (['developer','super_admin'].includes(store.session.role)) {
       document.getElementById('catalogNav').classList.remove('hidden');
+    }
+    if (store.session.devConsoleAllowed) {
+      document.getElementById('devNav').classList.remove('hidden');
     }
     document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
     renderRoute();
-  }).getSession();
+  }
+
+  async function api(action, payload = {}) {
+    const res = await fetch('', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, csrf: BOOTSTRAP.csrf, payload })
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Request failed');
+    return json.data;
+  }
 
   function navigate(route) {
     store.route = route;
@@ -181,6 +199,7 @@
     if (store.route === 'myRequests') return loadMyRequests();
     if (store.route === 'approvals') return loadApprovals();
     if (store.route === 'catalog') return renderCatalog(main);
+    if (store.route === 'dev') return renderDevConsole(main);
   }
 
   function renderRequest(main) {
@@ -388,6 +407,72 @@
         }).addCatalogItem({ description: desc, category: cat });
       }
     };
+  }
+
+  function renderDevConsole(main) {
+    main.innerHTML = '<h2>Developer Console</h2><button id="manageAccessBtn" class="btn">Manage Access</button><div id="accessModal" class="modal hidden"></div>';
+    document.getElementById('manageAccessBtn').onclick = openAccessModal;
+  }
+
+  async function openAccessModal() {
+    const modal = document.getElementById('accessModal');
+    modal.innerHTML = '<div><h3>Manage Access</h3><table id="userTable" data-zebra></table><div><input id="newEmail" class="input" placeholder="Email"> <select id="newRole" class="input"><option value="viewer">viewer</option><option value="requester">requester</option><option value="approver">approver</option><option value="developer">developer</option><option value="super_admin">super_admin</option></select> <button id="addUserBtn" class="btn">Add</button></div><button id="closeAccess" class="btn">Close</button></div>';
+    modal.classList.remove('hidden');
+    document.getElementById('closeAccess').onclick = () => modal.classList.add('hidden');
+    document.getElementById('addUserBtn').onclick = async () => {
+      const email = document.getElementById('newEmail').value.trim().toLowerCase();
+      const role = document.getElementById('newRole').value;
+      if(!email || !/^[^@]+@[^@]+$/.test(email)) return toast('Invalid email');
+      try{
+        await api('users.upsert', { email, role, active:true });
+        document.getElementById('newEmail').value = '';
+        await loadUsers();
+        toast('User added');
+      }catch(err){ toast(err.message); }
+    };
+    await loadUsers();
+  }
+
+  async function loadUsers() {
+    try {
+      const users = await api('users.list');
+      const table = document.getElementById('userTable');
+      table.innerHTML = '<thead><tr><th>Email</th><th>Role</th><th>Active</th><th></th></tr></thead><tbody></tbody>';
+      const tbody = table.querySelector('tbody');
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${u.email}</td><td><select class="roleSel"><option value="viewer">viewer</option><option value="requester">requester</option><option value="approver">approver</option><option value="developer">developer</option><option value="super_admin">super_admin</option></select></td><td><span class="chip ${u.active ? 'active' : ''}">${u.active ? 'ACTIVE' : 'INACTIVE'}</span></td><td><button class="btn save">Save</button> <button class="btn disable">Disable</button></td>`;
+        const roleSel = tr.querySelector('.roleSel');
+        roleSel.value = u.role;
+        const chip = tr.querySelector('.chip');
+        let active = u.active;
+        chip.onclick = () => {
+          active = !active;
+          chip.textContent = active ? 'ACTIVE' : 'INACTIVE';
+          chip.classList.toggle('active', active);
+        };
+        tr.querySelector('.save').onclick = async () => {
+          tr.querySelector('.save').disabled = true;
+          try {
+            await api('users.upsert', { email: u.email, role: roleSel.value, active });
+            toast('Saved');
+          } catch(err) { toast(err.message); }
+          tr.querySelector('.save').disabled = false;
+        };
+        tr.querySelector('.disable').onclick = async () => {
+          tr.querySelector('.disable').disabled = true;
+          try {
+            await api('users.remove', { email: u.email });
+            toast('Disabled');
+            await loadUsers();
+          } catch(err) { toast(err.message); }
+        };
+        tbody.appendChild(tr);
+      });
+      zebraRefresh();
+    } catch(err) {
+      toast(err.message);
+    }
   }
 
   function toast(msg) {

@@ -1,32 +1,12 @@
-// Code.gs - simplified supplies request system
+/* Code.gs - supplies request system */
 
 const SHEET_ORDERS = 'Orders';
 const SHEET_CATALOG = 'Catalog';
+const SHEET_USERS = 'Users';
 
-const LT_EMAILS = [
-  'skhun@dublincleaners.com',
-  'ss.sku@protonmail.com',
-  'brianmbutler77@gmail.com',
-  'brianbutler@dublincleaners.com',
-  'rbrown5940@gmail.com',
-  'rbrown@dublincleaners.com',
-  'davepdublincleaners@gmail.com',
-  'lisamabr@yahoo.com',
-  'dddale40@gmail.com',
-  'nismosil85@gmail.com',
-  'mlackey@dublincleaners.com',
-  'china99@mail.com'
-];
-
-const STATIC_ADMINS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
-const ADMIN_PROP = 'ADMINS';
+const DEV_CONSOLE_SEEDS = ['skhun@dublincleaners.com','ss.sku@protonmail.com'];
+const ALL_ROLES = ['viewer','requester','approver','developer','super_admin'];
 const SS_ID_PROP = 'SS_ID';
-
-const APPROVER_BY_CATEGORY = {
-  Office: 'skhun@dublincleaners.com',
-  Cleaning: 'ss.sku@protonmail.com',
-  Operations: 'skhun@dublincleaners.com'
-};
 
 const STOCK_LIST = {
   Office: [
@@ -63,12 +43,12 @@ const STOCK_LIST = {
   ]
 };
 
-function getSs_() {
+function getSs(){
   const props = PropertiesService.getScriptProperties();
   let ss = SpreadsheetApp.getActive();
-  if (!ss) {
+  if(!ss){
     const id = props.getProperty(SS_ID_PROP);
-    if (id) {
+    if(id){
       ss = SpreadsheetApp.openById(id);
     } else {
       ss = SpreadsheetApp.create('SuppliesTracking');
@@ -78,237 +58,338 @@ function getSs_() {
   return ss;
 }
 
-function getSession() {
-  init_();
-  const email = Session.getActiveUser().getEmail();
-  const isLt = LT_EMAILS.includes(email);
-  const isAdmin = getAdmins_().includes(email);
-  return { email, isLt, isAdmin };
+function getOrCreateSheet(name){
+  const ss = getSs();
+  let sh = ss.getSheetByName(name);
+  if(!sh){ sh = ss.insertSheet(name); }
+  return sh;
 }
 
-function getCatalog(req) {
-  init_();
-  const includeArchived = req && req.includeArchived;
-  const sheet = getSs_().getSheetByName(SHEET_CATALOG);
-  const rows = sheet.getDataRange().getValues();
-  const header = rows.shift();
-  return rows
-    .map(r => Object.fromEntries(r.map((v, i) => [header[i], v])))
-    .filter(r => includeArchived || r.archived !== true);
+function uuid(){ return Utilities.getUuid(); }
+function nowIso(){ return new Date().toISOString(); }
+function safeLower(s){ return (s || '').toString().trim().toLowerCase(); }
+
+function withLock(fn){
+  const lock = LockService.getScriptLock();
+  let acquired = false;
+  try{
+    acquired = lock.tryLock(20000);
+    if(!acquired) throw new Error('Another change is in progress. Please try again in a few seconds.');
+    return fn();
+  } finally {
+    if(acquired){
+      try{ lock.releaseLock(); }catch(e){ /* ignore */ }
+    }
+  }
 }
 
-function addCatalogItem(req) {
-  return withScriptLock_(() => {
-    const { description, category } = req;
-    const sheet = getSs_().getSheetByName(SHEET_CATALOG);
-    const sku = uuid_();
-    sheet.appendRow([sku, description, category, false]);
-    return { sku, description, category, archived: false };
+function getActiveEmail(){
+  return safeLower(Session.getActiveUser().getEmail());
+}
+
+function getUserRecord(email){
+  email = safeLower(email);
+  const sheet = getOrCreateSheet(SHEET_USERS);
+  const values = sheet.getDataRange().getValues();
+  if(!values.length) return null;
+  const header = values.shift();
+  const emailIdx = header.indexOf('email');
+  const roleIdx = header.indexOf('role');
+  const activeIdx = header.indexOf('active');
+  const row = values.find(r => safeLower(r[emailIdx]) === email);
+  if(!row) return null;
+  return {email: safeLower(row[emailIdx]), role: row[roleIdx], active: row[activeIdx] === true || row[activeIdx] === 'TRUE'};
+}
+
+function ensureSeedUsers(){
+  const sheet = getOrCreateSheet(SHEET_USERS);
+  if(sheet.getLastRow() === 0){
+    sheet.appendRow(['email','role','active','added_ts','added_by']);
+  }
+  const existing = sheet.getDataRange().getValues().slice(1).map(r => safeLower(r[0]));
+  const seeds = [
+    {email:'skhun@dublincleaners.com', role:'super_admin'},
+    {email:'ss.sku@protonmail.com', role:'developer'}
+  ];
+  seeds.forEach(s => {
+    if(!existing.includes(s.email)){
+      sheet.appendRow([s.email, s.role, true, nowIso(), 'seed']);
+    }
   });
 }
 
-function setCatalogArchived(req) {
-  return withScriptLock_(() => {
-    const { sku, archived } = req;
-    const sheet = getSs_().getSheetByName(SHEET_CATALOG);
-    const values = sheet.getDataRange().getValues();
+function requireLoggedIn(){
+  const email = getActiveEmail();
+  if(!email) throw new Error('Login required');
+  return email;
+}
+
+function requireRole(allowed){
+  const email = requireLoggedIn();
+  const rec = getUserRecord(email);
+  if(!rec || !rec.active || allowed.indexOf(rec.role) === -1){
+    throw new Error('Access denied');
+  }
+  return rec;
+}
+
+function isDevConsoleAllowed(email){
+  email = safeLower(email);
+  if(DEV_CONSOLE_SEEDS.includes(email)) return true;
+  const rec = getUserRecord(email);
+  return rec && rec.active && (rec.role === 'developer' || rec.role === 'super_admin');
+}
+
+function init(){
+  const ss = getSs();
+  let sh = ss.getSheetByName(SHEET_ORDERS);
+  if(!sh){
+    sh = ss.insertSheet(SHEET_ORDERS);
+    sh.appendRow(['id','ts','requester','description','qty','est_cost','status','approver','decision_ts','override?','justification']);
+  }
+  sh = ss.getSheetByName(SHEET_CATALOG);
+  if(!sh){
+    sh = ss.insertSheet(SHEET_CATALOG);
+    sh.appendRow(['sku','description','category','archived']);
+  }
+  seedCatalogIfEmpty();
+}
+
+function seedCatalogIfEmpty(){
+  const sh = getOrCreateSheet(SHEET_CATALOG);
+  if(sh.getLastRow() > 1) return;
+  Object.keys(STOCK_LIST).forEach(cat => {
+    STOCK_LIST[cat].forEach(desc => {
+      sh.appendRow([uuid(), desc, cat, false]);
+    });
+  });
+}
+
+function getCatalog(req){
+  requireRole(ALL_ROLES);
+  init();
+  const includeArchived = req && req.includeArchived;
+  const sheet = getOrCreateSheet(SHEET_CATALOG);
+  const rows = sheet.getDataRange().getValues();
+  const header = rows.shift();
+  return rows.map(r => Object.fromEntries(r.map((v,i)=>[header[i], v]))).filter(r => includeArchived || r.archived !== true);
+}
+
+function addCatalogItem(req){
+  return withLock(() => {
+    requireRole(['developer','super_admin']);
+    const {description, category} = req;
+    const sh = getOrCreateSheet(SHEET_CATALOG);
+    const sku = uuid();
+    sh.appendRow([sku, description, category, false]);
+    return {sku, description, category, archived:false};
+  });
+}
+
+function setCatalogArchived(req){
+  return withLock(() => {
+    requireRole(['developer','super_admin']);
+    const {sku, archived} = req;
+    const sh = getOrCreateSheet(SHEET_CATALOG);
+    const values = sh.getDataRange().getValues();
     const header = values.shift();
     const skuIdx = header.indexOf('sku');
     const archIdx = header.indexOf('archived');
     const row = values.findIndex(r => r[skuIdx] === sku);
-    if (row >= 0) {
-      sheet.getRange(row + 2, archIdx + 1).setValue(archived);
+    if(row >= 0){
+      sh.getRange(row+2, archIdx+1).setValue(archived);
     }
     return 'OK';
   });
 }
 
-
-/**
- * Submit a supply request.
- * Expected payload: { requester, items: [{desc, qty}], approver }
- * Returns: { ok:true, id, message }
- */
-function submitRequest(payload) {
-  if (!payload || !payload.requester || !payload.items || !payload.items.length) {
+function submitRequest(payload){
+  requireRole(['requester','approver','developer','super_admin']);
+  if(!payload || !payload.requester || !payload.items || !payload.items.length){
     throw new Error('Invalid payload: requester and at least one item are required.');
   }
-
-  return withScriptLock_(function () {
-    init_();
-    var ss = getSs_();
-    var sh = ss.getSheetByName(SHEET_ORDERS);
-    if (!sh) throw new Error('Orders sheet not found.');
-
-    var now = new Date();
-    var rows = [];
-    // Ensure minimal columns: id | ts | requester | item | qty | est_cost | status | approver | decision_ts | override? | justification
-    // For this minimal flow we only need qty, description (item), status, approver; others can be blank/defaults.
-    var status = 'PENDING';
-    var approver = payload.approver || '';
-    var estCost = ''; // leave blank if not calculated
-
-    payload.items.forEach(function (it) {
-      if (!it || !it.desc || !it.qty) return;
-      var id = Utilities.getUuid();
-      rows.push([
-        id, now, payload.requester, it.desc, Number(it.qty) || 0, estCost,
-        status, approver, '', '', '' // decision_ts, override?, justification
-      ]);
+  return withLock(() => {
+    init();
+    const sh = getOrCreateSheet(SHEET_ORDERS);
+    const now = new Date();
+    const rows = [];
+    const status = 'PENDING';
+    const approver = payload.approver || '';
+    const estCost = '';
+    payload.items.forEach(it => {
+      if(!it || !it.desc || !it.qty) return;
+      rows.push([uuid(), now, payload.requester, it.desc, Number(it.qty)||0, estCost, status, approver, '', '', '']);
     });
-
-    if (!rows.length) throw new Error('No valid items to submit.');
-
-    // Append in one batch
-    sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
-
-    return {
-      ok: true,
-      id: rows[0][0],
-      message: 'Request submitted: ' + rows.length + ' item(s).'
-    };
+    if(!rows.length) throw new Error('No valid items to submit.');
+    sh.getRange(sh.getLastRow()+1,1,rows.length,rows[0].length).setValues(rows);
+    return {ok:true, id:rows[0][0], message:'Request submitted: '+rows.length+' item(s).'};
   });
 }
 
-function listMyOrders(req) {
-  init_();
-  const email = (req && req.email) || Session.getActiveUser().getEmail();
-  const sheet = getSs_().getSheetByName(SHEET_ORDERS);
-  const rows = sheet.getDataRange().getValues();
+function listMyOrders(req){
+  requireRole(ALL_ROLES);
+  const email = getActiveEmail();
+  const sh = getOrCreateSheet(SHEET_ORDERS);
+  const rows = sh.getDataRange().getValues();
   const header = rows.shift();
-  return rows
-    .filter(r => r[header.indexOf('requester')] === email)
-    .map(r => Object.fromEntries(r.map((v, i) => [header[i], v])));
+  return rows.filter(r => r[header.indexOf('requester')] === email).map(r => Object.fromEntries(r.map((v,i)=>[header[i], v])));
 }
 
-function listPendingApprovals() {
-  const session = getSession();
-  if (!session.isAdmin) throw new Error('Forbidden');
-  const sheet = getSs_().getSheetByName(SHEET_ORDERS);
-  const rows = sheet.getDataRange().getValues();
+function listPendingApprovals(){
+  requireRole(['approver','developer','super_admin']);
+  const sh = getOrCreateSheet(SHEET_ORDERS);
+  const rows = sh.getDataRange().getValues();
   const header = rows.shift();
-  return rows
-    .filter(r => r[header.indexOf('status')] === 'PENDING')
-    .map(r => Object.fromEntries(r.map((v, i) => [header[i], v])));
+  return rows.filter(r => r[header.indexOf('status')] === 'PENDING').map(r => Object.fromEntries(r.map((v,i)=>[header[i], v])));
 }
 
-function decideOrder(req) {
-  const session = getSession();
-  if (!session.isAdmin) throw new Error('Forbidden');
-  return withScriptLock_(() => {
-    const { id, decision } = req;
-    const sheet = getSs_().getSheetByName(SHEET_ORDERS);
-    const values = sheet.getDataRange().getValues();
+function decideOrder(req){
+  requireRole(['approver','developer','super_admin']);
+  return withLock(() => {
+    const {id, decision} = req;
+    const sh = getOrCreateSheet(SHEET_ORDERS);
+    const values = sh.getDataRange().getValues();
     const header = values.shift();
     const idIdx = header.indexOf('id');
     const statusIdx = header.indexOf('status');
     const approverIdx = header.indexOf('approver');
     const row = values.findIndex(r => r[idIdx] === id);
-    if (row >= 0) {
+    if(row >= 0){
       const r = row + 2;
-      sheet.getRange(r, statusIdx + 1).setValue(decision);
-      sheet.getRange(r, approverIdx + 1).setValue(session.email);
+      sh.getRange(r, statusIdx+1).setValue(decision);
+      sh.getRange(r, approverIdx+1).setValue(getActiveEmail());
       const requester = values[row][header.indexOf('requester')];
       const desc = values[row][header.indexOf('description')];
-      GmailApp.sendEmail(requester, 'Supply Request ' + decision, '', {
-        htmlBody: `<p>Your request for ${desc} was ${decision}.</p>`
-      });
+      GmailApp.sendEmail(requester, 'Supply Request '+decision, '', {htmlBody:`<p>Your request for ${desc} was ${decision}.</p>`});
     }
     return 'OK';
   });
 }
 
-function resolveApprover_(line) {
-  const catalog = getCatalog({ includeArchived: true });
-  const item = catalog.find(it => it.description === line.description);
-  const cat = item ? item.category : null;
-  return (cat && APPROVER_BY_CATEGORY[cat]) || STATIC_ADMINS[0];
-}
-
-function uuid_() {
-  return Utilities.getUuid();
-}
-
-function nowIso_() {
-  return new Date().toISOString();
-}
-
-/**
- * Safe wrapper to run a critical section under a Script lock.
- * Ensures we never call waitLock on a null/undefined object and always release.
- * @param {Function} fn - function to run while locked; may return a value
- * @returns {*} fn() result
- */
-function withScriptLock_(fn) {
-  // Never shadow LockService. Always get a fresh lock object.
-  var lock = LockService.getScriptLock();
-  if (!lock || typeof lock.tryLock !== 'function') {
-    throw new Error('LockService unavailable: script lock not obtained.');
+function getCsrfToken(email){
+  const cache = CacheService.getUserCache();
+  let token = cache.get(email+'_csrf');
+  if(!token){
+    token = uuid();
+    cache.put(email+'_csrf', token, 21600);
   }
+  return token;
+}
 
-  var acquired = false;
-  try {
-    // Prefer tryLock to fail fast, then wait if needed.
-    acquired = lock.tryLock(30000);
-    if (!acquired) {
-      lock.waitLock(30000); // throws if cannot acquire
-      acquired = true;
+function jsonResponse(obj){
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e){
+  init();
+  ensureSeedUsers();
+  const email = getActiveEmail();
+  const isLoggedIn = !!email;
+  let role = null;
+  let devConsoleAllowed = false;
+  let csrf = '';
+  if(isLoggedIn){
+    const user = getUserRecord(email);
+    role = user ? user.role : null;
+    devConsoleAllowed = isDevConsoleAllowed(email);
+    csrf = getCsrfToken(email);
+  }
+  const t = HtmlService.createTemplateFromFile('index');
+  t.BOOTSTRAP = {email, role, isLoggedIn, devConsoleAllowed, csrf};
+  return t.evaluate().setTitle('Supplies Tracker').addMetaTag('viewport','width=device-width, initial-scale=1');
+}
+
+function doPost(e){
+  ensureSeedUsers();
+  let body;
+  try{
+    body = JSON.parse(e.postData.contents || '{}');
+  }catch(err){
+    return jsonResponse({ok:false, error:'Invalid JSON'});
+  }
+  const email = getActiveEmail();
+  if(!email) return jsonResponse({ok:false, error:'Login required'});
+  const cache = CacheService.getUserCache();
+  const token = cache.get(email+'_csrf');
+  if(!token || token !== body.csrf){
+    return jsonResponse({ok:false, error:'Invalid CSRF token'});
+  }
+  try{
+    let data;
+    const action = body.action;
+    const payload = body.payload || {};
+    switch(action){
+      case 'session.get': {
+        requireLoggedIn();
+        const rec = getUserRecord(email);
+        data = {email, role: rec? rec.role : null, devConsoleAllowed: isDevConsoleAllowed(email)};
+        break;
+      }
+      case 'users.list': {
+        requireRole(['developer','super_admin']);
+        const sh = getOrCreateSheet(SHEET_USERS);
+        const values = sh.getDataRange().getValues();
+        const header = values.shift();
+        data = values.map(r => Object.fromEntries(r.map((v,i)=>[header[i], v])));
+        break;
+      }
+      case 'users.upsert': {
+        requireRole(['developer','super_admin']);
+        data = withLock(() => {
+          const target = safeLower(payload.email);
+          const role = payload.role;
+          const active = payload.active;
+          const sheet = getOrCreateSheet(SHEET_USERS);
+          const rows = sheet.getDataRange().getValues();
+          const header = rows.shift();
+          const emailIdx = header.indexOf('email');
+          const roleIdx = header.indexOf('role');
+          const activeIdx = header.indexOf('active');
+          const rowNum = rows.findIndex(r => safeLower(r[emailIdx]) === target);
+          if(rowNum >= 0){
+            const r = rowNum+2;
+            sheet.getRange(r, roleIdx+1).setValue(role);
+            sheet.getRange(r, activeIdx+1).setValue(active);
+          } else {
+            sheet.appendRow([target, role, active, nowIso(), email]);
+          }
+          return 'OK';
+        });
+        break;
+      }
+      case 'users.remove': {
+        requireRole(['developer','super_admin']);
+        data = withLock(() => {
+          const target = safeLower(payload.email);
+          const sheet = getOrCreateSheet(SHEET_USERS);
+          const values2 = sheet.getDataRange().getValues();
+          const header2 = values2.shift();
+          const emailIdx2 = header2.indexOf('email');
+          const activeIdx2 = header2.indexOf('active');
+          const rowNum2 = values2.findIndex(r => safeLower(r[emailIdx2]) === target);
+          if(rowNum2 >= 0){
+            sheet.getRange(rowNum2+2, activeIdx2+1).setValue(false);
+          }
+          return 'OK';
+        });
+        break;
+      }
+      case 'role.me': {
+        requireLoggedIn();
+        const rrec = getUserRecord(email);
+        data = rrec ? rrec.role : null;
+        break;
+      }
+      default:
+        return jsonResponse({ok:false, error:'Unknown action'});
     }
-    return fn();
-  } finally {
-    // Release only if successfully acquired
-    try {
-      if (acquired) lock.releaseLock();
-    } catch (e) {
-      // swallow release errors to avoid masking root cause
-    }
+    return jsonResponse({ok:true, data});
+  }catch(err){
+    return jsonResponse({ok:false, error: err.message});
   }
 }
 
-function getActiveUserEmail() {
-  return Session.getActiveUser().getEmail() || '';
-}
-
-function getAdmins_() {
-  const props = PropertiesService.getScriptProperties();
-  const extra = props.getProperty(ADMIN_PROP);
-  return STATIC_ADMINS.concat(extra ? JSON.parse(extra) : []);
-}
-
-function init_() {
-  const ss = getSs_();
-  let sheet = ss.getSheetByName(SHEET_ORDERS);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_ORDERS);
-    sheet.appendRow(['id', 'ts', 'requester', 'description', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification']);
-  }
-  sheet = ss.getSheetByName(SHEET_CATALOG);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_CATALOG);
-    sheet.appendRow(['sku', 'description', 'category', 'archived']);
-  }
-  seedCatalogIfEmpty_();
-}
-
-function seedCatalogIfEmpty_() {
-  const sheet = getSs_().getSheetByName(SHEET_CATALOG);
-  if (sheet.getLastRow() > 1) return;
-  Object.keys(STOCK_LIST).forEach(cat => {
-    STOCK_LIST[cat].forEach(desc => {
-      sheet.appendRow([uuid_(), desc, cat, false]);
-    });
-  });
-}
-
-function doGet() {
-  init_();
-  return HtmlService.createTemplateFromFile('index')
-    .evaluate()
-    .setTitle('Supplies Tracker')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-}
-
-function include(filename) {
+function include(filename){
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
