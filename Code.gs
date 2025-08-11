@@ -98,6 +98,7 @@ function setCatalogArchived(req) {
 }
 
 function submitOrder(payload) {
+  init_();
   const session = getSession();
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
   const ids = [];
@@ -126,9 +127,11 @@ function listMyOrders(req) {
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
   const rows = sheet.getDataRange().getValues();
   const header = rows.shift();
+  const idx = header.map(h => String(h).toLowerCase());
+  const reqIdx = idx.indexOf('requester');
   return rows
-    .filter(r => r[header.indexOf('requester')] === email)
-    .map(r => Object.fromEntries(r.map((v, i) => [header[i], v])));
+    .filter(r => reqIdx >= 0 && r[reqIdx] === email)
+    .map(r => Object.fromEntries(header.map((h, i) => [h, r[i]])));
 }
 
 function listPendingApprovals() {
