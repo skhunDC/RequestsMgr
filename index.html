@@ -31,8 +31,8 @@
   <nav id="nav">
     <button class="btn" data-view="request">Request</button>
     <button class="btn" data-view="myRequests">My Requests</button>
-    <button class="btn hidden" data-view="approvals" id="approveNav">Approvals</button>
-    <button class="btn hidden" data-view="catalog" id="catalogNav">Catalog</button>
+      <button class="btn" data-view="approvals" id="approveNav">Approvals</button>
+      <button class="btn" data-view="catalog" id="catalogNav">Catalog</button>
   </nav>
   <main id="main" class="p-2"></main>
   <script type="module">
@@ -44,17 +44,9 @@
 
   google.script.run.withSuccessHandler(s => {
     store.session = s;
-    if (!s.isLt) {
-      document.body.innerHTML = '<p class="p-2">Access denied</p>';
-      return;
-    }
-    if (s.isAdmin) {
-      document.getElementById('approveNav').classList.remove('hidden');
-      document.getElementById('catalogNav').classList.remove('hidden');
-    }
-    document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
-    renderRoute();
-  }).getSession();
+      document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
+      renderRoute();
+    }).getSession();
 
   function navigate(route) {
     store.route = route;
