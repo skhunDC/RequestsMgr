@@ -116,9 +116,23 @@
       const btn = document.getElementById('ackBtn');
       // reset state each time modal is shown
       chk.checked = false;
-      btn.disabled = true;
-      chk.onchange = () => btn.disabled = !chk.checked;
+      // ensure the continue button starts disabled
+      btn.setAttribute('disabled', '');
+
+      const toggle = () => {
+        if (chk.checked) {
+          btn.removeAttribute('disabled');
+        } else {
+          btn.setAttribute('disabled', '');
+        }
+      };
+      // reset any prior handlers then wire up fresh ones
+      chk.onclick = null;
+      chk.addEventListener('click', toggle);
+
       btn.onclick = () => {
+        if (btn.hasAttribute('disabled')) return;
+
         modal.classList.add('hidden');
         // return user to the main request page after acknowledging
         render('request');
