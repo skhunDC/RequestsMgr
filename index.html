@@ -21,6 +21,9 @@
     .chip.active{background:#1a73e8;color:#fff;}
     ul{list-style:none;padding:0;}
     ul li{margin:0.25rem 0;}
+    #loading{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.8);align-items:center;justify-content:center;z-index:1000;}
+    .spinner{width:40px;height:40px;border:4px solid #ccc;border-top-color:#1a73e8;border-radius:50%;animation:spin 1s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
   </style>
 </head>
 <body>
@@ -35,6 +38,7 @@
       <button class="btn" data-view="catalog" id="catalogNav">Catalog</button>
   </nav>
   <main id="main" class="p-2"></main>
+  <div id="loading"><div class="spinner"></div></div>
   <script type="module">
   const store = {
     session: null,
@@ -42,10 +46,17 @@
     route: 'request'
   };
 
+  function setLoading(is) {
+    const el = document.getElementById('loading');
+    el.style.display = is ? 'flex' : 'none';
+  }
+
+  setLoading(true);
   google.script.run.withSuccessHandler(s => {
     store.session = s;
       document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
       renderRoute();
+      setLoading(false);
     }).getSession();
 
   function navigate(route) {
@@ -89,7 +100,11 @@
     });
     document.getElementById('search').addEventListener('input', filter);
     let items = [];
-    google.script.run.withSuccessHandler(list => { items = list; filter(); }).getCatalog({});
+    setLoading(true);
+    google.script.run
+      .withSuccessHandler(list => { items = list; filter(); setLoading(false); })
+      .withFailureHandler(() => setLoading(false))
+      .getCatalog({});
 
     function filter() {
       const q = document.getElementById('search').value.toLowerCase();
@@ -167,6 +182,7 @@
     setSubmitting(true);
     const payload = { lines: store.cart.lines.map(l => ({ description: l.description, qty: l.qty })) };
 
+    setLoading(true);
     google.script.run
       .withSuccessHandler(ids => {
         store.cart.lines = [];
@@ -175,17 +191,21 @@
         loadMyRequests();
         toast('Request sent for approval.');
         setSubmitting(false);
+        setLoading(false);
       })
       .withFailureHandler(err => {
         toast('Submit failed: ' + (err && err.message ? err.message : err));
         setSubmitting(false);
+        setLoading(false);
       })
       .submitOrder(payload);
   }
 
   function loadMyRequests() {
+    setLoading(true);
     google.script.run
-      .withSuccessHandler(rows => renderMyRequests(rows))
+      .withSuccessHandler(rows => { setLoading(false); renderMyRequests(rows); })
+      .withFailureHandler(() => setLoading(false))
       .listMyOrders({ email: store.session.email });
   }
 
@@ -201,8 +221,10 @@
   }
 
   function loadApprovals() {
+    setLoading(true);
     google.script.run
-      .withSuccessHandler(rows => renderApprovals(rows))
+      .withSuccessHandler(rows => { setLoading(false); renderApprovals(rows); })
+      .withFailureHandler(() => setLoading(false))
       .listPendingApprovals();
   }
 
@@ -219,8 +241,10 @@
     });
 
     function decide(id, decision) {
+      setLoading(true);
       google.script.run
-        .withSuccessHandler(() => loadApprovals())
+        .withSuccessHandler(() => { setLoading(false); loadApprovals(); })
+        .withFailureHandler(() => setLoading(false))
         .decideOrder({ id, decision });
     }
   }
@@ -229,27 +253,41 @@
     main.innerHTML = '<h2>Catalog Manager</h2><div><input id="nDesc" class="input" placeholder="Description"> <select id="nCat" class="input"><option>Office</option><option>Cleaning</option><option>Operations</option></select> <button id="nAdd" class="btn">Add</button></div><table><thead><tr><th>Description</th><th>Category</th><th>Archived</th><th></th></tr></thead><tbody></tbody></table>';
     const tbody = main.querySelector('tbody');
     function load() {
-      google.script.run.withSuccessHandler(items => {
-        tbody.innerHTML = '';
-        items.forEach(it => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${it.description}</td><td>${it.category}</td><td>${it.archived}</td><td><button class="btn tg">${it.archived ? 'Unarchive' : 'Archive'}</button></td>`;
-          tr.querySelector('.tg').onclick = () => {
-            google.script.run.withSuccessHandler(load).setCatalogArchived({ sku: it.sku, archived: !it.archived });
-          };
-          tbody.appendChild(tr);
-        });
-      }).getCatalog({ includeArchived: true });
+      setLoading(true);
+      google.script.run
+        .withSuccessHandler(items => {
+          tbody.innerHTML = '';
+          items.forEach(it => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${it.description}</td><td>${it.category}</td><td>${it.archived}</td><td><button class="btn tg">${it.archived ? 'Unarchive' : 'Archive'}</button></td>`;
+            tr.querySelector('.tg').onclick = () => {
+              setLoading(true);
+              google.script.run
+                .withSuccessHandler(() => { setLoading(false); load(); })
+                .withFailureHandler(() => setLoading(false))
+                .setCatalogArchived({ sku: it.sku, archived: !it.archived });
+            };
+            tbody.appendChild(tr);
+          });
+          setLoading(false);
+        })
+        .withFailureHandler(() => setLoading(false))
+        .getCatalog({ includeArchived: true });
     }
     load();
     main.querySelector('#nAdd').onclick = () => {
       const desc = main.querySelector('#nDesc').value.trim();
       const cat = main.querySelector('#nCat').value;
       if (desc) {
-        google.script.run.withSuccessHandler(() => {
-          main.querySelector('#nDesc').value = '';
-          load();
-        }).addCatalogItem({ description: desc, category: cat });
+        setLoading(true);
+        google.script.run
+          .withSuccessHandler(() => {
+            main.querySelector('#nDesc').value = '';
+            setLoading(false);
+            load();
+          })
+          .withFailureHandler(() => setLoading(false))
+          .addCatalogItem({ description: desc, category: cat });
       }
     };
   }
