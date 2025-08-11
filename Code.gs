@@ -20,6 +20,7 @@ const LT_EMAILS = [
 
 const STATIC_ADMINS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
 const ADMIN_PROP = 'ADMINS';
+const SS_ID_PROP = 'SS_ID';
 
 const APPROVER_BY_CATEGORY = {
   Office: 'skhun@dublincleaners.com',
@@ -62,6 +63,21 @@ const STOCK_LIST = {
   ]
 };
 
+function getSs_() {
+  const props = PropertiesService.getScriptProperties();
+  let ss = SpreadsheetApp.getActive();
+  if (!ss) {
+    const id = props.getProperty(SS_ID_PROP);
+    if (id) {
+      ss = SpreadsheetApp.openById(id);
+    } else {
+      ss = SpreadsheetApp.create('SuppliesTracking');
+      props.setProperty(SS_ID_PROP, ss.getId());
+    }
+  }
+  return ss;
+}
+
 function getSession() {
   init_();
   const email = Session.getActiveUser().getEmail();
@@ -73,7 +89,7 @@ function getSession() {
 function getCatalog(req) {
   init_();
   const includeArchived = req && req.includeArchived;
-  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_CATALOG);
+  const sheet = getSs_().getSheetByName(SHEET_CATALOG);
   const rows = sheet.getDataRange().getValues();
   const header = rows.shift();
   return rows
@@ -84,7 +100,7 @@ function getCatalog(req) {
 function addCatalogItem(req) {
   return withLock_(() => {
     const { description, category } = req;
-    const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_CATALOG);
+    const sheet = getSs_().getSheetByName(SHEET_CATALOG);
     const sku = uuid_();
     sheet.appendRow([sku, description, category, false]);
     return { sku, description, category, archived: false };
@@ -94,7 +110,7 @@ function addCatalogItem(req) {
 function setCatalogArchived(req) {
   return withLock_(() => {
     const { sku, archived } = req;
-    const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_CATALOG);
+    const sheet = getSs_().getSheetByName(SHEET_CATALOG);
     const values = sheet.getDataRange().getValues();
     const header = values.shift();
     const skuIdx = header.indexOf('sku');
@@ -111,7 +127,7 @@ function submitOrder(req) {
   const session = getSession();
   if (!session.isLt) throw new Error('Forbidden');
   return withLock_(() => {
-    const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
+    const sheet = getSs_().getSheetByName(SHEET_ORDERS);
     req.lines.forEach(line => {
       const approver = resolveApprover_(line);
       sheet.appendRow([
@@ -133,7 +149,7 @@ function submitOrder(req) {
 function listMyOrders(req) {
   init_();
   const email = Session.getActiveUser().getEmail();
-  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
+  const sheet = getSs_().getSheetByName(SHEET_ORDERS);
   const rows = sheet.getDataRange().getValues();
   const header = rows.shift();
   return rows
@@ -144,7 +160,7 @@ function listMyOrders(req) {
 function listPendingApprovals() {
   const session = getSession();
   if (!session.isAdmin) throw new Error('Forbidden');
-  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
+  const sheet = getSs_().getSheetByName(SHEET_ORDERS);
   const rows = sheet.getDataRange().getValues();
   const header = rows.shift();
   return rows
@@ -157,7 +173,7 @@ function decideOrder(req) {
   if (!session.isAdmin) throw new Error('Forbidden');
   return withLock_(() => {
     const { id, decision } = req;
-    const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
+    const sheet = getSs_().getSheetByName(SHEET_ORDERS);
     const values = sheet.getDataRange().getValues();
     const header = values.shift();
     const idIdx = header.indexOf('id');
@@ -210,7 +226,7 @@ function getAdmins_() {
 }
 
 function init_() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = getSs_();
   let sheet = ss.getSheetByName(SHEET_ORDERS);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_ORDERS);
@@ -225,7 +241,7 @@ function init_() {
 }
 
 function seedCatalogIfEmpty_() {
-  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_CATALOG);
+  const sheet = getSs_().getSheetByName(SHEET_CATALOG);
   if (sheet.getLastRow() > 1) return;
   Object.keys(STOCK_LIST).forEach(cat => {
     STOCK_LIST[cat].forEach(desc => {
