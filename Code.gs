@@ -99,7 +99,7 @@ function listApprovals_(email){
     return obj;
   });
   return orders
-    .filter(function(o){ return o.status === 'PENDING'; })
+    .filter(function(o){ return o.status === 'PENDING' || o.status === 'ON-HOLD'; })
     .sort(function(a,b){ return new Date(b.ts) - new Date(a.ts); });
 }
 
