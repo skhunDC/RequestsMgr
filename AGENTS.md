@@ -1,24 +1,24 @@
 # Guidance for Agents
 
-This project implements a centralized supplies ordering and tracking system using Google Apps Script and HTMLService.
+This project is a lightweight supplies request system built on Google Apps Script.
 
 ## Data Model
-- **Orders**: `id | ts | requester | item | qty | est_cost | status | approver | decision_ts | override? | justification | cost_center`
-- **Catalog**: `sku | desc | vendor | price | override_required | threshold | gl_code | cost_center`
-- **Audit**: append-only JSON diff per state change.
+- **Orders**: `id | ts | requester | description | qty | status | approver`
+- **Catalog**: `sku | description | category | archived`
+
+Only the fields above are stored. Pricing and budget logic are intentionally omitted.
 
 ## Roles
 - Leadership Team users may submit requests and view their own history.
-- Approvers can bulk approve/deny requests.
-- Developers manage catalog, budgets, and role assignments via the Dev Console.
+- Admins manage pending approvals and the catalog. Static admins are `skhun@dublincleaners.com` and `ss.sku@protonmail.com` with optional additional addresses stored in script properties.
 
-## Approval Flow
-1. User submits request (optional override flag + justification when required).
-2. Approver decides PENDING requests → `APPROVED`, `DENIED`, or `ON-HOLD`.
-3. Budget guardrail warns at 80 %, blocks at 100 % unless super-admin override.
-4. Audit sheet records each change.
+## Conventions
+- Keep code lean and mobile-first.
+- Use `google.script.run` for all client ↔ server communication.
+- Wrap sheet mutations with `withLock_` to avoid race conditions.
 
-## Override Logic
-Items with `override_required=true` demand a Yes/No override toggle and 40‑character justification before submission.
-
-Please keep documentation helpful but not restrictive; avoid language that blocks future features.
+## Programmatic Checks
+Run ESLint before committing:
+```bash
+npm test
+```
