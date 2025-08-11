@@ -117,7 +117,7 @@ function getUserRecord(email) {
   const roleIdx = header.indexOf('role');
   const activeIdx = header.indexOf('active');
   const rec = rows.find(r => safeLower(r[emailIdx]) === em);
-  if (!rec) return null;
+  if (!rec) return { email: em, role: 'requester', active: true };
   return {
     email: em,
     role: rec[roleIdx],
