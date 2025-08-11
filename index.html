@@ -39,7 +39,7 @@
   </header>
   <nav id="nav">
     <button class="btn" data-view="request">Request</button>
-    <button class="btn" data-view="myRequests">My Requests</button>
+    <button class="btn" data-view="teamRequests">All Team Requests</button>
       <button class="btn" data-view="approvals" id="approveNav">Approvals</button>
       <button class="btn" data-view="catalog" id="catalogNav">Catalog</button>
   </nav>
@@ -67,17 +67,6 @@
       el.style.display = is ? 'flex' : 'none';
     }
 
-    async function api(action, data) {
-      const res = await fetch(`?action=${encodeURIComponent(action)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data || {})
-      });
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error || 'Error');
-      return json;
-    }
-
   setLoading(true);
   google.script.run
     .withSuccessHandler(s => {
@@ -98,7 +87,7 @@
     const main = document.getElementById('main');
     main.innerHTML = '';
     if (store.route === 'request') return renderRequest(main);
-    if (store.route === 'myRequests') return loadMyRequests();
+    if (store.route === 'teamRequests') return loadTeamRequests();
     if (store.route === 'approvals') return loadApprovals();
     if (store.route === 'catalog') return renderCatalog(main);
   }
@@ -217,8 +206,8 @@
       .withSuccessHandler(ids => {
         store.cart.lines = [];
         renderCart();
-        navigate('myRequests');
-        loadMyRequests();
+        navigate('teamRequests');
+        loadTeamRequests();
         toast('Request sent for approval.');
         setSubmitting(false);
         setLoading(false);
@@ -231,21 +220,21 @@
       .submitOrder(payload);
   }
 
-  function loadMyRequests() {
+  function loadTeamRequests() {
     setLoading(true);
     google.script.run
-      .withSuccessHandler(rows => { setLoading(false); renderMyRequests(rows); })
+      .withSuccessHandler(rows => { setLoading(false); renderTeamRequests(rows); })
       .withFailureHandler(() => setLoading(false))
-      .listMyOrders({ email: store.session.email });
+      .listRecentOrders();
   }
 
-  function renderMyRequests(rows) {
+  function renderTeamRequests(rows) {
     const main = document.getElementById('main');
-    main.innerHTML = '<h2>My Requests</h2><table><thead><tr><th>Date</th><th>Description</th><th>Qty</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>';
+    main.innerHTML = '<h2>All Team Requests</h2><table><thead><tr><th>Date</th><th>Requester</th><th>Item</th><th>Qty</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>';
     const tbody = main.querySelector('tbody');
     rows.forEach(r => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.ts}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td>${r.approver}</td>`;
+      tr.innerHTML = `<td>${r.ts}</td><td>${r.requester}</td><td>${r.item}</td><td>${r.qty}</td><td>${r.status}</td><td>${r.approver}</td>`;
       tbody.appendChild(tr);
     });
   }
@@ -322,82 +311,23 @@
     };
   }
 
-  function toast(msg) {
-    const div = document.createElement('div');
-    div.textContent = msg;
-    Object.assign(div.style, {
-      position: 'fixed',
-      bottom: '1rem',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      background: '#323232',
-      color: '#fff',
-      padding: '0.5rem 1rem',
-      borderRadius: '4px',
-      zIndex: '1000'
-    });
-    document.body.appendChild(div);
-    setTimeout(() => div.remove(), 3000);
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('request-form');
-    if (form) {
-      form.addEventListener('submit', async e => {
-        e.preventDefault();
-        const data = {
-          item: form.item.value,
-          qty: Number(form.qty.value),
-          est_cost: Number(form.est_cost.value),
-          override: form.override && form.override.checked ? 'YES' : 'NO',
-          justification: form.justification.value,
-          cost_center: form.cost_center.value,
-          gl_code: form.gl_code.value
-        };
-        try {
-          await api('createOrder', data);
-          toast('Request submitted');
-          if (typeof navigateTo === 'function') navigateTo('my-requests');
-          await loadMyRequests();
-          form.reset();
-        } catch (err) {
-          toast('Submit failed: ' + err.message);
-        }
+    function toast(msg) {
+      const div = document.createElement('div');
+      div.textContent = msg;
+      Object.assign(div.style, {
+        position: 'fixed',
+        bottom: '1rem',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        background: '#323232',
+        color: '#fff',
+        padding: '0.5rem 1rem',
+        borderRadius: '4px',
+        zIndex: '1000'
       });
+      document.body.appendChild(div);
+      setTimeout(() => div.remove(), 3000);
     }
-    if (document.getElementById('my-requests-tbody')) {
-      loadMyRequests();
-    }
-    if (typeof navigateTo === 'function') {
-      const origNav = navigateTo;
-      window.navigateTo = view => {
-        origNav(view);
-        if (view === 'my-requests') loadMyRequests();
-      };
-    }
-  });
-
-  async function loadMyRequests() {
-    try {
-      const res = await api('getMyOrders');
-      const tbody = document.getElementById('my-requests-tbody');
-      if (!tbody) return;
-      tbody.innerHTML = '';
-      if (!res.rows.length) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = '<td colspan="6">No requests</td>';
-        tbody.appendChild(tr);
-        return;
-      }
-      res.rows.forEach(r => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${r.ts}</td><td>${r.item}</td><td>${r.qty}</td><td>${r.est_cost}</td><td><span class="chip">${r.status}</span></td><td>${r.approver || ''}</td>`;
-        tbody.appendChild(tr);
-      });
-    } catch (err) {
-      toast('Load failed: ' + err.message);
-    }
-  }
   </script>
 </body>
 </html>
