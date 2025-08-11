@@ -114,8 +114,15 @@
       modal.classList.remove('hidden');
       const chk = document.getElementById('ackChk');
       const btn = document.getElementById('ackBtn');
-      chk.onchange=()=> btn.disabled=!chk.checked;
-      btn.onclick=()=>{modal.classList.add('hidden'); alert('Submitted!');};
+      // reset state each time modal is shown
+      chk.checked = false;
+      btn.disabled = true;
+      chk.onchange = () => btn.disabled = !chk.checked;
+      btn.onclick = () => {
+        modal.classList.add('hidden');
+        // return user to the main request page after acknowledging
+        render('request');
+      };
     }
 
     /** My Requests */
