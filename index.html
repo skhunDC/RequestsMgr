@@ -10,6 +10,7 @@
     header img{height:125px;}
     .title h1{margin:0;font-size:1.5rem;font-weight:700;}
     .title .subtitle{font-size:1rem;}
+    .title #datetime{font-size:0.9rem;}
     nav{display:flex;gap:0.5rem;padding:0.5rem;background:#f5f5f5;flex-wrap:wrap;}
     nav button{flex:1 1 auto;}
     .hidden{display:none;}
@@ -33,6 +34,7 @@
     <div class="title">
       <h1>Supplies</h1>
       <div class="subtitle">Orders & Tracking</div>
+      <div id="datetime"></div>
     </div>
   </header>
   <nav id="nav">
@@ -49,6 +51,16 @@
     cart: { lines: [] },
     route: 'request'
   };
+
+  const datetimeEl = document.getElementById('datetime');
+  function updateDateTime() {
+    const now = new Date();
+    const date = now.toLocaleDateString();
+    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    datetimeEl.textContent = `${date} ${time}`;
+  }
+  updateDateTime();
+  setInterval(updateDateTime, 60000);
 
   function setLoading(is) {
     const el = document.getElementById('loading');
