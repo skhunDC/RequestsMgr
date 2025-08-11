@@ -123,32 +123,36 @@ function setCatalogArchived(req) {
   });
 }
 
-function submitOrder(req) {
+function submitOrder(payload) {
   const session = getSession();
   if (!session.isLt) throw new Error('Forbidden');
-  return withLock_(() => {
-    const sheet = getSs_().getSheetByName(SHEET_ORDERS);
-    req.lines.forEach(line => {
+  const sheet = getSs_().getSheetByName(SHEET_ORDERS);
+  const ids = [];
+  const nowIso = nowIso_();
+  withLock_(() => {
+    payload.lines.forEach(line => {
+      const id = uuid_();
       const approver = resolveApprover_(line);
       sheet.appendRow([
-        uuid_(),
-        nowIso_(),
+        id,
+        nowIso,
         session.email,
         line.description,
-        line.qty,
+        Number(line.qty),
         'PENDING',
         approver
       ]);
+      ids.push(id);
       const html = `<p>${session.email} requested ${line.qty} × ${line.description}.</p>`;
       GmailApp.sendEmail(approver, 'Supply Request', '', { htmlBody: html });
     });
-    return 'OK';
   });
+  return ids;
 }
 
 function listMyOrders(req) {
   init_();
-  const email = Session.getActiveUser().getEmail();
+  const email = (req && req.email) || Session.getActiveUser().getEmail();
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
   const rows = sheet.getDataRange().getValues();
   const header = rows.shift();
