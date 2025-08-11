@@ -39,7 +39,7 @@
   </header>
   <nav id="nav">
     <button class="btn" data-view="request">Request</button>
-    <button class="btn" data-view="teamRequests">All Team Requests</button>
+    <button class="btn" data-view="myRequests">My Requests</button>
       <button class="btn" data-view="approvals" id="approveNav">Approvals</button>
       <button class="btn" data-view="catalog" id="catalogNav">Catalog</button>
   </nav>
@@ -62,10 +62,10 @@
   updateDateTime();
   setInterval(updateDateTime, 60000);
 
-    function setLoading(is) {
-      const el = document.getElementById('loading');
-      el.style.display = is ? 'flex' : 'none';
-    }
+  function setLoading(is) {
+    const el = document.getElementById('loading');
+    el.style.display = is ? 'flex' : 'none';
+  }
 
   setLoading(true);
   google.script.run
@@ -87,7 +87,7 @@
     const main = document.getElementById('main');
     main.innerHTML = '';
     if (store.route === 'request') return renderRequest(main);
-    if (store.route === 'teamRequests') return loadTeamRequests();
+    if (store.route === 'myRequests') return loadMyRequests();
     if (store.route === 'approvals') return loadApprovals();
     if (store.route === 'catalog') return renderCatalog(main);
   }
@@ -206,8 +206,8 @@
       .withSuccessHandler(ids => {
         store.cart.lines = [];
         renderCart();
-        navigate('teamRequests');
-        loadTeamRequests();
+        navigate('myRequests');
+        loadMyRequests();
         toast('Request sent for approval.');
         setSubmitting(false);
         setLoading(false);
@@ -220,21 +220,21 @@
       .submitOrder(payload);
   }
 
-  function loadTeamRequests() {
+  function loadMyRequests() {
     setLoading(true);
     google.script.run
-      .withSuccessHandler(rows => { setLoading(false); renderTeamRequests(rows); })
+      .withSuccessHandler(rows => { setLoading(false); renderMyRequests(rows); })
       .withFailureHandler(() => setLoading(false))
-      .listRecentOrders();
+      .listMyOrders({ email: store.session.email });
   }
 
-  function renderTeamRequests(rows) {
+  function renderMyRequests(rows) {
     const main = document.getElementById('main');
-    main.innerHTML = '<h2>All Team Requests</h2><table><thead><tr><th>Date</th><th>Requester</th><th>Item</th><th>Qty</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>';
+    main.innerHTML = '<h2>My Requests</h2><table><thead><tr><th>Date</th><th>Description</th><th>Qty</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>';
     const tbody = main.querySelector('tbody');
     rows.forEach(r => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.ts}</td><td>${r.requester}</td><td>${r.item}</td><td>${r.qty}</td><td>${r.status}</td><td>${r.approver}</td>`;
+      tr.innerHTML = `<td>${r.ts}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td>${r.approver}</td>`;
       tbody.appendChild(tr);
     });
   }
@@ -311,23 +311,23 @@
     };
   }
 
-    function toast(msg) {
-      const div = document.createElement('div');
-      div.textContent = msg;
-      Object.assign(div.style, {
-        position: 'fixed',
-        bottom: '1rem',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        background: '#323232',
-        color: '#fff',
-        padding: '0.5rem 1rem',
-        borderRadius: '4px',
-        zIndex: '1000'
-      });
-      document.body.appendChild(div);
-      setTimeout(() => div.remove(), 3000);
-    }
+  function toast(msg) {
+    const div = document.createElement('div');
+    div.textContent = msg;
+    Object.assign(div.style, {
+      position: 'fixed',
+      bottom: '1rem',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: '#323232',
+      color: '#fff',
+      padding: '0.5rem 1rem',
+      borderRadius: '4px',
+      zIndex: '1000'
+    });
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 3000);
+  }
   </script>
 </body>
 </html>
