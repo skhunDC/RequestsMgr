@@ -214,7 +214,10 @@ function nowIso_() {
 }
 
 function withLock_(fn) {
-  const lock = LockService.getDocumentLock();
+  // Standalone scripts don't have a document context, so `getDocumentLock`
+  // can return `null`. Use a script lock instead to avoid null dereference
+  // errors when submitting orders.
+  const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     return fn();
