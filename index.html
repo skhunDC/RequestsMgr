@@ -29,8 +29,8 @@
   </header>
 
   <div id="loginPrompt" class="p-2 hidden">
-    <p>Please sign in to your Google account to use this app.</p>
-    <button id="loginBtn" class="btn">Reload after login</button>
+    <p>Please log into your Google account, then refresh.</p>
+    <button id="loginBtn" class="btn">Reload</button>
   </div>
 
   <nav id="nav" class="hidden">
@@ -46,25 +46,23 @@
   <div id="userModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
     <div class="modal-content">
       <h2 id="userModalTitle">Manage Access</h2>
-      <table><thead><tr><th>Email</th><th>Roles</th><th>Active</th><th>Actions</th></tr></thead><tbody id="userTable"></tbody></table>
+      <table><thead><tr><th>Email</th><th>Role</th><th>Active</th><th>Actions</th></tr></thead><tbody id="userTable"></tbody></table>
       <div id="addRow" style="margin-top:0.5rem;">
-        <input id="newEmail" class="input" placeholder="email"> 
-        <span id="newRoles"></span>
-        <button id="addUserBtn" class="btn">Save</button>
+        <input id="newEmail" class="input" placeholder="email">
+        <select id="newRole" class="input"></select>
+        <button id="addUserBtn" class="btn">Add</button>
         <button id="closeModal" class="btn">Close</button>
       </div>
     </div>
   </div>
 
   <script type="module">
-    const googleEmail = '<?= googleEmail ?>';
-    const userRoles = '<?= userRoles ?>'.split(',').filter(r => r);
-    const csrfToken = '<?= csrfToken ?>';
-    const webAppUrl = '<?= appUrl ?>';
+    const BOOTSTRAP = <?!= JSON.stringify(BOOTSTRAP) ?>;
+    const { email, role, isLoggedIn, devConsoleAllowed, csrf } = BOOTSTRAP;
+    const webAppUrl = window.location.href;
     const ALL_ROLES = ['viewer','requester','approver','developer','super_admin'];
 
-    const hasRole = r => userRoles.includes(r);
-    const anyRole = (...r) => r.some(hasRole);
+    const hasRole = (...r) => r.includes(role);
 
     const loginPrompt = document.getElementById('loginPrompt');
     const nav = document.getElementById('nav');
@@ -78,20 +76,18 @@
       });
     }
 
-    document.getElementById('loginBtn').onclick = () => location.href = webAppUrl;
+    document.getElementById('loginBtn').onclick = () => location.reload();
 
-    if (!googleEmail) {
+    if (!isLoggedIn) {
       loginPrompt.classList.remove('hidden');
     } else {
       nav.classList.remove('hidden');
-      if (!anyRole('requester','approver','developer','super_admin')) document.getElementById('navReq').classList.add('hidden');
-      if (!anyRole('approver','developer','super_admin')) document.getElementById('navAppr').classList.add('hidden');
-      if (!anyRole('developer','super_admin')) {
-        document.getElementById('navCat').classList.add('hidden');
-        document.getElementById('navDev').classList.add('hidden');
-      }
+      if (!hasRole('requester','approver','developer','super_admin')) document.getElementById('navReq').classList.add('hidden');
+      if (!hasRole('approver','developer','super_admin')) document.getElementById('navAppr').classList.add('hidden');
+      if (!hasRole('developer','super_admin')) document.getElementById('navCat').classList.add('hidden');
+      if (!devConsoleAllowed) document.getElementById('navDev').classList.add('hidden');
       document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
-      if (anyRole('developer','super_admin')) {
+      if (devConsoleAllowed) {
         manageBtn.classList.remove('hidden');
         manageBtn.onclick = openUserModal;
       }
@@ -102,10 +98,10 @@
       const res = await fetch(webAppUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, payload, csrf: csrfToken })
+        body: JSON.stringify({ action, payload, csrf })
       });
       const json = await res.json();
-      if (!json.ok) throw new Error(json.message || json.code);
+      if (!json.ok) throw new Error(json.error || json.message || 'Error');
       return json.data;
     }
 
@@ -122,7 +118,7 @@
 
     // ----- Request View -----
     async function renderRequest() {
-      if (!anyRole('requester','approver','developer','super_admin')) return;
+      if (!hasRole('requester','approver','developer','super_admin')) return;
       main.innerHTML = `<h2>Request Supplies</h2><div id="chips"></div><input id="search" class="input" placeholder="Search"><table><thead><tr><th>Description</th><th>Category</th><th>Qty</th><th></th></tr></thead><tbody id="stock"></tbody></table><h3>Cart</h3><ul id="cart"></ul><button id="submitBtn" class="btn" disabled>Submit</button>`;
       const tbody = document.getElementById('stock');
       const chipsDiv = document.getElementById('chips');
@@ -169,7 +165,7 @@
 
     // ----- Approvals -----
     async function loadApprovals(){
-      if (!anyRole('approver','developer','super_admin')) return;
+      if (!hasRole('approver','developer','super_admin')) return;
       const rows = await api('orders.pending');
       main.innerHTML='<h2>Pending Approvals</h2><table><thead><tr><th>Date</th><th>Requester</th><th>Description</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
       const tbody=main.querySelector('tbody');
@@ -180,7 +176,7 @@
 
     // ----- Catalog -----
     async function renderCatalog(){
-      if (!anyRole('developer','super_admin')) return;
+      if (!hasRole('developer','super_admin')) return;
       main.innerHTML='<h2>Catalog Manager</h2><div><input id="nDesc" class="input" placeholder="Description"> <select id="nCat" class="input"><option>Office</option><option>Cleaning</option><option>Operations</option></select> <button id="nAdd" class="btn">Add</button></div><table><thead><tr><th>Description</th><th>Category</th><th>Archived</th><th></th></tr></thead><tbody></tbody></table>';
       const tbody=main.querySelector('tbody');
       async function load(){
@@ -198,10 +194,10 @@
     }
 
     // ----- Users Modal -----
-    function roleChips(selected=[]){return ALL_ROLES.map(r=>`<label><input type="checkbox" value="${r}" ${selected.includes(r)?'checked':''}> ${r}</label>`).join(' ');}
+    function roleSelect(val){return `<select class="roleSel">${ALL_ROLES.map(r=>`<option value="${r}" ${r===val?'selected':''}>${r}</option>`).join('')}</select>`;}
 
     async function openUserModal(){
-      loadUsers();
+      await loadUsers();
       document.getElementById('userModal').classList.remove('hidden');
     }
     document.getElementById('closeModal').onclick=()=>document.getElementById('userModal').classList.add('hidden');
@@ -213,24 +209,36 @@
       tbody.innerHTML='';
       users.forEach(u=>{
         const tr=document.createElement('tr');
-        tr.innerHTML=`<td>${u.email}</td><td>${roleChips(u.roles)}</td><td><input type="checkbox" class="act" ${u.active?'checked':''}></td><td><button class="btn save">Save</button> <button class="btn dis">Disable</button></td>`;
-        tr.querySelector('.save').onclick=async()=>{const roles=[...tr.querySelectorAll('input[type=checkbox][value]')].filter(c=>c.checked).map(c=>c.value);const active=tr.querySelector('.act').checked;await api('users.upsert',{email:u.email,roles,active});toast('Saved');loadUsers();};
-        tr.querySelector('.dis').onclick=async()=>{await api('users.upsert',{email:u.email,roles:u.roles,active:false});toast('Disabled');loadUsers();};
+        tr.innerHTML=`<td>${u.email}</td><td>${roleSelect(u.role)}</td><td><input type="checkbox" class="act" ${u.active?'checked':''}></td><td><button class="btn save">Save</button> <button class="btn dis">Disable</button></td>`;
+        tr.querySelector('.save').onclick=async()=>{
+          const role=tr.querySelector('.roleSel').value;
+          const active=tr.querySelector('.act').checked;
+          tr.querySelector('.save').disabled=true;
+          try{await api('users.upsert',{email:u.email,role,active});toast('Saved');}catch(err){toast(err.message);}
+          tr.querySelector('.save').disabled=false;
+          loadUsers();
+        };
+        tr.querySelector('.dis').onclick=async()=>{
+          tr.querySelector('.dis').disabled=true;
+          try{await api('users.remove',{email:u.email});toast('Disabled');}catch(err){toast(err.message);}
+          tr.querySelector('.dis').disabled=false;
+          loadUsers();
+        };
         tbody.appendChild(tr);
       });
       applyZebra(tbody);
-      const nr=document.getElementById('newRoles');
-      nr.innerHTML=roleChips();
+      const nr=document.getElementById('newRole');
+      nr.innerHTML=ALL_ROLES.map(r=>`<option value="${r}">${r}</option>`).join('');
     }
 
     document.getElementById('addUserBtn').onclick=async()=>{
       const email=document.getElementById('newEmail').value.trim().toLowerCase();
-      const roles=[...document.querySelectorAll('#newRoles input[type=checkbox]')].filter(c=>c.checked).map(c=>c.value);
-      if(!email)return toast('Email required');
-      await api('users.upsert',{email,roles,active:true});
+      const role=document.getElementById('newRole').value;
+      if(!email||!/^[^@]+@[^@]+\.[^@]+$/.test(email))return toast('Valid email required');
+      document.getElementById('addUserBtn').disabled=true;
+      try{await api('users.upsert',{email,role,active:true});toast('User added');}catch(err){toast(err.message);} 
+      document.getElementById('addUserBtn').disabled=false;
       document.getElementById('newEmail').value='';
-      document.querySelectorAll('#newRoles input[type=checkbox]').forEach(c=>c.checked=false);
-      toast('User added');
       loadUsers();
     };
 
