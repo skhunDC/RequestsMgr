@@ -62,10 +62,21 @@
   updateDateTime();
   setInterval(updateDateTime, 60000);
 
-  function setLoading(is) {
-    const el = document.getElementById('loading');
-    el.style.display = is ? 'flex' : 'none';
-  }
+    function setLoading(is) {
+      const el = document.getElementById('loading');
+      el.style.display = is ? 'flex' : 'none';
+    }
+
+    async function api(action, data) {
+      const res = await fetch(`?action=${encodeURIComponent(action)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data || {})
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Error');
+      return json;
+    }
 
   setLoading(true);
   google.script.run
@@ -326,6 +337,65 @@
     });
     document.body.appendChild(div);
     setTimeout(() => div.remove(), 3000);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('request-form');
+    if (form) {
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const data = {
+          item: form.item.value,
+          qty: Number(form.qty.value),
+          est_cost: Number(form.est_cost.value),
+          override: form.override && form.override.checked ? 'YES' : 'NO',
+          justification: form.justification.value,
+          cost_center: form.cost_center.value,
+          gl_code: form.gl_code.value
+        };
+        try {
+          await api('createOrder', data);
+          toast('Request submitted');
+          if (typeof navigateTo === 'function') navigateTo('my-requests');
+          await loadMyRequests();
+          form.reset();
+        } catch (err) {
+          toast('Submit failed: ' + err.message);
+        }
+      });
+    }
+    if (document.getElementById('my-requests-tbody')) {
+      loadMyRequests();
+    }
+    if (typeof navigateTo === 'function') {
+      const origNav = navigateTo;
+      window.navigateTo = view => {
+        origNav(view);
+        if (view === 'my-requests') loadMyRequests();
+      };
+    }
+  });
+
+  async function loadMyRequests() {
+    try {
+      const res = await api('getMyOrders');
+      const tbody = document.getElementById('my-requests-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      if (!res.rows.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="6">No requests</td>';
+        tbody.appendChild(tr);
+        return;
+      }
+      res.rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.ts}</td><td>${r.item}</td><td>${r.qty}</td><td>${r.est_cost}</td><td><span class="chip">${r.status}</span></td><td>${r.approver || ''}</td>`;
+        tbody.appendChild(tr);
+      });
+    } catch (err) {
+      toast('Load failed: ' + err.message);
+    }
   }
   </script>
 </body>

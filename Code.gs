@@ -3,6 +3,21 @@
 const SHEET_ORDERS = 'Orders';
 const SHEET_CATALOG = 'Catalog';
 const SS_ID_PROP = 'SS_ID';
+const ORDERS_HEADERS = [
+  'id',
+  'ts',
+  'requester',
+  'item',
+  'qty',
+  'est_cost',
+  'status',
+  'approver',
+  'decision_ts',
+  'override?',
+  'justification',
+  'cost_center',
+  'gl_code'
+];
 
 const STOCK_LIST = {
   Office: [
@@ -177,12 +192,27 @@ function nowIso_() {
   return new Date().toISOString();
 }
 
+function getOrCreateSheet(name, headers) {
+  const ss = getSs_();
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+  }
+  const current = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+  const match = headers.every((h, i) => h === current[i]);
+  if (!match) {
+    sheet.clear();
+    sheet.appendRow(headers);
+  }
+  return sheet;
+}
+
 function withLock_(fn) {
-  // Standalone scripts don't have a document context, so `getDocumentLock`
-  // can return `null`. Use a script lock instead to avoid null dereference
-  // errors when submitting orders.
   const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  const success = lock.tryLock(5000);
+  if (!success) {
+    throw new Error('Could not obtain lock');
+  }
   try {
     return fn();
   } finally {
@@ -190,14 +220,81 @@ function withLock_(fn) {
   }
 }
 
+function createOrder_(payload) {
+  const sheet = getOrCreateSheet(SHEET_ORDERS, ORDERS_HEADERS);
+  const id = Utilities.getUuid();
+  const ts = new Date().toISOString();
+  const requester = Session.getActiveUser().getEmail() || 'unknown@local';
+  const qty = Number(payload.qty);
+  const estCost = Number(payload.est_cost);
+  const override = String(payload.override || 'NO');
+  const row = [
+    id,
+    ts,
+    requester,
+    String(payload.item || ''),
+    qty,
+    estCost,
+    'PENDING',
+    '',
+    '',
+    override,
+    String(payload.justification || ''),
+    String(payload.cost_center || ''),
+    String(payload.gl_code || '')
+  ];
+  withLock_(() => sheet.appendRow(row));
+  return { ok: true, id, status: 'PENDING' };
+}
+
+function getMyOrders_() {
+  const sheet = getOrCreateSheet(SHEET_ORDERS, ORDERS_HEADERS);
+  const values = sheet.getDataRange().getValues();
+  const rows = values.slice(1).map(r => {
+    const obj = {};
+    ORDERS_HEADERS.forEach((h, i) => { obj[h] = r[i]; });
+    return obj;
+  });
+  const email = Session.getActiveUser().getEmail() || 'unknown@local';
+  rows.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  const filtered = rows.filter(r => r.requester === email);
+  const slim = filtered.map(r => ({
+    id: r.id,
+    ts: r.ts,
+    item: r.item,
+    qty: r.qty,
+    est_cost: r.est_cost,
+    status: r.status,
+    approver: r.approver
+  }));
+  return { ok: true, rows: slim };
+}
+
+function jsonResponse_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    const action = (e.parameter && e.parameter.action) || '';
+    const payload = e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
+    if (action === 'createOrder') {
+      return jsonResponse_(createOrder_(payload));
+    }
+    if (action === 'getMyOrders') {
+      return jsonResponse_(getMyOrders_());
+    }
+    return jsonResponse_({ ok: false, error: 'Unknown action' });
+  } catch (err) {
+    return jsonResponse_({ ok: false, error: err.message });
+  }
+}
+
 function init_() {
   const ss = getSs_();
-  let sheet = ss.getSheetByName(SHEET_ORDERS);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_ORDERS);
-    sheet.appendRow(['id', 'ts', 'requester', 'description', 'qty', 'status', 'approver']);
-  }
-  sheet = ss.getSheetByName(SHEET_CATALOG);
+  getOrCreateSheet(SHEET_ORDERS, ORDERS_HEADERS);
+  let sheet = ss.getSheetByName(SHEET_CATALOG);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_CATALOG);
     sheet.appendRow(['sku', 'description', 'category', 'archived']);
