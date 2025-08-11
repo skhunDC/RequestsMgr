@@ -176,11 +176,10 @@
     const payload = { lines: store.cart.lines.map(l => ({ description: l.description, qty: l.qty })) };
 
     google.script.run
-      .withSuccessHandler(ids => {
+      .withSuccessHandler(() => {
         store.cart.lines = [];
         renderCart();
         navigate('myRequests');
-        loadMyRequests();
         toast('Request sent for approval.');
         setSubmitting(false);
       })

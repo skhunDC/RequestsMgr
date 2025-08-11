@@ -2,6 +2,7 @@
 
 const SHEET_ORDERS = 'Orders';
 const SHEET_CATALOG = 'Catalog';
+const ORDER_HEADER = ['id', 'ts', 'requester', 'description', 'qty', 'status', 'approver'];
 
 const LT_EMAILS = [
   'skhun@dublincleaners.com',
@@ -127,27 +128,27 @@ function submitOrder(payload) {
   const session = getSession();
   if (!session.isLt) throw new Error('Forbidden');
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
-  const ids = [];
   const nowIso = nowIso_();
+  const records = [];
   withLock_(() => {
     payload.lines.forEach(line => {
-      const id = uuid_();
-      const approver = resolveApprover_(line);
-      sheet.appendRow([
-        id,
-        nowIso,
-        session.email,
-        line.description,
-        Number(line.qty),
-        'PENDING',
-        approver
-      ]);
-      ids.push(id);
-      const html = `<p>${session.email} requested ${line.qty} × ${line.description}.</p>`;
-      GmailApp.sendEmail(approver, 'Supply Request', '', { htmlBody: html });
+      const record = {
+        id: uuid_(),
+        ts: nowIso,
+        requester: session.email,
+        description: line.description,
+        qty: Number(line.qty),
+        status: 'PENDING',
+        approver: resolveApprover_(line)
+      };
+      sheet.appendRow(ORDER_HEADER.map(h => record[h]));
+      records.push(record);
+      const html = `<p>${session.email} requested ${record.qty} × ${record.description}.</p>`;
+      GmailApp.sendEmail(record.approver, 'Supply Request', '', { htmlBody: html });
     });
+    SpreadsheetApp.flush();
   });
-  return ids;
+  return records;
 }
 
 function listMyOrders(req) {
@@ -158,7 +159,8 @@ function listMyOrders(req) {
   const header = rows.shift();
   return rows
     .filter(r => r[header.indexOf('requester')] === email)
-    .map(r => Object.fromEntries(r.map((v, i) => [header[i], v])));
+    .map(r => Object.fromEntries(r.map((v, i) => [header[i], v])))
+    .sort((a, b) => b.ts.localeCompare(a.ts));
 }
 
 function listPendingApprovals() {
@@ -169,7 +171,8 @@ function listPendingApprovals() {
   const header = rows.shift();
   return rows
     .filter(r => r[header.indexOf('status')] === 'PENDING')
-    .map(r => Object.fromEntries(r.map((v, i) => [header[i], v])));
+    .map(r => Object.fromEntries(r.map((v, i) => [header[i], v])))
+    .sort((a, b) => b.ts.localeCompare(a.ts));
 }
 
 function decideOrder(req) {
@@ -237,7 +240,7 @@ function init_() {
   let sheet = ss.getSheetByName(SHEET_ORDERS);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_ORDERS);
-    sheet.appendRow(['id', 'ts', 'requester', 'description', 'qty', 'status', 'approver']);
+    sheet.appendRow(ORDER_HEADER);
   }
   sheet = ss.getSheetByName(SHEET_CATALOG);
   if (!sheet) {
