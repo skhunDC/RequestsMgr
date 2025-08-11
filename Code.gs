@@ -101,24 +101,32 @@ function submitOrder(payload) {
   init_();
   const session = getSession();
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
-  const ids = [];
+  const orders = [];
   const nowIso = nowIso_();
   withLock_(() => {
     payload.lines.forEach(line => {
-      const id = uuid_();
+      const order = {
+        id: uuid_(),
+        ts: nowIso,
+        requester: session.email,
+        description: line.description,
+        qty: Number(line.qty),
+        status: 'PENDING',
+        approver: ''
+      };
       sheet.appendRow([
-        id,
-        nowIso,
-        session.email,
-        line.description,
-        Number(line.qty),
-        'PENDING',
-        ''
+        order.id,
+        order.ts,
+        order.requester,
+        order.description,
+        order.qty,
+        order.status,
+        order.approver
       ]);
-      ids.push(id);
+      orders.push(order);
     });
   });
-  return ids;
+  return orders;
 }
 
 function listMyOrders(req) {

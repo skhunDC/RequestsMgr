@@ -49,7 +49,9 @@
   const store = {
     session: null,
     cart: { lines: [] },
-    route: 'request'
+    route: 'request',
+    myRequests: [],
+    approvals: []
   };
 
   const datetimeEl = document.getElementById('datetime');
@@ -87,8 +89,14 @@
     const main = document.getElementById('main');
     main.innerHTML = '';
     if (store.route === 'request') return renderRequest(main);
-    if (store.route === 'myRequests') return loadMyRequests();
-    if (store.route === 'approvals') return loadApprovals();
+    if (store.route === 'myRequests') {
+      renderMyRequests();
+      return loadMyRequests();
+    }
+    if (store.route === 'approvals') {
+      renderApprovals();
+      return loadApprovals();
+    }
     if (store.route === 'catalog') return renderCatalog(main);
   }
 
@@ -203,11 +211,12 @@
 
     setLoading(true);
     google.script.run
-      .withSuccessHandler(ids => {
+      .withSuccessHandler(orders => {
         store.cart.lines = [];
         renderCart();
+        store.myRequests = store.myRequests.concat(orders);
+        store.approvals = store.approvals.concat(orders);
         navigate('myRequests');
-        loadMyRequests();
         toast('Request sent for approval.');
         setSubmitting(false);
         setLoading(false);
@@ -223,16 +232,20 @@
   function loadMyRequests() {
     setLoading(true);
     google.script.run
-      .withSuccessHandler(rows => { setLoading(false); renderMyRequests(rows); })
+      .withSuccessHandler(rows => {
+        store.myRequests = rows;
+        setLoading(false);
+        renderMyRequests();
+      })
       .withFailureHandler(() => setLoading(false))
       .listMyOrders({ email: store.session.email });
   }
 
-  function renderMyRequests(rows) {
+  function renderMyRequests() {
     const main = document.getElementById('main');
     main.innerHTML = '<h2>My Requests</h2><table><thead><tr><th>Date</th><th>Description</th><th>Qty</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>';
     const tbody = main.querySelector('tbody');
-    rows.forEach(r => {
+    (store.myRequests || []).forEach(r => {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${r.ts}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td>${r.approver}</td>`;
       tbody.appendChild(tr);
@@ -242,16 +255,20 @@
   function loadApprovals() {
     setLoading(true);
     google.script.run
-      .withSuccessHandler(rows => { setLoading(false); renderApprovals(rows); })
+      .withSuccessHandler(rows => {
+        store.approvals = rows;
+        setLoading(false);
+        renderApprovals();
+      })
       .withFailureHandler(() => setLoading(false))
       .listPendingApprovals();
   }
 
-  function renderApprovals(rows) {
+  function renderApprovals() {
     const main = document.getElementById('main');
     main.innerHTML = '<h2>Pending Approvals</h2><table><thead><tr><th>Date</th><th>Requester</th><th>Description</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
     const tbody = main.querySelector('tbody');
-    rows.forEach(r => {
+    (store.approvals || []).forEach(r => {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${r.ts}</td><td>${r.requester}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td><button class="btn ap">Approve</button> <button class="btn dn">Deny</button></td>`;
       tr.querySelector('.ap').onclick = () => decide(r.id, 'APPROVED');
@@ -262,7 +279,10 @@
     function decide(id, decision) {
       setLoading(true);
       google.script.run
-        .withSuccessHandler(() => { setLoading(false); loadApprovals(); })
+        .withSuccessHandler(() => {
+          setLoading(false);
+          loadApprovals();
+        })
         .withFailureHandler(() => setLoading(false))
         .decideOrder({ id, decision });
     }
