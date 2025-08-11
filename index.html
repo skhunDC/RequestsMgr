@@ -23,9 +23,21 @@
     .modal-content{background:#fff;padding:1rem;border-radius:8px;max-width:90%;}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-  <script type="module" src="https://www.gstatic.com/charts/loader.js"></script>
+  <!-- Google Charts loader must be a classic script, not a module -->
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
+  <!-- Intro modal displayed on first load -->
+  <div id="introModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="introTitle" tabindex="-1">
+    <div class="modal-content">
+      <div class="m-2">
+        <h2 id="introTitle" class="text-center">Welcome</h2>
+        <label class="flex m-2"><input type="checkbox" id="ack" class="m-2">I understand</label>
+        <button id="btnContinue" class="btn" type="button" disabled aria-disabled="true">Continue</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Sidebar for desktop -->
   <nav class="nav-desktop p-2">
     <ul>
@@ -45,7 +57,8 @@
     <button id="devNavM" class="btn flex-1 hidden" data-view="dev">Dev</button>
   </nav>
 
-  <main id="app" class="main p-4"></main>
+  <!-- Main app content hidden until modal is dismissed -->
+  <main id="app" class="main p-4 hidden" aria-hidden="true" tabindex="-1"></main>
 
   <!-- Flowchart modal -->
   <div id="flowModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="flowTitle" aria-hidden="true" tabindex="-1">
@@ -77,6 +90,43 @@
       analytics: renderAnalytics,
       dev: renderDev
     };
+
+    // Bind intro modal behaviour once the DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bindIntroModal);
+    } else {
+      bindIntroModal();
+    }
+
+    function bindIntroModal(){
+      const modal = document.getElementById('introModal');
+      const app = document.getElementById('app');
+      const chk = document.getElementById('ack');
+      const btn = document.getElementById('btnContinue');
+
+      modal.focus(); // move focus into the modal for screen readers
+
+      // Toggle the Continue button when the acknowledgement is checked
+      chk.addEventListener('change', () => {
+        const enabled = chk.checked;
+        btn.disabled = !enabled;
+        btn.setAttribute('aria-disabled', String(!enabled));
+      });
+
+      // Hide modal and show main app content when user continues
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return; // guard against accidental activation
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden','true');
+
+        app.classList.remove('hidden');
+        app.removeAttribute('aria-hidden');
+        app.focus(); // move focus to the main app region
+
+        // Optional routing hash update
+        location.hash = '#main';
+      });
+    }
 
     document.querySelectorAll('button[data-view]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -207,8 +257,8 @@
     }).getDeveloperEmails();
 
     render('request');
-    // Display intro flow modal before user interacts with the app
-    showFlowModal();
+    // Initial modal blocks interaction until user acknowledges.
+    // `bindIntroModal` sets up its own event handlers on DOMContentLoaded.
   </script>
 </body>
 </html>
