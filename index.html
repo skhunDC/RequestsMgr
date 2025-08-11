@@ -84,6 +84,7 @@
       store.session = s;
       document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
       renderRoute();
+      setLoading(false);
     })
     .withFailureHandler(() => setLoading(false))
     .getSession();
