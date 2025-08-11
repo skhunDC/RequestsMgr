@@ -120,9 +120,9 @@ function submitOrder(payload) {
   return ids;
 }
 
-function listMyOrders() {
+function listMyOrders(req) {
   init_();
-  const email = Session.getActiveUser().getEmail();
+  const email = (req && req.email) || getSession().email;
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
   const rows = sheet.getDataRange().getValues();
   const header = rows.shift();
