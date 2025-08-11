@@ -2,6 +2,7 @@
 
 const SHEET_ORDERS = 'Orders';
 const SHEET_CATALOG = 'Catalog';
+const SHEET_ARCHIVE = 'OrdersArchive';
 const SS_ID_PROP = 'SS_ID';
 const ORDERS_HEADERS = [
   'id',
@@ -127,7 +128,13 @@ function submitOrder(payload) {
         session.email,
         line.description,
         Number(line.qty),
+        '',
         'PENDING',
+        '',
+        '',
+        '',
+        '',
+        '',
         ''
       ]);
       ids.push(id);
@@ -136,17 +143,36 @@ function submitOrder(payload) {
   return ids;
 }
 
-function listMyOrders(req) {
+function listRecentOrders() {
   init_();
-  const email = (req && req.email) || getSession().email;
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
+  const archive = getOrCreateSheet(SHEET_ARCHIVE, ORDERS_HEADERS);
   const rows = sheet.getDataRange().getValues();
   const header = rows.shift();
-  const idx = header.map(h => String(h).toLowerCase());
-  const reqIdx = idx.indexOf('requester');
-  return rows
-    .filter(r => reqIdx >= 0 && r[reqIdx] === email)
-    .map(r => Object.fromEntries(header.map((h, i) => [h, r[i]])));
+  const tsIdx = header.indexOf('ts');
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const recent = [];
+  const old = [];
+  rows.forEach(r => {
+    const ts = new Date(r[tsIdx]);
+    if (ts >= cutoff) {
+      recent.push(r);
+    } else {
+      old.push(r);
+    }
+  });
+  if (old.length) {
+    withLock_(() => {
+      old.forEach(r => archive.appendRow(r));
+      for (let i = rows.length - 1; i >= 0; i--) {
+        const ts = new Date(rows[i][tsIdx]);
+        if (ts < cutoff) sheet.deleteRow(i + 2);
+      }
+    });
+  }
+  recent.sort((a, b) => new Date(b[tsIdx]) - new Date(a[tsIdx]));
+  return recent.map(r => Object.fromEntries(header.map((h, i) => [h, r[i]])));
 }
 
 function listPendingApprovals() {
@@ -247,29 +273,6 @@ function createOrder_(payload) {
   return { ok: true, id, status: 'PENDING' };
 }
 
-function getMyOrders_() {
-  const sheet = getOrCreateSheet(SHEET_ORDERS, ORDERS_HEADERS);
-  const values = sheet.getDataRange().getValues();
-  const rows = values.slice(1).map(r => {
-    const obj = {};
-    ORDERS_HEADERS.forEach((h, i) => { obj[h] = r[i]; });
-    return obj;
-  });
-  const email = Session.getActiveUser().getEmail() || 'unknown@local';
-  rows.sort((a, b) => new Date(b.ts) - new Date(a.ts));
-  const filtered = rows.filter(r => r.requester === email);
-  const slim = filtered.map(r => ({
-    id: r.id,
-    ts: r.ts,
-    item: r.item,
-    qty: r.qty,
-    est_cost: r.est_cost,
-    status: r.status,
-    approver: r.approver
-  }));
-  return { ok: true, rows: slim };
-}
-
 function jsonResponse_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
@@ -282,8 +285,8 @@ function doPost(e) {
     if (action === 'createOrder') {
       return jsonResponse_(createOrder_(payload));
     }
-    if (action === 'getMyOrders') {
-      return jsonResponse_(getMyOrders_());
+    if (action === 'getOrders') {
+      return jsonResponse_({ ok: true, rows: listRecentOrders() });
     }
     return jsonResponse_({ ok: false, error: 'Unknown action' });
   } catch (err) {

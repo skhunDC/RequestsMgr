@@ -4,7 +4,7 @@ A minimal supplies request and approval workflow built with Google Apps Script a
 
 ## Features
 - Mobile‑first request form with stock search, category filter, custom line items, and cart submission.
-- My Requests view showing your past orders.
+- All Team Requests view showing the last 90 days of orders from everyone.
 - Admin views for pending approvals and catalog management (add / archive items).
 
 ## Setup
