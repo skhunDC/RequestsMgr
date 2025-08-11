@@ -132,6 +132,7 @@
 
       btn.onclick = () => {
         if (btn.hasAttribute('disabled')) return;
+
         modal.classList.add('hidden');
         // return user to the main request page after acknowledging
         render('request');
