@@ -1,18 +1,8 @@
-// Code.gs - Google Apps Script server-side for Centralized Supplies Ordering & Tracking System
-// Provides routes, sheet access, auth checks, notifications, and developer console operations.
+// Code.gs - simplified supplies request system
 
-/**
- * Configuration
- */
 const SHEET_ORDERS = 'Orders';
 const SHEET_CATALOG = 'Catalog';
-const SHEET_AUDIT = 'Audit';
 
-// Initial developer emails; additional addresses stored in ScriptProperties under key DEV_LIST.
-const STATIC_DEVS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
-const DEV_PROP_KEY = 'DEV_LIST';
-
-// Allowed Leadership Team email addresses
 const LT_EMAILS = [
   'skhun@dublincleaners.com',
   'ss.sku@protonmail.com',
@@ -28,218 +18,230 @@ const LT_EMAILS = [
   'china99@mail.com'
 ];
 
-// Google Chat webhook for notifications
-const CHAT_WEBHOOK = 'https://chat.googleapis.com/v1/spaces/...'; // replace with real webhook
+const STATIC_ADMINS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
+const ADMIN_PROP = 'ADMINS';
 
-/** Utility helpers */
+const APPROVER_BY_CATEGORY = {
+  Office: 'skhun@dublincleaners.com',
+  Cleaning: 'ss.sku@protonmail.com',
+  Operations: 'skhun@dublincleaners.com'
+};
 
-/** Returns the active user's email without invoking OAuth. */
-function getUserEmail() {
+const STOCK_LIST = {
+  Office: [
+    'Copy Paper 8.5×11 (case)',
+    'Ballpoint Pens (box)',
+    'Sharpie Markers (pack)',
+    'Hanging File Folders (box)',
+    'Thermal Receipt Paper (case)',
+    'Shipping Labels 4×6 (roll)',
+    'Packing Tape (6-pack)',
+    'Envelopes #10 (box)'
+  ],
+  Cleaning: [
+    'Nitrile Gloves (box)',
+    'Paper Towels (case)',
+    'Trash Liners 33gal (case)',
+    'Disinfectant Spray (case)',
+    'Glass Cleaner (1 gal)',
+    'Floor Cleaner Concentrate (1 gal)',
+    'Lint Rollers (12-pack)'
+  ],
+  Operations: [
+    'Poly Garment Bags (roll)',
+    'Wire Hangers 18" (case)',
+    'Suit Hangers w/ Bar (case)',
+    'Garment Tags (roll)',
+    'Spotting Agent – Protein (qt)',
+    'Spotting Agent – Tannin (qt)',
+    'Detergent – Laundry (5 gal)',
+    'Laundry Nets (each)',
+    'Sizing/Finishing Spray (case)',
+    'Laundry Bags – Customer (pack)',
+    'Twine/Hook Ties (roll)'
+  ]
+};
+
+function getSession() {
+  init_();
   const email = Session.getActiveUser().getEmail();
-  return email || 'anonymous@example.com';
+  const isLt = LT_EMAILS.includes(email);
+  const isAdmin = getAdmins_().includes(email);
+  return { email, isLt, isAdmin };
 }
 
-/** Check if user is part of Leadership Team. */
-function isLtUser(email) {
-  return email ? LT_EMAILS.includes(email.toLowerCase()) : false;
+function getCatalog(req) {
+  init_();
+  const includeArchived = req && req.includeArchived;
+  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_CATALOG);
+  const rows = sheet.getDataRange().getValues();
+  const header = rows.shift();
+  return rows
+    .map(r => Object.fromEntries(r.map((v, i) => [header[i], v])))
+    .filter(r => includeArchived || r.archived !== true);
 }
 
-/** Get developer emails including dynamic list from script properties. */
-function getDeveloperEmails() {
-  const props = PropertiesService.getScriptProperties();
-  const dynamic = props.getProperty(DEV_PROP_KEY);
-  return STATIC_DEVS.concat(dynamic ? JSON.parse(dynamic) : []);
-}
-
-/** Check if user is developer. */
-function isDeveloper(email) {
-  return getDeveloperEmails().includes(email);
-}
-
-/** Authentication temporarily disabled; all users allowed. */
-function assertAuthorized() {}
-
-/** Append JSON diff to Audit sheet */
-function logAudit(entry) {
-  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_AUDIT);
-  sheet.appendRow([new Date(), JSON.stringify(entry)]);
-}
-
-/** Budget guardrail: warn >80%, block >=100% unless super-admin override. */
-function checkBudget(costCenter, newAmount, override) {
-  // Placeholder budget logic; assumes budgets stored in named range "BUDGET_" + costCenter
-  const ss = SpreadsheetApp.getActive();
-  const budget = Number(ss.getRangeByName('BUDGET_' + costCenter).getValue());
-  const spent = Number(ss.getRangeByName('SPENT_' + costCenter).getValue());
-  const future = spent + newAmount;
-  const pct = future / budget;
-  if (pct >= 1 && !override) {
-    throw new Error('Budget exceeded');
-  }
-  return pct >= 0.8;
-}
-
-/** Gmail notification */
-function sendMail(to, subject, html) {
-  GmailApp.sendEmail(to, subject, '', {htmlBody: html});
-}
-
-/** Google Chat notification */
-function sendChat(text) {
-  UrlFetchApp.fetch(CHAT_WEBHOOK, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify({text: text})
+function addCatalogItem(req) {
+  return withLock_(() => {
+    const { description, category } = req;
+    const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_CATALOG);
+    const sku = uuid_();
+    sheet.appendRow([sku, description, category, false]);
+    return { sku, description, category, archived: false };
   });
 }
 
-/** Fetch catalog items */
-function getCatalog() {
-  assertAuthorized();
-  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_CATALOG);
-  const values = sheet.getDataRange().getValues();
-  const header = values.shift();
-  return values.map(row => Object.fromEntries(row.map((v,i) => [header[i], v])));
-}
-
-/** Create a new order */
-function createOrder(order) {
-  assertAuthorized();
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
-  try {
-    const email = getUserEmail();
-    const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
-    const id = Utilities.getUuid();
-    const row = [id, new Date(), email, order.item, order.qty, order.est_cost, 'PENDING', '', '', order.override, order.justification];
-    sheet.appendRow(row);
-
-    const warn = checkBudget(order.cost_center, order.est_cost * order.qty, false);
-    if (warn) {
-      sendMail(email, 'Budget nearing limit', '<p>Budget has reached 80%.</p>');
+function setCatalogArchived(req) {
+  return withLock_(() => {
+    const { sku, archived } = req;
+    const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_CATALOG);
+    const values = sheet.getDataRange().getValues();
+    const header = values.shift();
+    const skuIdx = header.indexOf('sku');
+    const archIdx = header.indexOf('archived');
+    const row = values.findIndex(r => r[skuIdx] === sku);
+    if (row >= 0) {
+      sheet.getRange(row + 2, archIdx + 1).setValue(archived);
     }
-
-    sendMail(email, 'Request Submitted', '<p>Your supply request has been submitted.</p>');
-    sendChat('New supply request from ' + email);
-
-    logAudit({action: 'createOrder', id: id, order: order});
-    return {id: id};
-  } finally {
-    lock.releaseLock();
-  }
+    return 'OK';
+  });
 }
 
-/** List orders for current user */
-function listMyOrders() {
-  assertAuthorized();
-  const email = getUserEmail();
+function submitOrder(req) {
+  const session = getSession();
+  if (!session.isLt) throw new Error('Forbidden');
+  return withLock_(() => {
+    const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
+    req.lines.forEach(line => {
+      const approver = resolveApprover_(line);
+      sheet.appendRow([
+        uuid_(),
+        nowIso_(),
+        session.email,
+        line.description,
+        line.qty,
+        'PENDING',
+        approver
+      ]);
+      const html = `<p>${session.email} requested ${line.qty} × ${line.description}.</p>`;
+      GmailApp.sendEmail(approver, 'Supply Request', '', { htmlBody: html });
+    });
+    return 'OK';
+  });
+}
+
+function listMyOrders(req) {
+  init_();
+  const email = Session.getActiveUser().getEmail();
   const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
-  const values = sheet.getDataRange().getValues();
-  const header = values.shift();
-  return values.filter(r => r[2] === email).map(r => Object.fromEntries(r.map((v,i)=>[header[i], v])));
+  const rows = sheet.getDataRange().getValues();
+  const header = rows.shift();
+  return rows
+    .filter(r => r[header.indexOf('requester')] === email)
+    .map(r => Object.fromEntries(r.map((v, i) => [header[i], v])));
 }
 
-/** Approver: list pending orders */
-function listPendingOrders() {
-  assertAuthorized();
+function listPendingApprovals() {
+  const session = getSession();
+  if (!session.isAdmin) throw new Error('Forbidden');
   const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
-  const values = sheet.getDataRange().getValues();
-  const header = values.shift();
-  return values.filter(r => r[6] === 'PENDING').map(r => Object.fromEntries(r.map((v,i)=>[header[i], v])));
+  const rows = sheet.getDataRange().getValues();
+  const header = rows.shift();
+  return rows
+    .filter(r => r[header.indexOf('status')] === 'PENDING')
+    .map(r => Object.fromEntries(r.map((v, i) => [header[i], v])));
 }
 
-/** Bulk approve or deny orders */
-function decideOrders(ids, decision, comment) {
-  assertAuthorized();
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
-  try {
+function decideOrder(req) {
+  const session = getSession();
+  if (!session.isAdmin) throw new Error('Forbidden');
+  return withLock_(() => {
+    const { id, decision } = req;
     const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
     const values = sheet.getDataRange().getValues();
     const header = values.shift();
-    const idIndex = header.indexOf('id');
-    const statusIndex = header.indexOf('status');
-    const approverIndex = header.indexOf('approver');
-    const decisionTsIndex = header.indexOf('decision_ts');
+    const idIdx = header.indexOf('id');
+    const statusIdx = header.indexOf('status');
+    const approverIdx = header.indexOf('approver');
+    const row = values.findIndex(r => r[idIdx] === id);
+    if (row >= 0) {
+      const r = row + 2;
+      sheet.getRange(r, statusIdx + 1).setValue(decision);
+      sheet.getRange(r, approverIdx + 1).setValue(session.email);
+      const requester = values[row][header.indexOf('requester')];
+      const desc = values[row][header.indexOf('description')];
+      GmailApp.sendEmail(requester, 'Supply Request ' + decision, '', {
+        htmlBody: `<p>Your request for ${desc} was ${decision}.</p>`
+      });
+    }
+    return 'OK';
+  });
+}
 
-    ids.forEach(id => {
-      const rowNum = values.findIndex(r => r[idIndex] === id);
-      if (rowNum >= 0) {
-        const sheetRow = rowNum + 2; // offset for header
-        sheet.getRange(sheetRow, statusIndex+1).setValue(decision);
-        sheet.getRange(sheetRow, approverIndex+1).setValue(getUserEmail());
-        sheet.getRange(sheetRow, decisionTsIndex+1).setValue(new Date());
-        sendMail(values[rowNum][2], 'Request ' + decision, '<p>Your request was ' + decision.toLowerCase() + '.</p>');
-        logAudit({action: 'decide', id: id, decision: decision, comment: comment});
-      }
-    });
+function resolveApprover_(line) {
+  const catalog = getCatalog({ includeArchived: true });
+  const item = catalog.find(it => it.description === line.description);
+  const cat = item ? item.category : null;
+  return (cat && APPROVER_BY_CATEGORY[cat]) || STATIC_ADMINS[0];
+}
+
+function uuid_() {
+  return Utilities.getUuid();
+}
+
+function nowIso_() {
+  return new Date().toISOString();
+}
+
+function withLock_(fn) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    return fn();
   } finally {
     lock.releaseLock();
   }
-  return 'OK';
 }
 
-/** Spend analytics */
-function getSpendAnalytics() {
-  assertAuthorized();
-  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
-  const values = sheet.getDataRange().getValues();
-  const header = values.shift();
-  const estCostIndex = header.indexOf('est_cost');
-  const tsIndex = header.indexOf('ts');
-  const costCenterIndex = header.indexOf('cost_center');
-  const monthly = {};
-  const byCenter = {};
-  values.forEach(r => {
-    const month = Utilities.formatDate(r[tsIndex], Session.getScriptTimeZone(), 'yyyy-MM');
-    monthly[month] = (monthly[month] || 0) + r[estCostIndex];
-    const cc = r[costCenterIndex];
-    byCenter[cc] = (byCenter[cc] || 0) + r[estCostIndex];
+function getAdmins_() {
+  const props = PropertiesService.getScriptProperties();
+  const extra = props.getProperty(ADMIN_PROP);
+  return STATIC_ADMINS.concat(extra ? JSON.parse(extra) : []);
+}
+
+function init_() {
+  const ss = SpreadsheetApp.getActive();
+  let sheet = ss.getSheetByName(SHEET_ORDERS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_ORDERS);
+    sheet.appendRow(['id', 'ts', 'requester', 'description', 'qty', 'status', 'approver']);
+  }
+  sheet = ss.getSheetByName(SHEET_CATALOG);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_CATALOG);
+    sheet.appendRow(['sku', 'description', 'category', 'archived']);
+  }
+  seedCatalogIfEmpty_();
+}
+
+function seedCatalogIfEmpty_() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_CATALOG);
+  if (sheet.getLastRow() > 1) return;
+  Object.keys(STOCK_LIST).forEach(cat => {
+    STOCK_LIST[cat].forEach(desc => {
+      sheet.appendRow([uuid_(), desc, cat, false]);
+    });
   });
-  return {monthly, byCenter};
 }
 
-/** Developer console: add developer email */
-function addDeveloper(email) {
-  if (!isDeveloper(getUserEmail())) throw new Error('Forbidden');
-  const props = PropertiesService.getScriptProperties();
-  const list = getDeveloperEmails().filter(e => !STATIC_DEVS.includes(e));
-  if (!list.includes(email)) list.push(email);
-  props.setProperty(DEV_PROP_KEY, JSON.stringify(list));
-  return list;
-}
-
-/** Developer console: remove developer email */
-function removeDeveloper(email) {
-  if (!isDeveloper(getUserEmail())) throw new Error('Forbidden');
-  const props = PropertiesService.getScriptProperties();
-  let list = getDeveloperEmails().filter(e => !STATIC_DEVS.includes(e));
-  list = list.filter(e => e !== email);
-  props.setProperty(DEV_PROP_KEY, JSON.stringify(list));
-  return list;
-}
-
-/** Daily trigger digest */
-function sendDailyDigest() {
-  const pending = listPendingOrders();
-  if (!pending.length) return;
-  const emails = getDeveloperEmails();
-  const html = pending.map(p => `<li>${p.item} - ${p.requester}</li>`).join('');
-  sendMail(emails.join(','), 'Pending Approvals', `<ul>${html}</ul>`);
-}
-
-/** doGet - renders index.html */
 function doGet() {
-  assertAuthorized();
-  const template = HtmlService.createTemplateFromFile('index');
-  template.userEmail = getUserEmail();
-  return template.evaluate()
-    .setTitle('Supplies Ordering')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  init_();
+  return HtmlService.createTemplateFromFile('index')
+    .evaluate()
+    .setTitle('Supplies Tracker')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// Enable HTML includes
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
