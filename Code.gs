@@ -135,8 +135,9 @@ function submitRequest(payload) {
   }
 
   return withScriptLock_(function () {
-    var ss = SpreadsheetApp.getActive();
-    var sh = ss.getSheetByName('Orders');
+    init_();
+    var ss = getSs_();
+    var sh = ss.getSheetByName(SHEET_ORDERS);
     if (!sh) throw new Error('Orders sheet not found.');
 
     var now = new Date();
