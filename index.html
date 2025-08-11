@@ -6,6 +6,9 @@
   <title>Supplies Tracker</title>
   <style>
     body{font-family:Arial,sans-serif;margin:0;padding:0;}
+    header{display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.5rem;background:#1a73e8;color:#fff;}
+    header img{height:40px;}
+    header h1{font-size:1.25rem;margin:0;}
     nav{display:flex;gap:0.5rem;padding:0.5rem;background:#f5f5f5;flex-wrap:wrap;}
     nav button{flex:1 1 auto;}
     .hidden{display:none;}
@@ -21,6 +24,10 @@
   </style>
 </head>
 <body>
+  <header>
+    <img src="https://www.dublincleaners.com/wp-content/uploads/2025/06/LogosHQ.png" alt="Dublin Cleaners logo">
+    <h1>Supplies Order & Tracking</h1>
+  </header>
   <nav id="nav">
     <button class="btn" data-view="request">Request</button>
     <button class="btn" data-view="myRequests">My Requests</button>
