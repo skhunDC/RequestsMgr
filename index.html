@@ -114,8 +114,28 @@
       modal.classList.remove('hidden');
       const chk = document.getElementById('ackChk');
       const btn = document.getElementById('ackBtn');
-      chk.onchange=()=> btn.disabled=!chk.checked;
-      btn.onclick=()=>{modal.classList.add('hidden'); alert('Submitted!');};
+      // reset state each time modal is shown
+      chk.checked = false;
+      // ensure the continue button starts disabled
+      btn.setAttribute('disabled', '');
+
+      const toggle = () => {
+        if (chk.checked) {
+          btn.removeAttribute('disabled');
+        } else {
+          btn.setAttribute('disabled', '');
+        }
+      };
+      // reset any prior handlers then wire up fresh ones
+      chk.onclick = null;
+      chk.addEventListener('click', toggle);
+
+      btn.onclick = () => {
+        if (btn.hasAttribute('disabled')) return;
+        modal.classList.add('hidden');
+        // return user to the main request page after acknowledging
+        render('request');
+      };
     }
 
     /** My Requests */
