@@ -2,23 +2,7 @@
 
 const SHEET_ORDERS = 'Orders';
 const SHEET_CATALOG = 'Catalog';
-const SHEET_ARCHIVE = 'OrdersArchive';
 const SS_ID_PROP = 'SS_ID';
-const ORDERS_HEADERS = [
-  'id',
-  'ts',
-  'requester',
-  'item',
-  'qty',
-  'est_cost',
-  'status',
-  'approver',
-  'decision_ts',
-  'override?',
-  'justification',
-  'cost_center',
-  'gl_code'
-];
 
 const STOCK_LIST = {
   Office: [
@@ -128,13 +112,7 @@ function submitOrder(payload) {
         session.email,
         line.description,
         Number(line.qty),
-        '',
         'PENDING',
-        '',
-        '',
-        '',
-        '',
-        '',
         ''
       ]);
       ids.push(id);
@@ -143,36 +121,17 @@ function submitOrder(payload) {
   return ids;
 }
 
-function listRecentOrders() {
+function listMyOrders(req) {
   init_();
+  const email = (req && req.email) || getSession().email;
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
-  const archive = getOrCreateSheet(SHEET_ARCHIVE, ORDERS_HEADERS);
   const rows = sheet.getDataRange().getValues();
   const header = rows.shift();
-  const tsIdx = header.indexOf('ts');
-  const now = new Date();
-  const cutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-  const recent = [];
-  const old = [];
-  rows.forEach(r => {
-    const ts = new Date(r[tsIdx]);
-    if (ts >= cutoff) {
-      recent.push(r);
-    } else {
-      old.push(r);
-    }
-  });
-  if (old.length) {
-    withLock_(() => {
-      old.forEach(r => archive.appendRow(r));
-      for (let i = rows.length - 1; i >= 0; i--) {
-        const ts = new Date(rows[i][tsIdx]);
-        if (ts < cutoff) sheet.deleteRow(i + 2);
-      }
-    });
-  }
-  recent.sort((a, b) => new Date(b[tsIdx]) - new Date(a[tsIdx]));
-  return recent.map(r => Object.fromEntries(header.map((h, i) => [h, r[i]])));
+  const idx = header.map(h => String(h).toLowerCase());
+  const reqIdx = idx.indexOf('requester');
+  return rows
+    .filter(r => reqIdx >= 0 && r[reqIdx] === email)
+    .map(r => Object.fromEntries(header.map((h, i) => [h, r[i]])));
 }
 
 function listPendingApprovals() {
@@ -218,27 +177,12 @@ function nowIso_() {
   return new Date().toISOString();
 }
 
-function getOrCreateSheet(name, headers) {
-  const ss = getSs_();
-  let sheet = ss.getSheetByName(name);
-  if (!sheet) {
-    sheet = ss.insertSheet(name);
-  }
-  const current = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
-  const match = headers.every((h, i) => h === current[i]);
-  if (!match) {
-    sheet.clear();
-    sheet.appendRow(headers);
-  }
-  return sheet;
-}
-
 function withLock_(fn) {
+  // Standalone scripts don't have a document context, so `getDocumentLock`
+  // can return `null`. Use a script lock instead to avoid null dereference
+  // errors when submitting orders.
   const lock = LockService.getScriptLock();
-  const success = lock.tryLock(5000);
-  if (!success) {
-    throw new Error('Could not obtain lock');
-  }
+  lock.waitLock(30000);
   try {
     return fn();
   } finally {
@@ -246,58 +190,14 @@ function withLock_(fn) {
   }
 }
 
-function createOrder_(payload) {
-  const sheet = getOrCreateSheet(SHEET_ORDERS, ORDERS_HEADERS);
-  const id = Utilities.getUuid();
-  const ts = new Date().toISOString();
-  const requester = Session.getActiveUser().getEmail() || 'unknown@local';
-  const qty = Number(payload.qty);
-  const estCost = Number(payload.est_cost);
-  const override = String(payload.override || 'NO');
-  const row = [
-    id,
-    ts,
-    requester,
-    String(payload.item || ''),
-    qty,
-    estCost,
-    'PENDING',
-    '',
-    '',
-    override,
-    String(payload.justification || ''),
-    String(payload.cost_center || ''),
-    String(payload.gl_code || '')
-  ];
-  withLock_(() => sheet.appendRow(row));
-  return { ok: true, id, status: 'PENDING' };
-}
-
-function jsonResponse_(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function doPost(e) {
-  try {
-    const action = (e.parameter && e.parameter.action) || '';
-    const payload = e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
-    if (action === 'createOrder') {
-      return jsonResponse_(createOrder_(payload));
-    }
-    if (action === 'getOrders') {
-      return jsonResponse_({ ok: true, rows: listRecentOrders() });
-    }
-    return jsonResponse_({ ok: false, error: 'Unknown action' });
-  } catch (err) {
-    return jsonResponse_({ ok: false, error: err.message });
-  }
-}
-
 function init_() {
   const ss = getSs_();
-  getOrCreateSheet(SHEET_ORDERS, ORDERS_HEADERS);
-  let sheet = ss.getSheetByName(SHEET_CATALOG);
+  let sheet = ss.getSheetByName(SHEET_ORDERS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_ORDERS);
+    sheet.appendRow(['id', 'ts', 'requester', 'description', 'qty', 'status', 'approver']);
+  }
+  sheet = ss.getSheetByName(SHEET_CATALOG);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_CATALOG);
     sheet.appendRow(['sku', 'description', 'category', 'archived']);
