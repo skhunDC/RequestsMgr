@@ -23,153 +23,254 @@
 <body>
   <nav id="nav">
     <button class="btn" data-view="request">Request</button>
-    <button class="btn" data-view="my">My Requests</button>
-    <button class="btn hidden" data-view="approve" id="approveNav">Approvals</button>
+    <button class="btn" data-view="myRequests">My Requests</button>
+    <button class="btn hidden" data-view="approvals" id="approveNav">Approvals</button>
     <button class="btn hidden" data-view="catalog" id="catalogNav">Catalog</button>
   </nav>
   <main id="main" class="p-2"></main>
   <script type="module">
-  const state = { session:null, cart:[] };
+  const store = {
+    session: null,
+    cart: { lines: [] },
+    route: 'request'
+  };
 
-  google.script.run.withSuccessHandler(s=>{
-    state.session=s;
-    if(!s.isLt){
-      document.body.innerHTML='<p class="p-2">Access denied</p>';
+  google.script.run.withSuccessHandler(s => {
+    store.session = s;
+    if (!s.isLt) {
+      document.body.innerHTML = '<p class="p-2">Access denied</p>';
       return;
     }
-    if(s.isAdmin){
+    if (s.isAdmin) {
       document.getElementById('approveNav').classList.remove('hidden');
       document.getElementById('catalogNav').classList.remove('hidden');
     }
-    document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>render(b.dataset.view)));
-    render('request');
+    document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
+    renderRoute();
   }).getSession();
 
-  function render(view){
-    const main=document.getElementById('main');
-    main.innerHTML='';
-    if(view==='request') return renderRequest(main);
-    if(view==='my') return renderMy(main);
-    if(view==='approve') return renderApprove(main);
-    if(view==='catalog') return renderCatalog(main);
+  function navigate(route) {
+    store.route = route;
+    renderRoute();
   }
 
-  function renderRequest(main){
-    main.innerHTML=`<h2>Request Supplies</h2>
+  function renderRoute() {
+    const main = document.getElementById('main');
+    main.innerHTML = '';
+    if (store.route === 'request') return renderRequest(main);
+    if (store.route === 'myRequests') return loadMyRequests();
+    if (store.route === 'approvals') return loadApprovals();
+    if (store.route === 'catalog') return renderCatalog(main);
+  }
+
+  function renderRequest(main) {
+    main.innerHTML = `<h2>Request Supplies</h2>
       <input id="search" class="input" placeholder="Search">
       <div id="chips"></div>
       <table id="stock"><thead><tr><th>Description</th><th>Category</th><th>Qty</th><th></th></tr></thead><tbody></tbody></table>
       <h3>Custom Item</h3>
       <div><input id="cDesc" class="input" placeholder="Description"> <input id="cQty" type="number" min="1" value="1" class="input" style="width:4rem;"> <button id="cAdd" class="btn">Add</button></div>
       <h3>Cart</h3>
-      <ul id="cart"></ul>
-      <button id="submit" class="btn" disabled>Submit</button>`;
-    const tbody=main.querySelector('#stock tbody');
-    const chipsDiv=main.querySelector('#chips');
-    ['All','Office','Cleaning','Operations'].forEach(c=>{
-      const chip=document.createElement('span');
-      chip.textContent=c;chip.dataset.cat=c;chip.className='chip'+(c==='All'?' active':'');
-      chip.onclick=()=>{chipsDiv.querySelectorAll('.chip').forEach(ch=>ch.classList.remove('active'));chip.classList.add('active');filter();};
+      <ul id="cartList"></ul>
+      <button id="submitBtn" class="btn" disabled>Submit</button>`;
+
+    const tbody = main.querySelector('#stock tbody');
+    const chipsDiv = main.querySelector('#chips');
+    ['All', 'Office', 'Cleaning', 'Operations'].forEach(c => {
+      const chip = document.createElement('span');
+      chip.textContent = c;
+      chip.dataset.cat = c;
+      chip.className = 'chip' + (c === 'All' ? ' active' : '');
+      chip.onclick = () => {
+        chipsDiv.querySelectorAll('.chip').forEach(ch => ch.classList.remove('active'));
+        chip.classList.add('active');
+        filter();
+      };
       chipsDiv.appendChild(chip);
     });
-    document.getElementById('search').addEventListener('input',filter);
-    let items=[];
-    google.script.run.withSuccessHandler(list=>{items=list;filter();}).getCatalog({});
-    function filter(){
-      const q=document.getElementById('search').value.toLowerCase();
-      const cat=chipsDiv.querySelector('.chip.active').dataset.cat;
-      tbody.innerHTML='';
-      items.filter(it=>{
-        const matchText=it.description.toLowerCase().includes(q);
-        const matchCat=cat==='All'||it.category===cat;
-        return !it.archived&&matchText&&matchCat;
-      }).forEach(it=>{
-        const tr=document.createElement('tr');
-        tr.innerHTML=`<td>${it.description}</td><td>${it.category}</td><td><button class="qm">-</button><input type="number" value="1" min="1" class="qty" style="width:3rem;"><button class="qp">+</button></td><td><button class="add btn">Add</button></td>`;
-        const qty=tr.querySelector('.qty');
-        tr.querySelector('.qm').onclick=()=>qty.value=Math.max(1,qty.value-1);
-        tr.querySelector('.qp').onclick=()=>qty.value=Number(qty.value)+1;
-        tr.querySelector('.add').onclick=()=>{state.cart.push({description:it.description,qty:Number(qty.value)});updateCart();};
+    document.getElementById('search').addEventListener('input', filter);
+    let items = [];
+    google.script.run.withSuccessHandler(list => { items = list; filter(); }).getCatalog({});
+
+    function filter() {
+      const q = document.getElementById('search').value.toLowerCase();
+      const cat = chipsDiv.querySelector('.chip.active').dataset.cat;
+      tbody.innerHTML = '';
+      items.filter(it => {
+        const matchText = it.description.toLowerCase().includes(q);
+        const matchCat = cat === 'All' || it.category === cat;
+        return !it.archived && matchText && matchCat;
+      }).forEach(it => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${it.description}</td><td>${it.category}</td><td><button class="qm">-</button><input type="number" value="1" min="1" class="qty" style="width:3rem;"><button class="qp">+</button></td><td><button class="add btn" data-desc="${it.description}">Add</button></td>`;
+        const qty = tr.querySelector('.qty');
+        tr.querySelector('.qm').onclick = () => qty.value = Math.max(1, qty.value - 1);
+        tr.querySelector('.qp').onclick = () => qty.value = Number(qty.value) + 1;
+        tr.querySelector('.add').onclick = () => addLine(it.description, Number(qty.value));
         tbody.appendChild(tr);
       });
     }
-    document.getElementById('cAdd').onclick=()=>{
-      const desc=document.getElementById('cDesc').value.trim();
-      const qty=Number(document.getElementById('cQty').value);
-      if(desc&&qty>0){
-        state.cart.push({description:desc,qty});
-        document.getElementById('cDesc').value='';
-        document.getElementById('cQty').value='1';
-        updateCart();
-      }
+
+    document.getElementById('cAdd').onclick = () => {
+      const desc = document.getElementById('cDesc').value.trim();
+      const qty = Number(document.getElementById('cQty').value);
+      addLine(desc, qty);
+      document.getElementById('cDesc').value = '';
+      document.getElementById('cQty').value = '1';
     };
-    document.getElementById('submit').onclick=()=>{
-      google.script.run.withSuccessHandler(()=>{state.cart=[];updateCart();renderMy(document.getElementById('main'));}).submitOrder({lines:state.cart});
-    };
-    function updateCart(){
-      const ul=document.getElementById('cart');
-      ul.innerHTML='';
-      state.cart.forEach((l,i)=>{
-        const li=document.createElement('li');
-        li.textContent=`${l.qty} × ${l.description}`;
-        const b=document.createElement('button');b.textContent='✕';b.onclick=()=>{state.cart.splice(i,1);updateCart();};
-        li.appendChild(b);ul.appendChild(li);
-      });
-      document.getElementById('submit').disabled=!state.cart.length;
+
+    submitBtn = document.getElementById('submitBtn');
+    submitBtn.addEventListener('click', submitHandler);
+    renderCart();
+    updateSubmitState();
+  }
+
+  function addLine(desc, qty = 1) {
+    if (!desc || qty < 1) return;
+    store.cart.lines.push({ description: desc.trim(), qty: Number(qty) });
+    renderCart();
+    updateSubmitState();
+  }
+
+  let submitBtn;
+  function renderCart() {
+    const ul = document.getElementById('cartList');
+    if (!ul) return;
+    ul.innerHTML = '';
+    store.cart.lines.forEach((l, i) => {
+      const li = document.createElement('li');
+      li.textContent = `${l.qty} × ${l.description}`;
+      const btn = document.createElement('button');
+      btn.textContent = '✕';
+      btn.onclick = () => {
+        store.cart.lines.splice(i, 1);
+        renderCart();
+        updateSubmitState();
+      };
+      li.appendChild(btn);
+      ul.appendChild(li);
+    });
+  }
+
+  function updateSubmitState() {
+    if (!submitBtn) return;
+    submitBtn.disabled = store.cart.lines.length === 0;
+  }
+
+  function setSubmitting(is) {
+    if (!submitBtn) return;
+    submitBtn.disabled = is || store.cart.lines.length === 0;
+    submitBtn.textContent = is ? 'Submitting…' : 'Submit';
+  }
+
+  function submitHandler() {
+    if (store.cart.lines.length === 0) return toast('Add at least one item.');
+    setSubmitting(true);
+    const payload = { lines: store.cart.lines.map(l => ({ description: l.description, qty: l.qty })) };
+
+    google.script.run
+      .withSuccessHandler(ids => {
+        store.cart.lines = [];
+        renderCart();
+        navigate('myRequests');
+        loadMyRequests();
+        toast('Request sent for approval.');
+        setSubmitting(false);
+      })
+      .withFailureHandler(err => {
+        toast('Submit failed: ' + (err && err.message ? err.message : err));
+        setSubmitting(false);
+      })
+      .submitOrder(payload);
+  }
+
+  function loadMyRequests() {
+    google.script.run
+      .withSuccessHandler(rows => renderMyRequests(rows))
+      .listMyOrders({ email: store.session.email });
+  }
+
+  function renderMyRequests(rows) {
+    const main = document.getElementById('main');
+    main.innerHTML = '<h2>My Requests</h2><table><thead><tr><th>Date</th><th>Description</th><th>Qty</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>';
+    const tbody = main.querySelector('tbody');
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.ts}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td>${r.approver}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function loadApprovals() {
+    google.script.run
+      .withSuccessHandler(rows => renderApprovals(rows))
+      .listPendingApprovals();
+  }
+
+  function renderApprovals(rows) {
+    const main = document.getElementById('main');
+    main.innerHTML = '<h2>Pending Approvals</h2><table><thead><tr><th>Date</th><th>Requester</th><th>Description</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
+    const tbody = main.querySelector('tbody');
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.ts}</td><td>${r.requester}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td><button class="btn ap">Approve</button> <button class="btn dn">Deny</button></td>`;
+      tr.querySelector('.ap').onclick = () => decide(r.id, 'APPROVED');
+      tr.querySelector('.dn').onclick = () => decide(r.id, 'DENIED');
+      tbody.appendChild(tr);
+    });
+
+    function decide(id, decision) {
+      google.script.run
+        .withSuccessHandler(() => loadApprovals())
+        .decideOrder({ id, decision });
     }
   }
 
-  function renderMy(main){
-    google.script.run.withSuccessHandler(rows=>{
-      main.innerHTML='<h2>My Requests</h2><table><thead><tr><th>Date</th><th>Description</th><th>Qty</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>';
-      const tbody=main.querySelector('tbody');
-      rows.forEach(r=>{
-        const tr=document.createElement('tr');
-        tr.innerHTML=`<td>${r.ts}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td>${r.approver}</td>`;
-        tbody.appendChild(tr);
-      });
-    }).listMyOrders({email:state.session.email});
-  }
-
-  function renderApprove(main){
-    google.script.run.withSuccessHandler(rows=>{
-      main.innerHTML='<h2>Pending Approvals</h2><table><thead><tr><th>Date</th><th>Requester</th><th>Description</th><th>Qty</th><th>Actions</th></tr></thead><tbody></tbody></table>';
-      const tbody=main.querySelector('tbody');
-      rows.forEach(r=>{
-        const tr=document.createElement('tr');
-        tr.innerHTML=`<td>${r.ts}</td><td>${r.requester}</td><td>${r.description}</td><td>${r.qty}</td><td><button class="btn ap">Approve</button> <button class="btn dn">Deny</button></td>`;
-        tr.querySelector('.ap').onclick=()=>decide(r.id,'APPROVED');
-        tr.querySelector('.dn').onclick=()=>decide(r.id,'DENIED');
-        tbody.appendChild(tr);
-      });
-      function decide(id,decision){
-        google.script.run.withSuccessHandler(()=>renderApprove(main)).decideOrder({id,decision});
-      }
-    }).listPendingApprovals();
-  }
-
-  function renderCatalog(main){
-    main.innerHTML='<h2>Catalog Manager</h2><div><input id="nDesc" class="input" placeholder="Description"> <select id="nCat" class="input"><option>Office</option><option>Cleaning</option><option>Operations</option></select> <button id="nAdd" class="btn">Add</button></div><table><thead><tr><th>Description</th><th>Category</th><th>Archived</th><th></th></tr></thead><tbody></tbody></table>';
-    const tbody=main.querySelector('tbody');
-    function load(){
-      google.script.run.withSuccessHandler(items=>{
-        tbody.innerHTML='';
-        items.forEach(it=>{
-          const tr=document.createElement('tr');
-          tr.innerHTML=`<td>${it.description}</td><td>${it.category}</td><td>${it.archived}</td><td><button class="btn tg">${it.archived?'Unarchive':'Archive'}</button></td>`;
-          tr.querySelector('.tg').onclick=()=>{google.script.run.withSuccessHandler(load).setCatalogArchived({sku:it.sku,archived:!it.archived});};
+  function renderCatalog(main) {
+    main.innerHTML = '<h2>Catalog Manager</h2><div><input id="nDesc" class="input" placeholder="Description"> <select id="nCat" class="input"><option>Office</option><option>Cleaning</option><option>Operations</option></select> <button id="nAdd" class="btn">Add</button></div><table><thead><tr><th>Description</th><th>Category</th><th>Archived</th><th></th></tr></thead><tbody></tbody></table>';
+    const tbody = main.querySelector('tbody');
+    function load() {
+      google.script.run.withSuccessHandler(items => {
+        tbody.innerHTML = '';
+        items.forEach(it => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${it.description}</td><td>${it.category}</td><td>${it.archived}</td><td><button class="btn tg">${it.archived ? 'Unarchive' : 'Archive'}</button></td>`;
+          tr.querySelector('.tg').onclick = () => {
+            google.script.run.withSuccessHandler(load).setCatalogArchived({ sku: it.sku, archived: !it.archived });
+          };
           tbody.appendChild(tr);
         });
-      }).getCatalog({includeArchived:true});
+      }).getCatalog({ includeArchived: true });
     }
     load();
-    main.querySelector('#nAdd').onclick=()=>{
-      const desc=main.querySelector('#nDesc').value.trim();
-      const cat=main.querySelector('#nCat').value;
-      if(desc){
-        google.script.run.withSuccessHandler(()=>{main.querySelector('#nDesc').value='';load();}).addCatalogItem({description:desc,category:cat});
+    main.querySelector('#nAdd').onclick = () => {
+      const desc = main.querySelector('#nDesc').value.trim();
+      const cat = main.querySelector('#nCat').value;
+      if (desc) {
+        google.script.run.withSuccessHandler(() => {
+          main.querySelector('#nDesc').value = '';
+          load();
+        }).addCatalogItem({ description: desc, category: cat });
       }
     };
+  }
+
+  function toast(msg) {
+    const div = document.createElement('div');
+    div.textContent = msg;
+    Object.assign(div.style, {
+      position: 'fixed',
+      bottom: '1rem',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: '#323232',
+      color: '#fff',
+      padding: '0.5rem 1rem',
+      borderRadius: '4px',
+      zIndex: '1000'
+    });
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 3000);
   }
   </script>
 </body>
