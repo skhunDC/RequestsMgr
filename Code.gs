@@ -59,7 +59,8 @@ function submitOrder_(email, p){
       gl_code: p.gl_code || ''
     };
     const row = new Array(ORDERS_HEADERS.length).fill('');
-    ORDERS_HEADERS.forEach(h => { row[map[h]-1] = order[h]; });
+    // Use traditional function syntax for Apps Script compatibility
+    ORDERS_HEADERS.forEach(function(h){ row[map[h]-1] = order[h]; });
     sheet.appendRow(row);
     SpreadsheetApp.flush();
     appendAudit_(email, SHEET_ORDERS, order.id, 'create', order);
@@ -75,12 +76,14 @@ function listMyRequests_(email){
   const lastRow = sheet.getLastRow();
   if(lastRow < 2) return [];
   const values = sheet.getRange(2,1,lastRow-1,sheet.getLastColumn()).getValues();
-  const orders = values.map(r => {
+  const orders = values.map(function(r){
     const obj = {};
-    ORDERS_HEADERS.forEach(h => { obj[h] = r[map[h]-1]; });
+    ORDERS_HEADERS.forEach(function(h){ obj[h] = r[map[h]-1]; });
     return obj;
   });
-  return orders.filter(o => o.requester === email).sort((a,b)=> new Date(b.ts) - new Date(a.ts));
+  return orders
+    .filter(function(o){ return o.requester === email; })
+    .sort(function(a,b){ return new Date(b.ts) - new Date(a.ts); });
 }
 
 function listApprovals_(email){
@@ -90,12 +93,14 @@ function listApprovals_(email){
   const lastRow = sheet.getLastRow();
   if(lastRow < 2) return [];
   const values = sheet.getRange(2,1,lastRow-1,sheet.getLastColumn()).getValues();
-  const orders = values.map(r => {
+  const orders = values.map(function(r){
     const obj = {};
-    ORDERS_HEADERS.forEach(h => { obj[h] = r[map[h]-1]; });
+    ORDERS_HEADERS.forEach(function(h){ obj[h] = r[map[h]-1]; });
     return obj;
   });
-  return orders.filter(o => o.status === 'PENDING').sort((a,b)=> new Date(b.ts) - new Date(a.ts));
+  return orders
+    .filter(function(o){ return o.status === 'PENDING'; })
+    .sort(function(a,b){ return new Date(b.ts) - new Date(a.ts); });
 }
 
 function bulkDecision_(email, p){
@@ -119,8 +124,8 @@ function bulkDecision_(email, p){
     const approverIdx = map.approver - 1;
     const decisionTsIdx = map.decision_ts - 1;
     const now = new Date();
-    p.ids.forEach(id => {
-      const rowIndex = values.findIndex(r => r[idIdx] === id);
+    p.ids.forEach(function(id){
+      const rowIndex = values.findIndex(function(r){ return r[idIdx] === id; });
       if(rowIndex === -1) return;
       const current = values[rowIndex][statusIdx];
       const allowed = current === 'PENDING' ? ['APPROVED','DENIED','ON-HOLD'] : current === 'ON-HOLD' ? ['APPROVED','DENIED'] : [];
@@ -129,7 +134,7 @@ function bulkDecision_(email, p){
       values[rowIndex][approverIdx] = email;
       values[rowIndex][decisionTsIdx] = now;
       const obj = {};
-      ORDERS_HEADERS.forEach(h => { obj[h] = values[rowIndex][map[h]-1]; });
+      ORDERS_HEADERS.forEach(function(h){ obj[h] = values[rowIndex][map[h]-1]; });
       updated.push(obj);
       appendAudit_(email, SHEET_ORDERS, id, 'decision', {status: decision, comment: p.comment || ''});
     });
@@ -156,7 +161,7 @@ function getOrCreateSheet_(name, headers){
 function getHeaderMap_(sheet, headers){
   const existing = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
   const map = {};
-  headers.forEach(h => {
+  headers.forEach(function(h){
     const idx = existing.indexOf(h);
     if(idx === -1) throw new Error('Missing header "'+h+'" in sheet "'+sheet.getName()+'"');
     map[h] = idx+1;
