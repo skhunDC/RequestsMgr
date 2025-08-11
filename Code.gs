@@ -207,15 +207,6 @@ function handleAction_(email, action, payload) {
       const rec = getUserRecord(email);
       return { email, role: rec ? rec.role : null, devConsoleAllowed: isDevConsoleAllowed(email) };
     }
-    case 'users.list':
-      requireRole(['developer', 'super_admin']);
-      return listUsers_();
-    case 'users.upsert':
-      requireRole(['developer', 'super_admin']);
-      return withLock(() => upsertUser_(payload));
-    case 'users.remove':
-      requireRole(['developer', 'super_admin']);
-      return withLock(() => removeUser_(payload));
     case 'catalog.list':
       requireLoggedIn();
       return getCatalog(payload);
@@ -245,68 +236,6 @@ function handleAction_(email, action, payload) {
 function mapError_(err) {
   const message = (err && err.message) || String(err);
   return { ok: false, error: message };
-}
-
-// ----- Users API -----
-function listUsers_() {
-  const sheet = getOrCreateSheet(SHEET_USERS);
-  ensureHeaders(sheet, ['email', 'role', 'active', 'added_ts', 'added_by']);
-  const rows = sheet.getDataRange().getValues();
-  const header = rows.shift();
-  const emailIdx = header.indexOf('email');
-  const roleIdx = header.indexOf('role');
-  const activeIdx = header.indexOf('active');
-  return rows
-    .filter(r => r[emailIdx])
-    .map(r => ({
-      email: safeLower(r[emailIdx]),
-      role: r[roleIdx],
-      active: r[activeIdx] === true || String(r[activeIdx]).toUpperCase() === 'TRUE',
-    }));
-}
-
-function upsertUser_(user) {
-  const email = safeLower(user.email);
-  if (!email) throw new Error('VALIDATION');
-  const role = user.role;
-  if (!role) throw new Error('VALIDATION');
-  const active = user.active !== false;
-  const sheet = getOrCreateSheet(SHEET_USERS);
-  ensureHeaders(sheet, ['email', 'role', 'active', 'added_ts', 'added_by']);
-  const rows = sheet.getDataRange().getValues();
-  const header = rows.shift();
-  const emailIdx = header.indexOf('email');
-  const roleIdx = header.indexOf('role');
-  const activeIdx = header.indexOf('active');
-  const tsIdx = header.indexOf('added_ts');
-  const byIdx = header.indexOf('added_by');
-  const row = rows.findIndex(r => safeLower(r[emailIdx]) === email);
-  if (row >= 0) {
-    const rNum = row + 2;
-    sheet.getRange(rNum, roleIdx + 1).setValue(role);
-    sheet.getRange(rNum, activeIdx + 1).setValue(active);
-  } else {
-    sheet.appendRow([email, role, active, nowIso(), getActiveEmail()]);
-  }
-  appendAudit('users.upsert', { email, role, active });
-  return { email, role, active };
-}
-
-function removeUser_(payload) {
-  const email = safeLower(payload.email);
-  if (!email) throw new Error('VALIDATION');
-  const sheet = getOrCreateSheet(SHEET_USERS);
-  ensureHeaders(sheet, ['email', 'role', 'active', 'added_ts', 'added_by']);
-  const rows = sheet.getDataRange().getValues();
-  const header = rows.shift();
-  const emailIdx = header.indexOf('email');
-  const activeIdx = header.indexOf('active');
-  const row = rows.findIndex(r => safeLower(r[emailIdx]) === email);
-  if (row >= 0) {
-    sheet.getRange(row + 2, activeIdx + 1).setValue(false);
-    appendAudit('users.remove', { email });
-  }
-  return 'OK';
 }
 
 // ----- Catalog & Orders -----

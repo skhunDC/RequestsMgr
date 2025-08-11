@@ -18,15 +18,12 @@
     th,td{padding:0.5rem;border-bottom:1px solid #ddd;}
     .stripe-odd{background:#fff;}
     .stripe-even{background:#f2f2f2;}
-    .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;}
-    .modal-content{background:#fff;padding:1rem;border-radius:4px;max-height:90%;overflow:auto;}
   </style>
 </head>
 <body>
-  <header>
-    <h1>Supplies Order & Tracking</h1>
-    <button id="manageBtn" class="btn hidden">Manage Access</button>
-  </header>
+    <header>
+      <h1>Supplies Order & Tracking</h1>
+    </header>
 
   <div id="loginPrompt" class="p-2 hidden">
     <p>Please log into your Google account, then refresh.</p>
@@ -43,31 +40,16 @@
 
   <main id="main" class="p-2"></main>
 
-  <div id="userModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
-    <div class="modal-content">
-      <h2 id="userModalTitle">Manage Access</h2>
-      <table><thead><tr><th>Email</th><th>Role</th><th>Active</th><th>Actions</th></tr></thead><tbody id="userTable"></tbody></table>
-      <div id="addRow" style="margin-top:0.5rem;">
-        <input id="newEmail" class="input" placeholder="email">
-        <select id="newRole" class="input"></select>
-        <button id="addUserBtn" class="btn">Add</button>
-        <button id="closeModal" class="btn">Close</button>
-      </div>
-    </div>
-  </div>
 
   <script type="module">
     const BOOTSTRAP = <?!= JSON.stringify(BOOTSTRAP) ?>;
     const { email, role, isLoggedIn, devConsoleAllowed, csrf } = BOOTSTRAP;
     const webAppUrl = window.location.href;
-    const ALL_ROLES = ['viewer','requester','approver','developer','super_admin'];
-
     const hasRole = (...r) => r.includes(role);
 
     const loginPrompt = document.getElementById('loginPrompt');
     const nav = document.getElementById('nav');
     const main = document.getElementById('main');
-    const manageBtn = document.getElementById('manageBtn');
 
     function applyZebra(container){
       [...container.children].filter(el=>el.offsetParent!==null).forEach((el,i)=>{
@@ -87,12 +69,8 @@
       if (!hasRole('developer','super_admin')) document.getElementById('navCat').classList.add('hidden');
       if (!devConsoleAllowed) document.getElementById('navDev').classList.add('hidden');
       document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
-      if (devConsoleAllowed) {
-        manageBtn.classList.remove('hidden');
-        manageBtn.onclick = openUserModal;
-      }
       navigate('request');
-    }
+      }
 
     async function api(action, payload = {}) {
       const res = await fetch(webAppUrl, {
@@ -189,60 +167,11 @@
       document.getElementById('nAdd').onclick=async()=>{const desc=main.querySelector('#nDesc').value.trim();const cat=main.querySelector('#nCat').value;if(desc){await api('catalog.add',{description:desc,category:cat});main.querySelector('#nDesc').value='';load();}};
     }
 
-    function renderDev(){
-      main.innerHTML='<h2>Developer Console</h2><p>Developer tools placeholder.</p>';
-    }
+      function renderDev(){
+        main.innerHTML='<h2>Developer Console</h2><p>Developer tools placeholder.</p>';
+      }
 
-    // ----- Users Modal -----
-    function roleSelect(val){return `<select class="roleSel">${ALL_ROLES.map(r=>`<option value="${r}" ${r===val?'selected':''}>${r}</option>`).join('')}</select>`;}
-
-    async function openUserModal(){
-      await loadUsers();
-      document.getElementById('userModal').classList.remove('hidden');
-    }
-    document.getElementById('closeModal').onclick=()=>document.getElementById('userModal').classList.add('hidden');
-    window.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('userModal').classList.add('hidden');});
-
-    async function loadUsers(){
-      const tbody=document.getElementById('userTable');
-      const users=await api('users.list');
-      tbody.innerHTML='';
-      users.forEach(u=>{
-        const tr=document.createElement('tr');
-        tr.innerHTML=`<td>${u.email}</td><td>${roleSelect(u.role)}</td><td><input type="checkbox" class="act" ${u.active?'checked':''}></td><td><button class="btn save">Save</button> <button class="btn dis">Disable</button></td>`;
-        tr.querySelector('.save').onclick=async()=>{
-          const role=tr.querySelector('.roleSel').value;
-          const active=tr.querySelector('.act').checked;
-          tr.querySelector('.save').disabled=true;
-          try{await api('users.upsert',{email:u.email,role,active});toast('Saved');}catch(err){toast(err.message);}
-          tr.querySelector('.save').disabled=false;
-          loadUsers();
-        };
-        tr.querySelector('.dis').onclick=async()=>{
-          tr.querySelector('.dis').disabled=true;
-          try{await api('users.remove',{email:u.email});toast('Disabled');}catch(err){toast(err.message);}
-          tr.querySelector('.dis').disabled=false;
-          loadUsers();
-        };
-        tbody.appendChild(tr);
-      });
-      applyZebra(tbody);
-      const nr=document.getElementById('newRole');
-      nr.innerHTML=ALL_ROLES.map(r=>`<option value="${r}">${r}</option>`).join('');
-    }
-
-    document.getElementById('addUserBtn').onclick=async()=>{
-      const email=document.getElementById('newEmail').value.trim().toLowerCase();
-      const role=document.getElementById('newRole').value;
-      if(!email||!/^[^@]+@[^@]+\.[^@]+$/.test(email))return toast('Valid email required');
-      document.getElementById('addUserBtn').disabled=true;
-      try{await api('users.upsert',{email,role,active:true});toast('User added');}catch(err){toast(err.message);} 
-      document.getElementById('addUserBtn').disabled=false;
-      document.getElementById('newEmail').value='';
-      loadUsers();
-    };
-
-    function toast(msg){const div=document.createElement('div');div.textContent=msg;Object.assign(div.style,{position:'fixed',bottom:'1rem',left:'50%',transform:'translateX(-50%)',background:'#323232',color:'#fff',padding:'0.5rem 1rem',borderRadius:'4px',zIndex:'1000'});document.body.appendChild(div);setTimeout(()=>div.remove(),3000);}
+      function toast(msg){const div=document.createElement('div');div.textContent=msg;Object.assign(div.style,{position:'fixed',bottom:'1rem',left:'50%',transform:'translateX(-50%)',background:'#323232',color:'#fff',padding:'0.5rem 1rem',borderRadius:'4px',zIndex:'1000'});document.body.appendChild(div);setTimeout(()=>div.remove(),3000);}
   </script>
 </body>
 </html>
