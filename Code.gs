@@ -2,31 +2,7 @@
 
 const SHEET_ORDERS = 'Orders';
 const SHEET_CATALOG = 'Catalog';
-
-const LT_EMAILS = [
-  'skhun@dublincleaners.com',
-  'ss.sku@protonmail.com',
-  'brianmbutler77@gmail.com',
-  'brianbutler@dublincleaners.com',
-  'rbrown5940@gmail.com',
-  'rbrown@dublincleaners.com',
-  'davepdublincleaners@gmail.com',
-  'lisamabr@yahoo.com',
-  'dddale40@gmail.com',
-  'nismosil85@gmail.com',
-  'mlackey@dublincleaners.com',
-  'china99@mail.com'
-];
-
-const STATIC_ADMINS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
-const ADMIN_PROP = 'ADMINS';
 const SS_ID_PROP = 'SS_ID';
-
-const APPROVER_BY_CATEGORY = {
-  Office: 'skhun@dublincleaners.com',
-  Cleaning: 'ss.sku@protonmail.com',
-  Operations: 'skhun@dublincleaners.com'
-};
 
 const STOCK_LIST = {
   Office: [
@@ -81,9 +57,7 @@ function getSs_() {
 function getSession() {
   init_();
   const email = Session.getActiveUser().getEmail();
-  const isLt = LT_EMAILS.includes(email);
-  const isAdmin = getAdmins_().includes(email);
-  return { email, isLt, isAdmin };
+  return { email };
 }
 
 function getCatalog(req) {
@@ -125,14 +99,12 @@ function setCatalogArchived(req) {
 
 function submitOrder(payload) {
   const session = getSession();
-  if (!session.isLt) throw new Error('Forbidden');
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
   const ids = [];
   const nowIso = nowIso_();
   withLock_(() => {
     payload.lines.forEach(line => {
       const id = uuid_();
-      const approver = resolveApprover_(line);
       sheet.appendRow([
         id,
         nowIso,
@@ -140,11 +112,9 @@ function submitOrder(payload) {
         line.description,
         Number(line.qty),
         'PENDING',
-        approver
+        ''
       ]);
       ids.push(id);
-      const html = `<p>${session.email} requested ${line.qty} × ${line.description}.</p>`;
-      GmailApp.sendEmail(approver, 'Supply Request', '', { htmlBody: html });
     });
   });
   return ids;
@@ -162,8 +132,7 @@ function listMyOrders(req) {
 }
 
 function listPendingApprovals() {
-  const session = getSession();
-  if (!session.isAdmin) throw new Error('Forbidden');
+  init_();
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
   const rows = sheet.getDataRange().getValues();
   const header = rows.shift();
@@ -174,7 +143,6 @@ function listPendingApprovals() {
 
 function decideOrder(req) {
   const session = getSession();
-  if (!session.isAdmin) throw new Error('Forbidden');
   return withLock_(() => {
     const { id, decision } = req;
     const sheet = getSs_().getSheetByName(SHEET_ORDERS);
@@ -198,13 +166,6 @@ function decideOrder(req) {
   });
 }
 
-function resolveApprover_(line) {
-  const catalog = getCatalog({ includeArchived: true });
-  const item = catalog.find(it => it.description === line.description);
-  const cat = item ? item.category : null;
-  return (cat && APPROVER_BY_CATEGORY[cat]) || STATIC_ADMINS[0];
-}
-
 function uuid_() {
   return Utilities.getUuid();
 }
@@ -224,12 +185,6 @@ function withLock_(fn) {
   } finally {
     lock.releaseLock();
   }
-}
-
-function getAdmins_() {
-  const props = PropertiesService.getScriptProperties();
-  const extra = props.getProperty(ADMIN_PROP);
-  return STATIC_ADMINS.concat(extra ? JSON.parse(extra) : []);
 }
 
 function init_() {

@@ -9,8 +9,8 @@ This project is a lightweight supplies request system built on Google Apps Scrip
 Only the fields above are stored. Pricing and budget logic are intentionally omitted.
 
 ## Roles
-- Leadership Team users may submit requests and view their own history.
-- Admins manage pending approvals and the catalog. Static admins are `skhun@dublincleaners.com` and `ss.sku@protonmail.com` with optional additional addresses stored in script properties.
+- Any user may submit requests and view their own history.
+- Approval and catalog features are accessible to all users.
 
 ## Conventions
 - Keep code lean and mobile-first.
