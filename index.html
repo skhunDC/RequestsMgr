@@ -5,6 +5,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Supplies Tracker</title>
   <style>
+    :root{
+      --zebra-bg-odd:#FFFFFF;
+      --zebra-bg-even:#F5F7FA; /* light grey with AA contrast against default text */
+      --zebra-hover:#E9EEF3;
+      --zebra-border:#E5E7EB;
+      --text:#111827;
+      --radius:12px;
+      --pad:12px;
+    }
+
+    /* Base row/card styling used everywhere */
+    .row, .card, .zebra-item{
+      color:var(--text);
+      padding:var(--pad);
+      border-bottom:1px solid var(--zebra-border);
+    }
+
+    /* Pure-CSS fallback for simple static lists/tables */
+    [data-zebra] > *:nth-child(odd){ background:var(--zebra-bg-odd); }
+    [data-zebra] > *:nth-child(even){ background:var(--zebra-bg-even); }
+
+    /* Tables */
+    table[data-zebra]{ width:100%; border-collapse:collapse; }
+    table[data-zebra] tbody tr:nth-child(odd){ background:var(--zebra-bg-odd); }
+    table[data-zebra] tbody tr:nth-child(even){ background:var(--zebra-bg-even); }
+    table[data-zebra] th, table[data-zebra] td{ padding:10px; border-bottom:1px solid var(--zebra-border); }
+
+    /* Cards grid */
+    .card-grid{ display:grid; grid-template-columns:1fr; gap:10px; }
+    @media (min-width:640px){ .card-grid{ grid-template-columns:repeat(2,1fr); } }
+    @media (min-width:1024px){ .card-grid{ grid-template-columns:repeat(3,1fr); } }
+
+    /* Hover/active affordances */
+    [data-zebra] > *:hover{ background:var(--zebra-hover); }
+    .is-selected{ outline:2px solid #3B82F6; outline-offset:2px; border-radius:var(--radius); }
+
+    /* Class-based zebra (used by JS for dynamic filtering/sorting) */
+    .z-even{ background:var(--zebra-bg-even) !important; }
+    .z-odd{  background:var(--zebra-bg-odd)  !important; }
+
+    /* Subtle rounding for the first/last child when grouped */
+    [data-zebra] > *:first-child{ border-top-left-radius:var(--radius); border-top-right-radius:var(--radius); }
+    [data-zebra] > *:last-child{ border-bottom-left-radius:var(--radius); border-bottom-right-radius:var(--radius); }
+  </style>
+  <style>
     body{font-family:Arial,sans-serif;margin:0;padding:0;}
     header{display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.5rem;background:#1a73e8;color:#fff;}
     header img{height:125px;}
@@ -35,6 +80,74 @@
     <button class="btn hidden" data-view="catalog" id="catalogNav">Catalog</button>
   </nav>
   <main id="main" class="p-2"></main>
+  <script>
+  /**
+   * Apply zebra striping to a container.
+   * Uses visibility-aware pass so hidden rows don't break the pattern.
+   * Works for UL/OL/DIV grids and TBODY (when passed explicitly).
+   */
+  function stripeContainer(container){
+    if(!container) return;
+
+    // Determine children to stripe:
+    // - If it's a TBODY, target rows; otherwise direct children.
+    var kids = container.tagName === 'TBODY'
+      ? Array.from(container.rows || [])
+      : Array.from(container.children || []);
+
+    var even = false; // start with odd (false), then flip when we see a visible item
+    kids.forEach(function(el){
+      // Treat display:none or visibility:hidden as "not present" for zebra
+      var isHidden = (el.offsetParent === null) || (getComputedStyle(el).visibility === 'hidden') || (getComputedStyle(el).display === 'none');
+      el.classList.remove('z-even','z-odd');
+      if(isHidden) return;
+      even = !even;
+      el.classList.add(even ? 'z-even' : 'z-odd');
+    });
+  }
+
+  /**
+   * Apply to all containers marked with data-zebra (one-time or refresh).
+   */
+  function stripeAll(){
+    // TBODY in tables
+    document.querySelectorAll('table[data-zebra] tbody').forEach(stripeContainer);
+    // Direct child containers (lists, grids)
+    document.querySelectorAll('[data-zebra]:not(table)').forEach(stripeContainer);
+  }
+
+  /**
+   * Auto-stripe when DOM changes under containers that opt-in with data-zebra-auto.
+   * Safe for HTMLService CSP (no third-party libs).
+   */
+  (function initZebraObserver(){
+    var obs = new MutationObserver(function(muts){
+      var buckets = new Set();
+      muts.forEach(function(m){
+        // If change happened inside a zebra container that opted-in, re-stripe it
+        var owner = (m.target.closest && m.target.closest('[data-zebra-auto]')) || null;
+        if(owner) buckets.add(owner);
+        // If a TBODY changed inside a zebra table, re-stripe the TBODY
+        var tb = (m.target.closest && m.target.closest('table[data-zebra] tbody')) || null;
+        if(tb) buckets.add(tb);
+      });
+      buckets.forEach(function(c){ stripeContainer(c.tagName === 'TBODY' ? c : c); });
+    });
+
+    // Observe subtree to catch list updates, filters, and SPA view swaps
+    obs.observe(document.body, { subtree:true, childList:true, attributes:true, attributeFilter:['style','class'] });
+
+    // Initial pass
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', stripeAll);
+    }else{
+      stripeAll();
+    }
+
+    // Public hook for manual refresh after your renders
+    window.zebraRefresh = stripeAll;
+  })();
+  </script>
   <script type="module">
   const store = {
     session: null,
@@ -74,11 +187,11 @@
     main.innerHTML = `<h2>Request Supplies</h2>
       <input id="search" class="input" placeholder="Search">
       <div id="chips"></div>
-      <table id="stock"><thead><tr><th>Description</th><th>Category</th><th>Qty</th><th></th></tr></thead><tbody></tbody></table>
+      <table id="stock" data-zebra data-zebra-auto><thead><tr><th>Description</th><th>Category</th><th>Qty</th><th></th></tr></thead><tbody></tbody></table>
       <h3>Custom Item</h3>
       <div><input id="cDesc" class="input" placeholder="Description"> <input id="cQty" type="number" min="1" value="1" class="input" style="width:4rem;"> <button id="cAdd" class="btn">Add</button></div>
       <h3>Cart</h3>
-      <ul id="cartList"></ul>
+      <ul id="cartList" class="supply-list" data-zebra data-zebra-auto></ul>
       <button id="submitBtn" class="btn" disabled>Submit</button>`;
 
     const tbody = main.querySelector('#stock tbody');
@@ -102,21 +215,22 @@
     function filter() {
       const q = document.getElementById('search').value.toLowerCase();
       const cat = chipsDiv.querySelector('.chip.active').dataset.cat;
-      tbody.innerHTML = '';
-      items.filter(it => {
-        const matchText = it.description.toLowerCase().includes(q);
-        const matchCat = cat === 'All' || it.category === cat;
-        return !it.archived && matchText && matchCat;
-      }).forEach(it => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${it.description}</td><td>${it.category}</td><td><button class="qm">-</button><input type="number" value="1" min="1" class="qty" style="width:3rem;"><button class="qp">+</button></td><td><button class="add btn" data-desc="${it.description}">Add</button></td>`;
-        const qty = tr.querySelector('.qty');
-        tr.querySelector('.qm').onclick = () => qty.value = Math.max(1, qty.value - 1);
-        tr.querySelector('.qp').onclick = () => qty.value = Number(qty.value) + 1;
-        tr.querySelector('.add').onclick = () => addLine(it.description, Number(qty.value));
-        tbody.appendChild(tr);
-      });
-    }
+        tbody.innerHTML = '';
+        items.filter(it => {
+          const matchText = it.description.toLowerCase().includes(q);
+          const matchCat = cat === 'All' || it.category === cat;
+          return !it.archived && matchText && matchCat;
+        }).forEach(it => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${it.description}</td><td>${it.category}</td><td><button class="qm">-</button><input type="number" value="1" min="1" class="qty" style="width:3rem;"><button class="qp">+</button></td><td><button class="add btn" data-desc="${it.description}">Add</button></td>`;
+          const qty = tr.querySelector('.qty');
+          tr.querySelector('.qm').onclick = () => qty.value = Math.max(1, qty.value - 1);
+          tr.querySelector('.qp').onclick = () => qty.value = Number(qty.value) + 1;
+          tr.querySelector('.add').onclick = () => addLine(it.description, Number(qty.value));
+          tbody.appendChild(tr);
+        });
+        zebraRefresh();
+      }
 
     document.getElementById('cAdd').onclick = () => {
       const desc = document.getElementById('cDesc').value.trim();
@@ -144,20 +258,22 @@
     const ul = document.getElementById('cartList');
     if (!ul) return;
     ul.innerHTML = '';
-    store.cart.lines.forEach((l, i) => {
-      const li = document.createElement('li');
-      li.textContent = `${l.qty} × ${l.description}`;
-      const btn = document.createElement('button');
-      btn.textContent = '✕';
-      btn.onclick = () => {
-        store.cart.lines.splice(i, 1);
-        renderCart();
-        updateSubmitState();
-      };
-      li.appendChild(btn);
-      ul.appendChild(li);
-    });
-  }
+      store.cart.lines.forEach((l, i) => {
+        const li = document.createElement('li');
+        li.className = 'row zebra-item';
+        li.textContent = `${l.qty} × ${l.description}`;
+        const btn = document.createElement('button');
+        btn.textContent = '✕';
+        btn.onclick = () => {
+          store.cart.lines.splice(i, 1);
+          renderCart();
+          updateSubmitState();
+        };
+        li.appendChild(btn);
+        ul.appendChild(li);
+      });
+      zebraRefresh();
+    }
 
   function updateSubmitState() {
     if (!submitBtn) return;
@@ -208,13 +324,14 @@
 
   function renderMyRequests(rows) {
     const main = document.getElementById('main');
-    main.innerHTML = '<h2>My Requests</h2><table><thead><tr><th>Date</th><th>Description</th><th>Qty</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>';
+    main.innerHTML = '<h2>My Requests</h2><table data-zebra data-zebra-auto><thead><tr><th>Date</th><th>Description</th><th>Qty</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>';
     const tbody = main.querySelector('tbody');
     rows.forEach(r => {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${r.ts}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td>${r.approver}</td>`;
       tbody.appendChild(tr);
     });
+    zebraRefresh();
   }
 
   function loadApprovals() {
@@ -225,7 +342,7 @@
 
   function renderApprovals(rows) {
     const main = document.getElementById('main');
-    main.innerHTML = '<h2>Pending Approvals</h2><table><thead><tr><th>Date</th><th>Requester</th><th>Description</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
+    main.innerHTML = '<h2>Pending Approvals</h2><table data-zebra data-zebra-auto><thead><tr><th>Date</th><th>Requester</th><th>Description</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
     const tbody = main.querySelector('tbody');
     rows.forEach(r => {
       const tr = document.createElement('tr');
@@ -240,10 +357,11 @@
         .withSuccessHandler(() => loadApprovals())
         .decideOrder({ id, decision });
     }
+    zebraRefresh();
   }
 
   function renderCatalog(main) {
-    main.innerHTML = '<h2>Catalog Manager</h2><div><input id="nDesc" class="input" placeholder="Description"> <select id="nCat" class="input"><option>Office</option><option>Cleaning</option><option>Operations</option></select> <button id="nAdd" class="btn">Add</button></div><table><thead><tr><th>Description</th><th>Category</th><th>Archived</th><th></th></tr></thead><tbody></tbody></table>';
+    main.innerHTML = '<h2>Catalog Manager</h2><div><input id="nDesc" class="input" placeholder="Description"> <select id="nCat" class="input"><option>Office</option><option>Cleaning</option><option>Operations</option></select> <button id="nAdd" class="btn">Add</button></div><table data-zebra data-zebra-auto><thead><tr><th>Description</th><th>Category</th><th>Archived</th><th></th></tr></thead><tbody></tbody></table>';
     const tbody = main.querySelector('tbody');
     function load() {
       google.script.run.withSuccessHandler(items => {
@@ -256,6 +374,7 @@
           };
           tbody.appendChild(tr);
         });
+        zebraRefresh();
       }).getCatalog({ includeArchived: true });
     }
     load();
