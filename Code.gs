@@ -39,7 +39,7 @@ function submitOrder_(email, p){
   const sheet = getOrCreateSheet_(SHEET_ORDERS, ORDERS_HEADERS);
   const map = getHeaderMap_(sheet, ORDERS_HEADERS);
   const lock = LockService.getDocumentLock();
-  let locked = false;
+  var locked = false;
   try {
     locked = lock.tryLock(30000);
     if(!locked) throw new Error('Could not obtain lock');
@@ -105,7 +105,7 @@ function bulkDecision_(email, p){
   const sheet = getOrCreateSheet_(SHEET_ORDERS, ORDERS_HEADERS);
   const map = getHeaderMap_(sheet, ORDERS_HEADERS);
   const lock = LockService.getDocumentLock();
-  let locked = false;
+  var locked = false;
   const updated = [];
   try {
     locked = lock.tryLock(30000);
