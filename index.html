@@ -52,12 +52,14 @@
   }
 
   setLoading(true);
-  google.script.run.withSuccessHandler(s => {
-    store.session = s;
+  google.script.run
+    .withSuccessHandler(s => {
+      store.session = s;
       document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
       renderRoute();
-      setLoading(false);
-    }).getSession();
+    })
+    .withFailureHandler(() => setLoading(false))
+    .getSession();
 
   function navigate(route) {
     store.route = route;
