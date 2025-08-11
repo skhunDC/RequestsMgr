@@ -16,6 +16,8 @@
     .input{padding:0.5rem;border:1px solid #ccc;border-radius:4px;}
     table{width:100%;border-collapse:collapse;margin-top:0.5rem;}
     th,td{padding:0.5rem;border-bottom:1px solid #ddd;}
+    .stripe-odd{background:#fff;}
+    .stripe-even{background:#f2f2f2;}
     .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;}
     .modal-content{background:#fff;padding:1rem;border-radius:4px;max-height:90%;overflow:auto;}
   </style>
@@ -68,6 +70,13 @@
     const nav = document.getElementById('nav');
     const main = document.getElementById('main');
     const manageBtn = document.getElementById('manageBtn');
+
+    function applyZebra(container){
+      [...container.children].filter(el=>el.offsetParent!==null).forEach((el,i)=>{
+        el.classList.remove('stripe-even','stripe-odd');
+        el.classList.add(i%2?'stripe-even':'stripe-odd');
+      });
+    }
 
     document.getElementById('loginBtn').onclick = () => location.href = webAppUrl;
 
@@ -139,12 +148,13 @@
           tr.querySelector('.add').onclick=()=>addLine(it.description,Number(qty.value));
           tbody.appendChild(tr);
         });
+        applyZebra(tbody);
       }
       filter();
       const cartList=document.getElementById('cart');
       const cart=[];
       function addLine(desc,qty){cart.push({description:desc,qty});renderCart();}
-      function renderCart(){cartList.innerHTML='';cart.forEach((l,i)=>{const li=document.createElement('li');li.textContent=`${l.qty}× ${l.description}`;cartList.appendChild(li);});document.getElementById('submitBtn').disabled=cart.length===0;}
+      function renderCart(){cartList.innerHTML='';cart.forEach((l,i)=>{const li=document.createElement('li');li.textContent=`${l.qty}× ${l.description}`;cartList.appendChild(li);});applyZebra(cartList);document.getElementById('submitBtn').disabled=cart.length===0;}
       document.getElementById('submitBtn').onclick=async()=>{if(cart.length===0)return;await api('orders.submit',{lines:cart});cart.length=0;renderCart();toast('Request sent');navigate('my');};
     }
 
@@ -154,6 +164,7 @@
       main.innerHTML='<h2>My Requests</h2><table><thead><tr><th>Date</th><th>Description</th><th>Qty</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>';
       const tbody=main.querySelector('tbody');
       rows.forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${r.ts}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td>${r.approver}</td>`;tbody.appendChild(tr);});
+      applyZebra(tbody);
     }
 
     // ----- Approvals -----
@@ -163,6 +174,7 @@
       main.innerHTML='<h2>Pending Approvals</h2><table><thead><tr><th>Date</th><th>Requester</th><th>Description</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
       const tbody=main.querySelector('tbody');
       rows.forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${r.ts}</td><td>${r.requester}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td><button class="btn ap">Approve</button> <button class="btn dn">Deny</button></td>`;tr.querySelector('.ap').onclick=()=>decide(r.id,'APPROVED');tr.querySelector('.dn').onclick=()=>decide(r.id,'DENIED');tbody.appendChild(tr);});
+      applyZebra(tbody);
       async function decide(id,decision){await api('orders.decide',{id,decision});loadApprovals();}
     }
 
@@ -175,6 +187,7 @@
         const items=await api('catalog.list',{includeArchived:true});
         tbody.innerHTML='';
         items.forEach(it=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${it.description}</td><td>${it.category}</td><td>${it.archived}</td><td><button class="btn tg">${it.archived?'Unarchive':'Archive'}</button></td>`;tr.querySelector('.tg').onclick=async()=>{await api('catalog.archive',{sku:it.sku,archived:!it.archived});load();};tbody.appendChild(tr);});
+        applyZebra(tbody);
       }
       load();
       document.getElementById('nAdd').onclick=async()=>{const desc=main.querySelector('#nDesc').value.trim();const cat=main.querySelector('#nCat').value;if(desc){await api('catalog.add',{description:desc,category:cat});main.querySelector('#nDesc').value='';load();}};
@@ -205,6 +218,7 @@
         tr.querySelector('.dis').onclick=async()=>{await api('users.upsert',{email:u.email,roles:u.roles,active:false});toast('Disabled');loadUsers();};
         tbody.appendChild(tr);
       });
+      applyZebra(tbody);
       const nr=document.getElementById('newRoles');
       nr.innerHTML=roleChips();
     }
