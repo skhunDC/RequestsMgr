@@ -135,11 +135,11 @@ function listMyOrders(req) {
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
   const rows = sheet.getDataRange().getValues();
   const header = rows.shift();
-  const idx = header.map(h => String(h).toLowerCase());
-  const reqIdx = idx.indexOf('requester');
+  const keys = header.map(h => String(h).toLowerCase());
+  const reqIdx = keys.indexOf('requester');
   return rows
     .filter(r => reqIdx >= 0 && r[reqIdx] === email)
-    .map(r => Object.fromEntries(header.map((h, i) => [h, r[i]])));
+    .map(r => Object.fromEntries(keys.map((k, i) => [k, r[i]])));
 }
 
 function listPendingApprovals() {
@@ -147,9 +147,10 @@ function listPendingApprovals() {
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
   const rows = sheet.getDataRange().getValues();
   const header = rows.shift();
+  const keys = header.map(h => String(h).toLowerCase());
   return rows
-    .filter(r => r[header.indexOf('status')] === 'PENDING')
-    .map(r => Object.fromEntries(r.map((v, i) => [header[i], v])));
+    .filter(r => r[keys.indexOf('status')] === 'PENDING')
+    .map(r => Object.fromEntries(keys.map((k, i) => [k, r[i]])));
 }
 
 function decideOrder(req) {
@@ -159,16 +160,19 @@ function decideOrder(req) {
     const sheet = getSs_().getSheetByName(SHEET_ORDERS);
     const values = sheet.getDataRange().getValues();
     const header = values.shift();
-    const idIdx = header.indexOf('id');
-    const statusIdx = header.indexOf('status');
-    const approverIdx = header.indexOf('approver');
+    const keys = header.map(h => String(h).toLowerCase());
+    const idIdx = keys.indexOf('id');
+    const statusIdx = keys.indexOf('status');
+    const approverIdx = keys.indexOf('approver');
+    const requesterIdx = keys.indexOf('requester');
+    const descIdx = keys.indexOf('description');
     const row = values.findIndex(r => r[idIdx] === id);
     if (row >= 0) {
       const r = row + 2;
       sheet.getRange(r, statusIdx + 1).setValue(decision);
       sheet.getRange(r, approverIdx + 1).setValue(session.email);
-      const requester = values[row][header.indexOf('requester')];
-      const desc = values[row][header.indexOf('description')];
+      const requester = values[row][requesterIdx];
+      const desc = values[row][descIdx];
       GmailApp.sendEmail(requester, 'Supply Request ' + decision, '', {
         htmlBody: `<p>Your request for ${desc} was ${decision}.</p>`
       });
