@@ -154,10 +154,13 @@ function listPendingApprovals() {
     .map(r => Object.fromEntries(keys.map((k, i) => [k, r[i]])));
 }
 
-function decideOrder(req) {
+function decideOrder(req = {}) {
   const session = getSession();
   return withLock_(() => {
     const { id, decision } = req;
+    if (!id || !decision) {
+      throw new Error('Missing id or decision');
+    }
     const sheet = getSs_().getSheetByName(SHEET_ORDERS);
     const values = sheet.getDataRange().getValues();
     const header = values.shift();
