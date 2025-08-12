@@ -125,6 +125,7 @@ function submitOrder(payload) {
       ]);
       orders.push(order);
     });
+    SpreadsheetApp.flush();
   });
   return orders;
 }
