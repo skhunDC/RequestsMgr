@@ -151,8 +151,10 @@ function listPendingApprovals() {
   const rows = sheet.getDataRange().getValues();
   const header = rows.shift();
   const keys = header.map(h => String(h).toLowerCase());
+  const statusIdx = keys.indexOf('status');
+  const idIdx = keys.indexOf('id');
   return rows
-    .filter(r => r[keys.indexOf('status')] === 'PENDING')
+    .filter(r => r[statusIdx] === 'PENDING' && r[idIdx])
     .map(r => Object.fromEntries(keys.map((k, i) => [k, r[i]])));
 }
 
@@ -161,7 +163,7 @@ function decideOrder(req = {}) {
   return withLock_(() => {
     const { id, decision } = req;
     if (!id || !decision) {
-      throw new Error('Missing id or decision');
+      return 'Missing id or decision';
     }
     const sheet = getSs_().getSheetByName(SHEET_ORDERS);
     const values = sheet.getDataRange().getValues();
