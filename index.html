@@ -204,21 +204,23 @@
     const payload = { lines: store.cart.lines.map(l => ({ description: l.description, qty: l.qty })) };
 
     setLoading(true);
-    google.script.run
-      .withSuccessHandler(orders => {
-        store.cart.lines = [];
-        renderCart();
-        navigate('myRequests');
-        toast('Request sent for approval.');
-        setSubmitting(false);
-        setLoading(false);
-      })
-      .withFailureHandler(err => {
-        toast('Submit failed: ' + (err && err.message ? err.message : err));
-        setSubmitting(false);
-        setLoading(false);
-      })
-      .submitOrder(payload);
+      google.script.run
+        .withSuccessHandler(orders => {
+          store.cart.lines = [];
+          renderCart();
+          loadMyRequests();
+          loadApprovals();
+          navigate('myRequests');
+          toast('Request sent for approval.');
+          setSubmitting(false);
+          setLoading(false);
+        })
+        .withFailureHandler(err => {
+          toast('Submit failed: ' + (err && err.message ? err.message : err));
+          setSubmitting(false);
+          setLoading(false);
+        })
+        .submitOrder(payload);
   }
 
   function loadMyRequests() {
