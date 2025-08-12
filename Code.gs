@@ -71,9 +71,12 @@ function getCatalog(req) {
     .filter(r => includeArchived || r.archived !== true);
 }
 
-function addCatalogItem(req) {
+function addCatalogItem(req = {}) {
   return withLock_(() => {
     const { description, category } = req;
+    if (!description || !category) {
+      throw new Error('Missing description or category');
+    }
     const sheet = getSs_().getSheetByName(SHEET_CATALOG);
     const sku = uuid_();
     sheet.appendRow([sku, description, category, false]);
