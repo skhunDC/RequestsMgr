@@ -235,7 +235,7 @@
       .withSuccessHandler(rows => {
         store.myRequests = rows;
         setLoading(false);
-        renderMyRequests();
+        if (store.route === 'myRequests') renderMyRequests();
       })
       .withFailureHandler(() => setLoading(false))
       .listMyOrders({ email: store.session.email });
@@ -258,7 +258,7 @@
       .withSuccessHandler(rows => {
         store.approvals = rows;
         setLoading(false);
-        renderApprovals();
+        if (store.route === 'approvals') renderApprovals();
       })
       .withFailureHandler(() => setLoading(false))
       .listPendingApprovals();
