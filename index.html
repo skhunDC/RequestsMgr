@@ -89,14 +89,8 @@
     const main = document.getElementById('main');
     main.innerHTML = '';
     if (store.route === 'request') return renderRequest(main);
-    if (store.route === 'myRequests') {
-      renderMyRequests();
-      return loadMyRequests();
-    }
-    if (store.route === 'approvals') {
-      renderApprovals();
-      return loadApprovals();
-    }
+    if (store.route === 'myRequests') return loadMyRequests();
+    if (store.route === 'approvals') return loadApprovals();
     if (store.route === 'catalog') return renderCatalog(main);
   }
 
@@ -214,8 +208,6 @@
       .withSuccessHandler(orders => {
         store.cart.lines = [];
         renderCart();
-        store.myRequests = store.myRequests.concat(orders);
-        store.approvals = store.approvals.concat(orders);
         navigate('myRequests');
         toast('Request sent for approval.');
         setSubmitting(false);
