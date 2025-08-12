@@ -101,10 +101,12 @@ function submitOrder(payload) {
   init_();
   const session = getSession();
   const sheet = getSs_().getSheetByName(SHEET_ORDERS);
-  const orders = [];
+  const lines = payload && Array.isArray(payload.lines) ? payload.lines : [];
+  if (lines.length === 0) return [];
   const nowIso = nowIso_();
-  withLock_(() => {
-    payload.lines.forEach(line => {
+  return withLock_(() => {
+    const orders = [];
+    lines.forEach(line => {
       const order = {
         id: uuid_(),
         ts: nowIso,
@@ -126,8 +128,8 @@ function submitOrder(payload) {
       orders.push(order);
     });
     SpreadsheetApp.flush();
+    return orders;
   });
-  return orders;
 }
 
 function listMyOrders(req) {
