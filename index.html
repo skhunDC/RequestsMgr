@@ -29,7 +29,8 @@ const state = {
   route: 'request',
   filters: { mineOnly: false, status: [], search: '' },
   rows: [],
-  selection: new Set()
+  selection: new Set(),
+  catalog: []
 };
 
 function init(){
@@ -55,20 +56,41 @@ function route(r){
   app.innerHTML='';
   if(r==='request') renderRequest(app);
   else if(r==='all') renderAll(app);
-  else if(r==='catalog') app.innerHTML='<p>Catalog placeholder</p>';
+  else if(r==='catalog') renderCatalog(app);
 }
 
 function renderRequest(app){
   app.innerHTML=`<h2>Request</h2>
-    <div><input id="item" placeholder="Item">
+    <div><input id="item" placeholder="Item" list="catList">
     <input id="qty" type="number" min="1" value="1" style="width:4rem">
     <input id="est" type="number" min="0" placeholder="Est Cost">
     <input id="cc" placeholder="Cost Center">
     <input id="gl" placeholder="GL Code">
     <textarea id="just" placeholder="Justification (if override)"></textarea>
     <label><input type="checkbox" id="ov"> Override</label>
-    <button id="sub">Submit</button></div>`;
+    <button id="sub">Submit</button></div>
+    <datalist id="catList"></datalist>`;
+  loadCatalog().then(()=>{
+    const dl=document.getElementById('catList');
+    dl.innerHTML='';
+    state.catalog.forEach(c=>{const o=document.createElement('option');o.value=c.desc;dl.appendChild(o);});
+  });
   app.querySelector('#sub').onclick=submitOrder;
+}
+
+function renderCatalog(app){
+  loadCatalog().then(()=>{
+    app.innerHTML='<h2>Catalog</h2><table><thead><tr><th>Item</th><th>Category</th></tr></thead><tbody id="catBody"></tbody></table>';
+    const tb=document.getElementById('catBody');
+    state.catalog.forEach(c=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${c.desc}</td><td>${c.category}</td>`;tb.appendChild(tr);});
+  });
+}
+
+function loadCatalog(){
+  if(state.catalog.length) return Promise.resolve();
+  return new Promise(res=>{
+    google.script.run.withSuccessHandler(rows=>{state.catalog=rows;res();}).router({action:'listCatalog'});
+  });
 }
 
 function submitOrder(){
