@@ -212,6 +212,7 @@ function checkCsrf_(token) {
 function router(req) {
   req = req || {};
   const action = req.action;
+  if (!action) throw new Error('Unknown action');
   if (action !== 'getSession' && action !== 'listCatalog' && action !== 'listOrders' && action !== 'listBudgets') {
     checkCsrf_(req.csrf);
   }
