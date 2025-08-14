@@ -73,7 +73,7 @@ function renderRequest(app){
   loadCatalog().then(()=>{
     const dl=document.getElementById('catList');
     dl.innerHTML='';
-    state.catalog.forEach(c=>{const o=document.createElement('option');o.value=c.desc;dl.appendChild(o);});
+    state.catalog.forEach(c=>{const o=document.createElement('option');o.value=c.description;dl.appendChild(o);});
   });
   app.querySelector('#sub').onclick=submitOrder;
 }
@@ -82,7 +82,7 @@ function renderCatalog(app){
   loadCatalog().then(()=>{
     app.innerHTML='<h2>Catalog</h2><table><thead><tr><th>Item</th><th>Category</th></tr></thead><tbody id="catBody"></tbody></table>';
     const tb=document.getElementById('catBody');
-    state.catalog.forEach(c=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${c.desc}</td><td>${c.category}</td>`;tb.appendChild(tr);});
+    state.catalog.forEach(c=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${c.description}</td><td>${c.category}</td>`;tb.appendChild(tr);});
   });
 }
 

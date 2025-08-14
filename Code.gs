@@ -101,12 +101,12 @@ function init_() {
 }
 
 function seedCatalogIfEmpty_() {
-  const sheet = getOrCreateSheet_(SHEETS.CATALOG, ['sku', 'desc', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active']);
+  const sheet = getOrCreateSheet_(SHEETS.CATALOG, ['sku', 'description', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active']);
   if (sheet.getLastRow() > 1) return;
   const rows = [];
   Object.keys(STOCK_LIST).forEach(cat => {
-    STOCK_LIST[cat].forEach(desc => {
-      rows.push([uuid_(), desc, cat, '', 0, false, 0, '', '', true]);
+    STOCK_LIST[cat].forEach(description => {
+      rows.push([uuid_(), description, cat, '', 0, false, 0, '', '', true]);
     });
   });
   sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
@@ -220,7 +220,7 @@ function router(req) {
     case 'getSession':
       return getSession_();
     case 'listCatalog':
-      return readAll_(getOrCreateSheet_(SHEETS.CATALOG, ['sku', 'desc', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active']))
+      return readAll_(getOrCreateSheet_(SHEETS.CATALOG, ['sku', 'description', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active']))
         .filter(r => String(r.active) !== 'false');
     case 'listOrders':
       return apiListOrders_(req.filter || {});
@@ -272,7 +272,7 @@ function apiCreateOrder_(payload) {
   ['item', 'qty', 'est_cost', 'cost_center', 'gl_code'].forEach(k => {
     if (!payload[k]) throw new Error('Missing ' + k);
   });
-  const catalog = readAll_(getOrCreateSheet_(SHEETS.CATALOG, ['sku', 'desc', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active']));
+  const catalog = readAll_(getOrCreateSheet_(SHEETS.CATALOG, ['sku', 'description', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active']));
   const catRow = catalog.find(r => r.sku === payload.sku);
   if (catRow && String(catRow.override_required) === 'true') {
     if (!(payload.override === true && payload.justification && payload.justification.length >= 40)) {
