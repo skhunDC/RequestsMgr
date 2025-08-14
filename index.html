@@ -1,347 +1,164 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Supplies Tracker</title>
-  <style>
-    body{font-family:Arial,sans-serif;margin:0;padding:0;}
-    header{display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.5rem;background:#1a73e8;color:#fff;}
-    header img{height:125px;}
-    .title h1{margin:0;font-size:1.5rem;font-weight:700;}
-    .title .subtitle{font-size:1rem;}
-    .title #datetime{font-size:0.9rem;}
-    nav{display:flex;gap:0.5rem;padding:0.5rem;background:#f5f5f5;flex-wrap:wrap;}
-    nav button{flex:1 1 auto;}
-    .hidden{display:none;}
-    .btn{background:#1a73e8;color:#fff;border:none;border-radius:4px;padding:0.5rem 1rem;}
-    .btn:disabled{background:#9e9e9e;}
-    .input{padding:0.5rem;border:1px solid #ccc;border-radius:4px;}
-    table{width:100%;border-collapse:collapse;margin-top:0.5rem;}
-    th,td{padding:0.5rem;border-bottom:1px solid #ddd;}
-    .chip{display:inline-block;padding:0.25rem 0.5rem;margin:0.25rem;border-radius:16px;background:#eee;cursor:pointer;font-size:0.8rem;}
-    .chip.active{background:#1a73e8;color:#fff;}
-    ul{list-style:none;padding:0;}
-    ul li{margin:0.25rem 0;}
-    #loading{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.8);align-items:center;justify-content:center;z-index:1000;}
-    .spinner{width:40px;height:40px;border:4px solid #ccc;border-top-color:#1a73e8;border-radius:50%;animation:spin 1s linear infinite;}
-    @keyframes spin{to{transform:rotate(360deg);}}
-  </style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supplies Tracker</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;padding:0;}
+nav{display:flex;gap:.5rem;padding:.5rem;background:#f5f5f5;position:sticky;top:0;}
+nav button{flex:1;}
+table{width:100%;border-collapse:collapse;}
+th,td{padding:.5rem;border-bottom:1px solid #ddd;}
+tr:nth-child(even){background:#f7f7f7;}
+.chip{display:inline-block;padding:.25rem .5rem;margin:.25rem;border-radius:16px;background:#eee;cursor:pointer;}
+.chip.active{background:#1a73e8;color:#fff;}
+#toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:#323232;color:#fff;padding:.5rem 1rem;border-radius:4px;display:none;}
+.hidden{display:none;}
+</style>
 </head>
 <body>
-  <header>
-    <img src="https://www.dublincleaners.com/wp-content/uploads/2025/06/LogosHQ.png" alt="Dublin Cleaners logo">
-    <div class="title">
-      <h1>Supplies</h1>
-      <div class="subtitle">Orders & Tracking</div>
-      <div id="datetime"></div>
-    </div>
-  </header>
-  <nav id="nav">
-    <button class="btn" data-view="request">Request</button>
-    <button class="btn" data-view="myRequests">My Requests</button>
-      <button class="btn" data-view="approvals" id="approveNav">Approvals</button>
-      <button class="btn" data-view="catalog" id="catalogNav">Catalog</button>
-  </nav>
-  <main id="main" class="p-2"></main>
-  <div id="loading"><div class="spinner"></div></div>
-  <script type="module">
-  const store = {
-    session: null,
-    cart: { lines: [] },
-    route: 'request',
-    myRequests: [],
-    approvals: []
+<nav id="nav" role="navigation"></nav>
+<main id="app"></main>
+<div id="toast" aria-live="polite"></div>
+<script>
+const SESSION = <?!= JSON.stringify(session) ?>;
+</script>
+<script type="module">
+const state = {
+  session: SESSION,
+  route: 'request',
+  filters: { mineOnly: false, status: [], search: '' },
+  rows: [],
+  selection: new Set()
+};
+
+function init(){
+  renderNav();
+  route('request');
+}
+
+function renderNav(){
+  const nav=document.getElementById('nav');
+  nav.innerHTML='';
+  const links=[['request','Request'],['all','All Requests'],['catalog','Catalog']];
+  links.forEach(([r,label])=>{
+    const btn=document.createElement('button');
+    btn.textContent=label;
+    btn.onclick=()=>route(r);
+    nav.appendChild(btn);
+  });
+}
+
+function route(r){
+  state.route=r;
+  const app=document.getElementById('app');
+  app.innerHTML='';
+  if(r==='request') renderRequest(app);
+  else if(r==='all') renderAll(app);
+  else if(r==='catalog') app.innerHTML='<p>Catalog placeholder</p>';
+}
+
+function renderRequest(app){
+  app.innerHTML=`<h2>Request</h2>
+    <div><input id="item" placeholder="Item">
+    <input id="qty" type="number" min="1" value="1" style="width:4rem">
+    <input id="est" type="number" min="0" placeholder="Est Cost">
+    <input id="cc" placeholder="Cost Center">
+    <input id="gl" placeholder="GL Code">
+    <textarea id="just" placeholder="Justification (if override)"></textarea>
+    <label><input type="checkbox" id="ov"> Override</label>
+    <button id="sub">Submit</button></div>`;
+  app.querySelector('#sub').onclick=submitOrder;
+}
+
+function submitOrder(){
+  const payload={
+    item:document.getElementById('item').value,
+    qty:Number(document.getElementById('qty').value||1),
+    est_cost:Number(document.getElementById('est').value||0),
+    cost_center:document.getElementById('cc').value,
+    gl_code:document.getElementById('gl').value,
+    override:document.getElementById('ov').checked,
+    justification:document.getElementById('just').value
   };
+  google.script.run.withSuccessHandler(o=>{
+    toast('Submitted');
+    state.filters={mineOnly:true,status:['PENDING'],search:''};
+    route('all');
+    loadOrders();
+  }).withFailureHandler(err=>toast(err.message))
+    .router({action:'createOrder',payload,csrf:state.session.csrf});
+}
 
-  const datetimeEl = document.getElementById('datetime');
-  function updateDateTime() {
-    const now = new Date();
-    const date = now.toLocaleDateString();
-    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    datetimeEl.textContent = `${date} ${time}`;
+function renderAll(app){
+  app.innerHTML=`<h2>All Requests</h2>
+    <div id="filters">
+      <label><input type="checkbox" id="mine"> Mine only</label>
+      <div id="statusChips"></div>
+      <input id="search" placeholder="Search">
+      <button id="clear">Clear</button>
+    </div>
+    <div id="bulkBar" class="hidden">
+      <textarea id="comment" placeholder="Decision comment"></textarea>
+      <button id="ap">Approve</button>
+      <button id="dn">Deny</button>
+      <button id="oh">On-Hold</button>
+    </div>
+    <table id="list"><thead><tr><th><input type="checkbox" id="selAll"></th><th>Requested</th><th>Item</th><th>Qty</th><th>Est Cost</th><th>Requester</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>
+    <div id="empty" class="hidden">No requests match your filters. <button id="reset">Reset</button></div>`;
+  const st=['PENDING','APPROVED','DENIED','ON-HOLD'];
+  const chipsDiv=app.querySelector('#statusChips');
+  st.forEach(s=>{const sp=document.createElement('span');sp.textContent=s;sp.className='chip';sp.onclick=()=>{sp.classList.toggle('active');updateFilters();};chipsDiv.appendChild(sp);});
+  app.querySelector('#mine').onchange=updateFilters;
+  app.querySelector('#search').oninput=debounce(updateFilters,300);
+  app.querySelector('#clear').onclick=()=>{state.filters={mineOnly:false,status:[],search:''};route('all');loadOrders();};
+  app.querySelector('#reset').onclick=()=>{state.filters={mineOnly:false,status:[],search:''};route('all');loadOrders();};
+  app.querySelector('#selAll').onchange=e=>{const c=e.target.checked;state.selection=new Set();document.querySelectorAll('#list tbody input[type=checkbox]').forEach(cb=>{cb.checked=c;if(c)state.selection.add(cb.value);});toggleBulk();};
+  if(['approver','developer','super_admin'].includes(state.session.role)){
+    document.getElementById('bulkBar').classList.remove('hidden');
+    document.getElementById('ap').onclick=()=>bulk('APPROVED');
+    document.getElementById('dn').onclick=()=>bulk('DENIED');
+    document.getElementById('oh').onclick=()=>bulk('ON-HOLD');
   }
-  updateDateTime();
-  setInterval(updateDateTime, 60000);
+  loadOrders();
+}
 
-  function setLoading(is) {
-    const el = document.getElementById('loading');
-    el.style.display = is ? 'flex' : 'none';
-  }
+function updateFilters(){
+  state.filters.mineOnly=document.getElementById('mine').checked;
+  state.filters.search=document.getElementById('search').value;
+  state.filters.status=[...document.querySelectorAll('#statusChips .chip.active')].map(c=>c.textContent);
+  loadOrders();
+}
 
-  setLoading(true);
-  google.script.run
-    .withSuccessHandler(s => {
-      store.session = s;
-      document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => navigate(b.dataset.view)));
-      renderRoute();
-      setLoading(false);
-    })
-    .withFailureHandler(() => setLoading(false))
-    .getSession();
+function loadOrders(){
+  google.script.run.withSuccessHandler(rows=>{state.rows=rows;renderRows();})
+    .router({action:'listOrders',filter:state.filters});
+}
 
-  function navigate(route) {
-    store.route = route;
-    renderRoute();
-  }
+function renderRows(){
+  const tbody=document.querySelector('#list tbody');
+  if(!tbody) return;
+  tbody.innerHTML='';
+  state.selection=new Set();
+  state.rows.forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td><input type="checkbox" value="${r.id}"></td><td>${r.ts}</td><td>${r.item}</td><td>${r.qty}</td><td>${r.est_cost}</td><td>${r.requester}</td><td>${r.statusChip}</td><td>${r.approver||''}</td>`;tbody.appendChild(tr);});
+  if(!state.rows.length) document.getElementById('empty').classList.remove('hidden'); else document.getElementById('empty').classList.add('hidden');
+  document.querySelectorAll('#list tbody input[type=checkbox]').forEach(cb=>cb.onchange=e=>{if(e.target.checked)state.selection.add(e.target.value);else state.selection.delete(e.target.value);toggleBulk();});
+}
 
-  function renderRoute() {
-    const main = document.getElementById('main');
-    main.innerHTML = '';
-    if (store.route === 'request') return renderRequest(main);
-    if (store.route === 'myRequests') return loadMyRequests();
-    if (store.route === 'approvals') return loadApprovals();
-    if (store.route === 'catalog') return renderCatalog(main);
-  }
+function toggleBulk(){const bar=document.getElementById('bulkBar');if(!bar)return;bar.classList.toggle('hidden',state.selection.size===0);}
 
-  function renderRequest(main) {
-    main.innerHTML = `<h2>Request Supplies</h2>
-      <input id="search" class="input" placeholder="Search">
-      <div id="chips"></div>
-      <table id="stock"><thead><tr><th>Description</th><th>Category</th><th>Qty</th><th></th></tr></thead><tbody></tbody></table>
-      <h3>Custom Item</h3>
-      <div><input id="cDesc" class="input" placeholder="Description"> <input id="cQty" type="number" min="1" value="1" class="input" style="width:4rem;"> <button id="cAdd" class="btn">Add</button></div>
-      <h3>Cart</h3>
-      <ul id="cartList"></ul>
-      <button id="submitBtn" class="btn" disabled>Submit</button>`;
+function bulk(decision){
+  const ids=[...state.selection];
+  const comment=document.getElementById('comment').value;
+  google.script.run.withSuccessHandler(()=>{toast('Done');loadOrders();})
+    .withFailureHandler(e=>toast(e.message))
+    .router({action:'bulkDecision',ids,decision,comment,csrf:state.session.csrf});
+}
 
-    const tbody = main.querySelector('#stock tbody');
-    const chipsDiv = main.querySelector('#chips');
-    ['All', 'Office', 'Cleaning', 'Operations'].forEach(c => {
-      const chip = document.createElement('span');
-      chip.textContent = c;
-      chip.dataset.cat = c;
-      chip.className = 'chip' + (c === 'All' ? ' active' : '');
-      chip.onclick = () => {
-        chipsDiv.querySelectorAll('.chip').forEach(ch => ch.classList.remove('active'));
-        chip.classList.add('active');
-        filter();
-      };
-      chipsDiv.appendChild(chip);
-    });
-    document.getElementById('search').addEventListener('input', filter);
-    let items = [];
-    setLoading(true);
-    google.script.run
-      .withSuccessHandler(list => { items = list; filter(); setLoading(false); })
-      .withFailureHandler(() => setLoading(false))
-      .getCatalog({});
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
+function debounce(fn,ms){let t;return function(){clearTimeout(t);t=setTimeout(fn,ms);};}
 
-    function filter() {
-      const q = document.getElementById('search').value.toLowerCase();
-      const cat = chipsDiv.querySelector('.chip.active').dataset.cat;
-      tbody.innerHTML = '';
-      items.filter(it => {
-        const matchText = it.description.toLowerCase().includes(q);
-        const matchCat = cat === 'All' || it.category === cat;
-        return !it.archived && matchText && matchCat;
-      }).forEach(it => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${it.description}</td><td>${it.category}</td><td><button class="qm">-</button><input type="number" value="1" min="1" class="qty" style="width:3rem;"><button class="qp">+</button></td><td><button class="add btn" data-desc="${it.description}">Add</button></td>`;
-        const qty = tr.querySelector('.qty');
-        tr.querySelector('.qm').onclick = () => qty.value = Math.max(1, qty.value - 1);
-        tr.querySelector('.qp').onclick = () => qty.value = Number(qty.value) + 1;
-        tr.querySelector('.add').onclick = () => addLine(it.description, Number(qty.value));
-        tbody.appendChild(tr);
-      });
-    }
-
-    document.getElementById('cAdd').onclick = () => {
-      const desc = document.getElementById('cDesc').value.trim();
-      const qty = Number(document.getElementById('cQty').value);
-      addLine(desc, qty);
-      document.getElementById('cDesc').value = '';
-      document.getElementById('cQty').value = '1';
-    };
-
-    submitBtn = document.getElementById('submitBtn');
-    submitBtn.addEventListener('click', submitHandler);
-    renderCart();
-    updateSubmitState();
-  }
-
-  function addLine(desc, qty = 1) {
-    if (!desc || qty < 1) return;
-    store.cart.lines.push({ description: desc.trim(), qty: Number(qty) });
-    renderCart();
-    updateSubmitState();
-  }
-
-  let submitBtn;
-  function renderCart() {
-    const ul = document.getElementById('cartList');
-    if (!ul) return;
-    ul.innerHTML = '';
-    store.cart.lines.forEach((l, i) => {
-      const li = document.createElement('li');
-      li.textContent = `${l.qty} × ${l.description}`;
-      const btn = document.createElement('button');
-      btn.textContent = '✕';
-      btn.onclick = () => {
-        store.cart.lines.splice(i, 1);
-        renderCart();
-        updateSubmitState();
-      };
-      li.appendChild(btn);
-      ul.appendChild(li);
-    });
-  }
-
-  function updateSubmitState() {
-    if (!submitBtn) return;
-    submitBtn.disabled = store.cart.lines.length === 0;
-  }
-
-  function setSubmitting(is) {
-    if (!submitBtn) return;
-    submitBtn.disabled = is || store.cart.lines.length === 0;
-    submitBtn.textContent = is ? 'Submitting…' : 'Submit';
-  }
-
-  function submitHandler() {
-    if (store.cart.lines.length === 0) return toast('Add at least one item.');
-    setSubmitting(true);
-    const payload = { lines: store.cart.lines.map(l => ({ description: l.description, qty: l.qty })) };
-
-    setLoading(true);
-      google.script.run
-        .withSuccessHandler(orders => {
-          store.cart.lines = [];
-          renderCart();
-          loadMyRequests();
-          loadApprovals();
-          navigate('myRequests');
-          toast('Request sent for approval.');
-          setSubmitting(false);
-          setLoading(false);
-        })
-        .withFailureHandler(err => {
-          toast('Submit failed: ' + (err && err.message ? err.message : err));
-          setSubmitting(false);
-          setLoading(false);
-        })
-        .submitOrder(payload);
-  }
-
-  function loadMyRequests() {
-    setLoading(true);
-    google.script.run
-      .withSuccessHandler(rows => {
-        store.myRequests = rows;
-        setLoading(false);
-        if (store.route === 'myRequests') renderMyRequests();
-      })
-      .withFailureHandler(() => setLoading(false))
-      .listMyOrders({ email: store.session.email });
-  }
-
-  function renderMyRequests() {
-    const main = document.getElementById('main');
-    main.innerHTML = '<h2>My Requests</h2><table><thead><tr><th>Date</th><th>Description</th><th>Qty</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>';
-    const tbody = main.querySelector('tbody');
-    (store.myRequests || []).forEach(r => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.ts}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td>${r.approver}</td>`;
-      tbody.appendChild(tr);
-    });
-  }
-
-  function loadApprovals() {
-    setLoading(true);
-    google.script.run
-      .withSuccessHandler(rows => {
-        store.approvals = rows;
-        setLoading(false);
-        if (store.route === 'approvals') renderApprovals();
-      })
-      .withFailureHandler(() => setLoading(false))
-      .listPendingApprovals();
-  }
-
-  function renderApprovals() {
-    const main = document.getElementById('main');
-    main.innerHTML = '<h2>Pending Approvals</h2><table><thead><tr><th>Date</th><th>Requester</th><th>Description</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>';
-    const tbody = main.querySelector('tbody');
-    (store.approvals || []).forEach(r => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.ts}</td><td>${r.requester}</td><td>${r.description}</td><td>${r.qty}</td><td>${r.status}</td><td><button class="btn ap">Approve</button> <button class="btn dn">Deny</button></td>`;
-      tr.querySelector('.ap').onclick = () => decide(r.id, 'APPROVED');
-      tr.querySelector('.dn').onclick = () => decide(r.id, 'DENIED');
-      tbody.appendChild(tr);
-    });
-
-    function decide(id, decision) {
-      setLoading(true);
-      google.script.run
-        .withSuccessHandler(() => {
-          setLoading(false);
-          loadApprovals();
-        })
-        .withFailureHandler(() => setLoading(false))
-        .decideOrder({ id, decision });
-    }
-  }
-
-  function renderCatalog(main) {
-    main.innerHTML = '<h2>Catalog Manager</h2><div><input id="nDesc" class="input" placeholder="Description"> <select id="nCat" class="input"><option>Office</option><option>Cleaning</option><option>Operations</option></select> <button id="nAdd" class="btn">Add</button></div><table><thead><tr><th>Description</th><th>Category</th><th>Archived</th><th></th></tr></thead><tbody></tbody></table>';
-    const tbody = main.querySelector('tbody');
-    function load() {
-      setLoading(true);
-      google.script.run
-        .withSuccessHandler(items => {
-          tbody.innerHTML = '';
-          items.forEach(it => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${it.description}</td><td>${it.category}</td><td>${it.archived}</td><td><button class="btn tg">${it.archived ? 'Unarchive' : 'Archive'}</button></td>`;
-            tr.querySelector('.tg').onclick = () => {
-              setLoading(true);
-              google.script.run
-                .withSuccessHandler(() => { setLoading(false); load(); })
-                .withFailureHandler(() => setLoading(false))
-                .setCatalogArchived({ sku: it.sku, archived: !it.archived });
-            };
-            tbody.appendChild(tr);
-          });
-          setLoading(false);
-        })
-        .withFailureHandler(() => setLoading(false))
-        .getCatalog({ includeArchived: true });
-    }
-    load();
-    main.querySelector('#nAdd').onclick = () => {
-      const desc = main.querySelector('#nDesc').value.trim();
-      const cat = main.querySelector('#nCat').value;
-      if (desc) {
-        setLoading(true);
-        google.script.run
-          .withSuccessHandler(() => {
-            main.querySelector('#nDesc').value = '';
-            setLoading(false);
-            load();
-          })
-          .withFailureHandler(() => setLoading(false))
-          .addCatalogItem({ description: desc, category: cat });
-      }
-    };
-  }
-
-  function toast(msg) {
-    const div = document.createElement('div');
-    div.textContent = msg;
-    Object.assign(div.style, {
-      position: 'fixed',
-      bottom: '1rem',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      background: '#323232',
-      color: '#fff',
-      padding: '0.5rem 1rem',
-      borderRadius: '4px',
-      zIndex: '1000'
-    });
-    document.body.appendChild(div);
-    setTimeout(() => div.remove(), 3000);
-  }
-  </script>
+init();
+</script>
 </body>
 </html>
