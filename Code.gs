@@ -12,6 +12,42 @@ const SHEETS = {
 const SS_ID_PROP = 'SS_ID';
 const DEV_EMAILS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
 
+// Seed catalog items grouped by category
+const STOCK_LIST = {
+  Office: [
+    'Copy Paper 8.5\u00d711 (case)',
+    'Ballpoint Pens (box)',
+    'Sharpie Markers (pack)',
+    'Hanging File Folders (box)',
+    'Thermal Receipt Paper (case)',
+    'Shipping Labels 4\u00d76 (roll)',
+    'Packing Tape (6-pack)',
+    'Envelopes #10 (box)'
+  ],
+  Cleaning: [
+    'Nitrile Gloves (box)',
+    'Paper Towels (case)',
+    'Trash Liners 33gal (case)',
+    'Disinfectant Spray (case)',
+    'Glass Cleaner (1 gal)',
+    'Floor Cleaner Concentrate (1 gal)',
+    'Lint Rollers (12-pack)'
+  ],
+  Operations: [
+    'Poly Garment Bags (roll)',
+    'Wire Hangers 18" (case)',
+    'Suit Hangers w/ Bar (case)',
+    'Garment Tags (roll)',
+    'Spotting Agent – Protein (qt)',
+    'Spotting Agent – Tannin (qt)',
+    'Detergent – Laundry (5 gal)',
+    'Laundry Nets (each)',
+    'Sizing/Finishing Spray (case)',
+    'Laundry Bags – Customer (pack)',
+    'Twine/Hook Ties (roll)'
+  ]
+};
+
 // ---------- Initialization ----------
 function getSs_() {
   const props = PropertiesService.getScriptProperties();
@@ -39,15 +75,7 @@ function init_() {
   // Orders
   getOrCreateSheet_(SHEETS.ORDERS, ['id', 'ts', 'requester', 'item', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification', 'cost_center', 'gl_code']);
   // Catalog
-  const catalog = getOrCreateSheet_(SHEETS.CATALOG, ['sku', 'desc', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active']);
-  if (catalog.getLastRow() === 1) {
-    const seed = [
-      ['PAPER', 'Copy Paper 8.5x11', 'Office', 'OfficeMax', 30, false, 0, '6000', 'ADMIN', true],
-      ['GLOVES', 'Nitrile Gloves', 'Cleaning', 'SafetyCo', 20, false, 0, '6100', 'OPS', true],
-      ['SOLVENT', 'Special Solvent', 'Operations', 'ChemCorp', 50, true, 40, '6200', 'OPS', true]
-    ];
-    catalog.getRange(2, 1, seed.length, seed[0].length).setValues(seed);
-  }
+  seedCatalogIfEmpty_();
   // Budgets
   const budgets = getOrCreateSheet_(SHEETS.BUDGETS, ['cost_center', 'month', 'budget', 'spent_to_date']);
   if (budgets.getLastRow() === 1) {
@@ -70,6 +98,18 @@ function init_() {
   // LT_Devs
   const lt = getOrCreateSheet_(SHEETS.LT_DEVS, ['email']);
   if (lt.getLastRow() === 1) DEV_EMAILS.forEach(dev => lt.appendRow([dev]));
+}
+
+function seedCatalogIfEmpty_() {
+  const sheet = getOrCreateSheet_(SHEETS.CATALOG, ['sku', 'desc', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active']);
+  if (sheet.getLastRow() > 1) return;
+  const rows = [];
+  Object.keys(STOCK_LIST).forEach(cat => {
+    STOCK_LIST[cat].forEach(desc => {
+      rows.push([uuid_(), desc, cat, '', 0, false, 0, '', '', true]);
+    });
+  });
+  sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
 }
 
 // ---------- Helpers ----------
