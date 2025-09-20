@@ -34,6 +34,8 @@ textarea{min-height:5rem;resize:vertical;}
 .checkbox-field{flex-direction:row;align-items:center;gap:.5rem;}
 .checkbox-field span{font-weight:500;}
 .actions{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;}
+.actions.start{justify-content:flex-start;}
+.actions.start button{flex:0 0 auto;}
 button{font:inherit;border-radius:999px;border:none;padding:.55rem 1.1rem;cursor:pointer;transition:background .2s,box-shadow .2s,color .2s;background:#e2e8f0;color:#1f2933;}
 button:hover{background:#cbd5f5;}
 button.primary{background:#1a73e8;color:#fff;}
@@ -101,6 +103,7 @@ const state = {
 
 const CAN_MANAGE_PROOF = ['approver','developer','super_admin'].includes(SESSION.role);
 const CAN_MANAGE_THUMBS = ['developer','super_admin'].includes(SESSION.role);
+const CAN_UPLOAD_IMAGES = ['developer','super_admin'].includes(SESSION.role);
 let proofPanelCtx = null;
 let thumbPanelCtx = null;
 
@@ -329,6 +332,11 @@ function renderAll(app){
             <strong>Paste</strong> (Ctrl+V) an image or drop a file
             <span class="field-note">Or provide a hosted image URL below.</span>
           </div>
+          <div class="actions start">
+            <button id="proofBrowse" class="ghost" type="button">Select image</button>
+            <button id="proofUpload" class="primary hidden" type="button">Upload to Drive</button>
+          </div>
+          <input id="proofFile" type="file" accept="image/*" class="hidden">
           <input id="proofUrl" placeholder="https://example.com/order-proof.png">
           <img id="proofPreview" class="preview hidden" alt="Order proof preview">
           <div class="actions">
@@ -424,6 +432,11 @@ function renderCatalog(app){
             <strong>Paste</strong> (Ctrl+V) an image or drop a file
             <span class="field-note">Or provide a hosted image URL below.</span>
           </div>
+          <div class="actions start">
+            <button id="thumbBrowse" class="ghost" type="button">Select image</button>
+            <button id="thumbUpload" class="primary hidden" type="button">Upload to Drive</button>
+          </div>
+          <input id="thumbFile" type="file" accept="image/*" class="hidden">
           <input id="thumbUrl" placeholder="https://example.com/catalog-item.png">
           <img id="thumbPreview" class="preview hidden" alt="Catalog thumbnail preview">
           <div class="actions">
@@ -634,16 +647,41 @@ function setupProofPanel(app){
   const hiddenInput = panel.querySelector('#proofData');
   const urlInput = panel.querySelector('#proofUrl');
   const clearButton = panel.querySelector('#clearProof');
+  const browseButton = panel.querySelector('#proofBrowse');
+  const uploadButton = panel.querySelector('#proofUpload');
+  const fileInput = panel.querySelector('#proofFile');
   const saveButton = panel.querySelector('#saveProof');
   const etaInput = panel.querySelector('#etaInput');
   const orderLabel = panel.querySelector('#proofOrderLabel');
+  if(uploadButton){
+    uploadButton.classList.toggle('hidden', !CAN_UPLOAD_IMAGES);
+  }
   proofPanelCtx = {
     panel,
     etaInput,
     orderLabel,
     saveButton,
-    imageField: createImageField({ dropZone, preview, hiddenInput, urlInput, clearButton, onChange: updateProofSaveState }),
-    orderId: null
+    imageField: createImageField({
+      dropZone,
+      preview,
+      hiddenInput,
+      urlInput,
+      clearButton,
+      browseButton,
+      uploadButton,
+      fileInput,
+      canUpload: CAN_UPLOAD_IMAGES,
+      getName: () => {
+        if(proofPanelCtx && proofPanelCtx.orderId){
+          const label = proofPanelCtx.orderName || 'order-proof';
+          return `order-${proofPanelCtx.orderId}-${label}`;
+        }
+        return 'order-proof';
+      },
+      onChange: updateProofSaveState
+    }),
+    orderId: null,
+    orderName: ''
   };
   const cancel = panel.querySelector('#cancelProof');
   if(cancel) cancel.onclick = closeProofPanel;
@@ -654,6 +692,7 @@ function setupProofPanel(app){
 function openProofPanel(order){
   if(!proofPanelCtx) return;
   proofPanelCtx.orderId = order.id;
+  proofPanelCtx.orderName = order.item || '';
   proofPanelCtx.panel.classList.remove('hidden');
   proofPanelCtx.orderLabel.textContent = `${order.item} • ${order.ts}`;
   proofPanelCtx.etaInput.value = order.eta_details || '';
@@ -667,6 +706,7 @@ function openProofPanel(order){
 function closeProofPanel(){
   if(!proofPanelCtx) return;
   proofPanelCtx.orderId = null;
+  proofPanelCtx.orderName = '';
   proofPanelCtx.etaInput.value = '';
   proofPanelCtx.imageField.clear();
   proofPanelCtx.orderLabel.textContent = 'Select “Manage proof” on a request to attach details.';
@@ -710,14 +750,38 @@ function setupThumbPanel(app){
   const hiddenInput = panel.querySelector('#thumbData');
   const urlInput = panel.querySelector('#thumbUrl');
   const clearButton = panel.querySelector('#thumbClear');
+  const browseButton = panel.querySelector('#thumbBrowse');
+  const uploadButton = panel.querySelector('#thumbUpload');
+  const fileInput = panel.querySelector('#thumbFile');
   const saveButton = panel.querySelector('#thumbSave');
   const select = panel.querySelector('#thumbSku');
+  if(uploadButton){
+    uploadButton.classList.toggle('hidden', !CAN_UPLOAD_IMAGES);
+  }
   thumbPanelCtx = {
     panel,
     select,
     saveButton,
     originalImage: '',
-    imageField: createImageField({ dropZone, preview, hiddenInput, urlInput, clearButton, onChange: updateThumbSaveState })
+    imageField: createImageField({
+      dropZone,
+      preview,
+      hiddenInput,
+      urlInput,
+      clearButton,
+      browseButton,
+      uploadButton,
+      fileInput,
+      canUpload: CAN_UPLOAD_IMAGES,
+      getName: () => {
+        if(thumbPanelCtx && thumbPanelCtx.select){
+          const sku = thumbPanelCtx.select.value || '';
+          if(sku) return `catalog-${sku}`;
+        }
+        return 'catalog-image';
+      },
+      onChange: updateThumbSaveState
+    })
   };
   if(select){
     select.onchange = () => {
@@ -795,9 +859,16 @@ function refreshCatalogViews(){
   }
 }
 
-function createImageField({ dropZone, preview, hiddenInput, urlInput, clearButton, onChange }){
+function createImageField({ dropZone, preview, hiddenInput, urlInput, clearButton, browseButton, uploadButton, fileInput, canUpload, getName, onChange }){
   if(!dropZone) return { setExisting: ()=>{}, clear: ()=>{}, getValue: ()=>'' };
   const trigger = () => { if(typeof onChange === 'function') onChange(); };
+  let lastSource = { dataUrl: '', fileName: '', contentType: '' };
+  const uploadLabel = uploadButton ? uploadButton.textContent : '';
+  const updateUploadButton = () => {
+    if(uploadButton){
+      uploadButton.disabled = !(canUpload && lastSource.dataUrl);
+    }
+  };
   const showPreview = (src, triggerChange = true) => {
     if(preview){
       preview.src = src;
@@ -817,15 +888,27 @@ function createImageField({ dropZone, preview, hiddenInput, urlInput, clearButto
   const clearValues = (triggerChange = true) => {
     if(hiddenInput) hiddenInput.value = '';
     if(urlInput) urlInput.value = '';
+    lastSource = { dataUrl: '', fileName: '', contentType: '' };
     hidePreview(triggerChange);
+    updateUploadButton();
+  };
+  const setFromDataUrl = (dataUrl, fileName, contentType, triggerChange = true) => {
+    lastSource = {
+      dataUrl: dataUrl || '',
+      fileName: fileName || '',
+      contentType: contentType || ''
+    };
+    if(hiddenInput) hiddenInput.value = dataUrl || '';
+    if(urlInput) urlInput.value = '';
+    showPreview(dataUrl || '', triggerChange);
+    updateUploadButton();
   };
   const handleFile = file => {
     if(!file) return;
     const reader = new FileReader();
+    const type = file.type || '';
     reader.onload = e => {
-      if(hiddenInput) hiddenInput.value = e.target.result;
-      if(urlInput) urlInput.value = '';
-      showPreview(e.target.result);
+      setFromDataUrl(e.target.result, file.name || '', type);
     };
     reader.readAsDataURL(file);
   };
@@ -855,28 +938,96 @@ function createImageField({ dropZone, preview, hiddenInput, urlInput, clearButto
       handleFile(e.dataTransfer.files[0]);
     }
   });
-  dropZone.addEventListener('click', () => dropZone.focus());
+  dropZone.addEventListener('click', () => {
+    if(fileInput){
+      fileInput.click();
+    }else{
+      dropZone.focus();
+    }
+  });
+  dropZone.addEventListener('keydown', e => {
+    if((e.key === 'Enter' || e.key === ' ') && fileInput){
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
+  if(fileInput){
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files && e.target.files[0];
+      handleFile(file);
+      e.target.value = '';
+    });
+  }
+  if(browseButton){
+    browseButton.onclick = () => {
+      if(fileInput){
+        fileInput.click();
+      }
+    };
+  }
   if(urlInput){
     urlInput.addEventListener('input', () => {
       if(hiddenInput) hiddenInput.value = '';
+      lastSource = { dataUrl: '', fileName: '', contentType: '' };
       const url = urlInput.value.trim();
       if(url){
         showPreview(url);
       }else{
         hidePreview();
       }
+      updateUploadButton();
     });
   }
   if(clearButton){
     clearButton.onclick = () => clearValues();
   }
+  if(uploadButton){
+    if(!canUpload){
+      uploadButton.disabled = true;
+    }else{
+      uploadButton.disabled = true;
+      uploadButton.onclick = () => {
+        if(!lastSource.dataUrl){
+          toast('Select an image before uploading.');
+          return;
+        }
+        const payload = {
+          action: 'uploadImage',
+          data: lastSource.dataUrl,
+          name: typeof getName === 'function' ? getName() : 'image',
+          filename: lastSource.fileName || '',
+          contentType: lastSource.contentType || '',
+          csrf: state.session.csrf
+        };
+        const originalText = uploadLabel || uploadButton.textContent;
+        uploadButton.disabled = true;
+        uploadButton.textContent = 'Uploading…';
+        google.script.run.withSuccessHandler(res => {
+          const url = res && res.url ? res.url : '';
+          if(url){
+            if(hiddenInput) hiddenInput.value = url;
+            if(urlInput) urlInput.value = url;
+            showPreview(url);
+            lastSource = { dataUrl: '', fileName: '', contentType: '' };
+            toast('Image uploaded to Drive');
+          }
+          uploadButton.textContent = originalText;
+          updateUploadButton();
+        }).withFailureHandler(err => {
+          toast(err.message);
+          uploadButton.textContent = originalText;
+          updateUploadButton();
+        }).router(payload);
+      };
+    }
+  }
+  updateUploadButton();
   return {
     setExisting(value){
       clearValues(false);
       if(value){
         if(value.startsWith('data:')){
-          if(hiddenInput) hiddenInput.value = value;
-          showPreview(value,false);
+          setFromDataUrl(value, '', '', false);
         }else{
           if(urlInput) urlInput.value = value;
           showPreview(value,false);
@@ -884,6 +1035,7 @@ function createImageField({ dropZone, preview, hiddenInput, urlInput, clearButto
       }else{
         hidePreview(false);
       }
+      updateUploadButton();
       trigger();
     },
     clear(){

@@ -11,6 +11,8 @@ const SHEETS = {
 };
 const SS_ID_PROP = 'SS_ID';
 const DEV_EMAILS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
+const UPLOAD_FOLDER_PROP = 'UPLOAD_FOLDER_ID';
+const DRIVE_VIEW_PREFIX = 'https://drive.google.com/uc?export=view&id=';
 
 const ORDER_HEADERS = ['id', 'ts', 'requester', 'item', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification', 'cost_center', 'gl_code', 'eta_details', 'proof_image'];
 const CATALOG_HEADERS = ['sku', 'description', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active', 'image_url'];
@@ -152,6 +154,79 @@ function uuid_() {
   return Utilities.getUuid();
 }
 
+function ensureFolderShare_(folder) {
+  if (!folder) return;
+  try {
+    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (err) {
+    try {
+      folder.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (err2) {
+      // ignore
+    }
+  }
+}
+
+function ensureFilePublic_(file) {
+  if (!file) return;
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (err) {
+    try {
+      file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (err2) {
+      // ignore
+    }
+  }
+}
+
+function getUploadFolder_() {
+  const props = PropertiesService.getScriptProperties();
+  const existingId = props.getProperty(UPLOAD_FOLDER_PROP);
+  let folder = null;
+  if (existingId) {
+    try {
+      folder = DriveApp.getFolderById(existingId);
+    } catch (err) {
+      folder = null;
+    }
+  }
+  if (!folder) {
+    folder = DriveApp.createFolder('SuppliesTracker Uploads');
+    props.setProperty(UPLOAD_FOLDER_PROP, folder.getId());
+  }
+  ensureFolderShare_(folder);
+  return folder;
+}
+
+function parseDataUrl_(dataUrl) {
+  if (!dataUrl) throw new Error('Missing image data');
+  const match = dataUrl.match(/^data:(.+?);base64,(.+)$/);
+  if (!match) throw new Error('Invalid image data');
+  const contentType = match[1] || 'application/octet-stream';
+  const bytes = Utilities.base64Decode(match[2]);
+  return { contentType, bytes };
+}
+
+function buildUploadFilename_(nameHint, filename, contentType) {
+  const fallbackName = filename ? filename.replace(/\.[^/.]+$/, '') : '';
+  const base = (nameHint || fallbackName || 'image').toLowerCase();
+  let sanitized = base.replace(/[^a-z0-9]+/g, '-');
+  sanitized = sanitized.replace(/-+/g, '-').replace(/^-|-$/g, '');
+  sanitized = sanitized.slice(0, 40);
+  if (!sanitized) sanitized = 'image';
+  let ext = '';
+  if (filename && filename.indexOf('.') !== -1) {
+    ext = filename.split('.').pop().toLowerCase();
+  }
+  if (!ext && contentType && contentType.indexOf('/') !== -1) {
+    ext = contentType.split('/')[1];
+  }
+  if (!ext) ext = 'png';
+  const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
+  return `${sanitized}-${stamp}.${ext}`;
+}
+
 function withLock_(fn) {
   const lock = LockService.getDocumentLock();
   if (!lock.tryLock(5000)) throw new Error('System busy, please retry.');
@@ -246,6 +321,8 @@ function router(req) {
       return readAll_(getOrCreateSheet_(SHEETS.BUDGETS, ['cost_center', 'month', 'budget', 'spent_to_date']));
     case 'updateCatalogImage':
       return apiUpdateCatalogImage_(req.sku, req.image || '');
+    case 'uploadImage':
+      return apiUploadImage_(req || {});
     default:
       throw new Error('Unknown action');
   }
@@ -415,6 +492,21 @@ function apiUpdateCatalogImage_(sku, image) {
   });
   appendAudit_('Catalog', sku, 'UPDATE_IMAGE', JSON.stringify({ image_url: image ? 'set' : '' }));
   return { sku, image_url: image };
+}
+
+function apiUploadImage_(payload) {
+  requireRole_(['developer', 'super_admin']);
+  const data = payload && payload.data;
+  if (!data) throw new Error('Missing image data');
+  const parsed = parseDataUrl_(data);
+  const folder = getUploadFolder_();
+  ensureFolderShare_(folder);
+  const fileName = buildUploadFilename_(payload && payload.name, payload && payload.filename, parsed.contentType);
+  const blob = Utilities.newBlob(parsed.bytes, parsed.contentType, fileName);
+  const file = folder.createFile(blob);
+  ensureFilePublic_(file);
+  appendAudit_('Uploads', file.getId(), 'CREATE', JSON.stringify({ name: fileName, contentType: parsed.contentType }));
+  return { url: DRIVE_VIEW_PREFIX + file.getId() };
 }
 
 // ---------- Notification placeholders ----------
