@@ -12,6 +12,9 @@ const SHEETS = {
 const SS_ID_PROP = 'SS_ID';
 const DEV_EMAILS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
 
+const ORDER_HEADERS = ['id', 'ts', 'requester', 'item', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification', 'cost_center', 'gl_code', 'eta_details', 'proof_image'];
+const CATALOG_HEADERS = ['sku', 'description', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active', 'image_url'];
+
 // Seed catalog items grouped by category
 const STOCK_LIST = {
   Office: [
@@ -66,6 +69,15 @@ function getOrCreateSheet_(name, headers) {
   if (!sh) {
     sh = ss.insertSheet(name);
     sh.appendRow(headers);
+    return sh;
+  }
+  const existing = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0] : [];
+  const missing = headers.filter(h => existing.indexOf(h) === -1);
+  if (missing.length) {
+    const startCol = existing.length ? existing.length + 1 : 1;
+    missing.forEach((header, i) => {
+      sh.getRange(1, startCol + i).setValue(header);
+    });
   }
   return sh;
 }
@@ -73,7 +85,7 @@ function getOrCreateSheet_(name, headers) {
 function init_() {
   const month = new Date().toISOString().slice(0, 7);
   // Orders
-  getOrCreateSheet_(SHEETS.ORDERS, ['id', 'ts', 'requester', 'item', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification', 'cost_center', 'gl_code']);
+  getOrCreateSheet_(SHEETS.ORDERS, ORDER_HEADERS);
   // Catalog
   seedCatalogIfEmpty_();
   // Budgets
@@ -101,7 +113,7 @@ function init_() {
 }
 
 function seedCatalogIfEmpty_() {
-  const sheet = getOrCreateSheet_(SHEETS.CATALOG, ['sku', 'description', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active']);
+  const sheet = getOrCreateSheet_(SHEETS.CATALOG, CATALOG_HEADERS);
   if (sheet.getLastRow() > 1) return;
   const rows = [];
   Object.keys(STOCK_LIST).forEach(cat => {
@@ -220,7 +232,7 @@ function router(req) {
     case 'getSession':
       return getSession_();
     case 'listCatalog':
-      return readAll_(getOrCreateSheet_(SHEETS.CATALOG, ['sku', 'description', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active']))
+      return readAll_(getOrCreateSheet_(SHEETS.CATALOG, CATALOG_HEADERS))
         .filter(r => String(r.active) !== 'false');
     case 'listOrders':
       return apiListOrders_(req.filter || {});
@@ -228,15 +240,19 @@ function router(req) {
       return apiCreateOrder_(req.payload || {});
     case 'bulkDecision':
       return apiBulkDecision_(req.ids || [], req.decision, req.comment || '');
+    case 'updateOrderProof':
+      return apiUpdateOrderProof_(req.id, req.eta || '', req.image || '');
     case 'listBudgets':
       return readAll_(getOrCreateSheet_(SHEETS.BUDGETS, ['cost_center', 'month', 'budget', 'spent_to_date']));
+    case 'updateCatalogImage':
+      return apiUpdateCatalogImage_(req.sku, req.image || '');
     default:
       throw new Error('Unknown action');
   }
 }
 
 function apiListOrders_(filter) {
-  const sheet = getOrCreateSheet_(SHEETS.ORDERS, ['id', 'ts', 'requester', 'item', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification', 'cost_center', 'gl_code']);
+  const sheet = getOrCreateSheet_(SHEETS.ORDERS, ORDER_HEADERS);
   const rows = readAll_(sheet).map(r => ({
     id: r.id,
     ts: r.ts,
@@ -251,6 +267,8 @@ function apiListOrders_(filter) {
     justification: r.justification,
     cost_center: r.cost_center,
     gl_code: r.gl_code,
+    eta_details: r.eta_details || '',
+    proof_image: r.proof_image || '',
     statusChip: r.status
   }));
   const email = Session.getActiveUser().getEmail();
@@ -272,7 +290,7 @@ function apiCreateOrder_(payload) {
   ['item', 'qty', 'est_cost', 'cost_center', 'gl_code'].forEach(k => {
     if (!payload[k]) throw new Error('Missing ' + k);
   });
-  const catalog = readAll_(getOrCreateSheet_(SHEETS.CATALOG, ['sku', 'description', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active']));
+  const catalog = readAll_(getOrCreateSheet_(SHEETS.CATALOG, CATALOG_HEADERS));
   const catRow = catalog.find(r => r.sku === payload.sku);
   if (catRow && String(catRow.override_required) === 'true') {
     if (!(payload.override === true && payload.justification && payload.justification.length >= 40)) {
@@ -292,10 +310,12 @@ function apiCreateOrder_(payload) {
     'override?': payload.override === true,
     justification: payload.justification || '',
     cost_center: payload.cost_center,
-    gl_code: payload.gl_code
+    gl_code: payload.gl_code,
+    eta_details: '',
+    proof_image: ''
   };
   withLock_(() => {
-    writeRow_(getOrCreateSheet_(SHEETS.ORDERS, ['id', 'ts', 'requester', 'item', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification', 'cost_center', 'gl_code']), order);
+    writeRow_(getOrCreateSheet_(SHEETS.ORDERS, ORDER_HEADERS), order);
   });
   appendAudit_('Orders', order.id, 'CREATE', JSON.stringify(order));
   sendGmailHtml_(email, 'Order Submitted', '<p>Your order was submitted.</p>');
@@ -307,7 +327,7 @@ function apiBulkDecision_(ids, decision, comment) {
   if (!decision) throw new Error('Missing decision');
   requireRole_(['approver', 'developer', 'super_admin']);
   const email = Session.getActiveUser().getEmail();
-  const sheet = getOrCreateSheet_(SHEETS.ORDERS, ['id', 'ts', 'requester', 'item', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification', 'cost_center', 'gl_code']);
+  const sheet = getOrCreateSheet_(SHEETS.ORDERS, ORDER_HEADERS);
   const headers = indexHeaders_(sheet);
   const data = sheet.getDataRange().getValues();
   const header = data.shift();
@@ -350,6 +370,51 @@ function apiBulkDecision_(ids, decision, comment) {
   });
   if (updates.length) postToChatWebhook_('Bulk decision: ' + decision);
   return { updates };
+}
+
+function apiUpdateOrderProof_(id, eta, image) {
+  if (!id) throw new Error('Missing id');
+  requireRole_(['approver', 'developer', 'super_admin']);
+  const sheet = getOrCreateSheet_(SHEETS.ORDERS, ORDER_HEADERS);
+  const headers = indexHeaders_(sheet);
+  const idIdx = headers.id;
+  const etaIdx = headers.eta_details;
+  const proofIdx = headers.proof_image;
+  if (typeof idIdx === 'undefined' || typeof etaIdx === 'undefined' || typeof proofIdx === 'undefined') {
+    throw new Error('Orders sheet missing columns');
+  }
+  withLock_(() => {
+    const data = sheet.getDataRange().getValues();
+    data.shift();
+    const rowIdx = data.findIndex(r => r[idIdx] === id);
+    if (rowIdx === -1) throw new Error('Order not found');
+    const rowNumber = rowIdx + 2;
+    sheet.getRange(rowNumber, etaIdx + 1).setValue(eta);
+    sheet.getRange(rowNumber, proofIdx + 1).setValue(image);
+  });
+  appendAudit_('Orders', id, 'UPDATE_PROOF', JSON.stringify({ eta_details: eta, proof_image: image ? 'set' : '' }));
+  return { id, eta_details: eta, proof_image: image };
+}
+
+function apiUpdateCatalogImage_(sku, image) {
+  if (!sku) throw new Error('Missing sku');
+  requireRole_(['developer', 'super_admin']);
+  const sheet = getOrCreateSheet_(SHEETS.CATALOG, CATALOG_HEADERS);
+  const headers = indexHeaders_(sheet);
+  const skuIdx = headers.sku;
+  const imageIdx = headers.image_url;
+  if (typeof skuIdx === 'undefined' || typeof imageIdx === 'undefined') {
+    throw new Error('Catalog sheet missing columns');
+  }
+  withLock_(() => {
+    const data = sheet.getDataRange().getValues();
+    data.shift();
+    const rowIdx = data.findIndex(r => r[skuIdx] === sku);
+    if (rowIdx === -1) throw new Error('Catalog item not found');
+    sheet.getRange(rowIdx + 2, imageIdx + 1).setValue(image);
+  });
+  appendAudit_('Catalog', sku, 'UPDATE_IMAGE', JSON.stringify({ image_url: image ? 'set' : '' }));
+  return { sku, image_url: image };
 }
 
 // ---------- Notification placeholders ----------

@@ -6,6 +6,9 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;}
 body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#1f2933;min-height:100vh;}
+.app-header{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem 1rem .75rem;background:#fff;box-shadow:0 1px 0 rgba(15,23,42,.08);gap:.5rem;text-align:center;}
+.app-logo{height:80px;object-fit:contain;}
+@media (min-width:640px){.app-logo{height:96px;}}
 nav{display:flex;gap:.5rem;padding:.75rem 1rem;background:#fff;position:sticky;top:0;z-index:10;border-bottom:1px solid #e2e8f0;}
 nav button{flex:1;appearance:none;border:none;background:transparent;padding:.65rem .75rem;border-radius:999px;font-weight:600;color:#475569;transition:background .2s,color .2s;}
 nav button.active{background:#1a73e8;color:#fff;box-shadow:0 0 0 1px rgba(26,115,232,.2);}
@@ -47,6 +50,11 @@ tr:nth-child(even){background:#f8fafc;}
 .chip-row{display:flex;flex-wrap:wrap;margin:.25rem -.25rem 0;}
 .chip{display:inline-flex;align-items:center;padding:.25rem .65rem;margin:.25rem;border-radius:999px;background:#e2e8f0;color:#475569;font-size:.75rem;font-weight:600;cursor:pointer;transition:background .2s,color .2s;}
 .chip.active{background:#1a73e8;color:#fff;}
+#itemPreview{display:flex;align-items:center;gap:.75rem;margin-top:.5rem;padding:.5rem;border-radius:8px;background:#eef2ff;color:#312e81;}
+#itemPreview.hidden{display:none;}
+#itemPreview img{width:72px;height:72px;object-fit:cover;border-radius:8px;box-shadow:0 0 0 1px rgba(49,46,129,.15);}
+#itemPreview button{align-self:flex-start;}
+#itemPreview button.link{padding:0;}
 #bulkBar{display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;}
 #bulkBar .field{flex:1 1 240px;}
 #bulkBar .actions{flex:1 1 200px;justify-content:flex-end;}
@@ -55,9 +63,26 @@ tr:nth-child(even){background:#f8fafc;}
 #toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:#1f2933;color:#fff;padding:.65rem 1rem;border-radius:999px;display:none;box-shadow:0 10px 25px -12px rgba(15,23,42,.6);}
 .hidden{display:none;}
 .footnote{margin:.5rem 0 0;font-size:.8rem;color:#64748b;}
+.field-note{margin:.25rem 0 0;font-size:.8rem;color:#64748b;}
+.thumb{width:60px;height:60px;object-fit:cover;border-radius:8px;box-shadow:0 0 0 1px rgba(148,163,184,.4);transition:transform .2s,box-shadow .2s;cursor:pointer;background:#fff;}
+.thumb:hover{transform:translateY(-2px);box-shadow:0 8px 12px -10px rgba(30,64,175,.45);}
+.catalog-item{display:flex;align-items:center;gap:.75rem;}
+.catalog-item-text{display:flex;flex-direction:column;gap:.25rem;}
+.thumb-button{padding:0;border:none;background:transparent;cursor:pointer;}
+.dropzone{border:1px dashed #94a3b8;border-radius:10px;padding:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;text-align:center;background:#f8fafc;color:#475569;transition:border-color .2s,background .2s;min-height:120px;justify-content:center;}
+.dropzone.drag{border-color:#1a73e8;background:rgba(26,115,232,.08);}
+.dropzone.has-image{border-style:solid;background:#fff;}
+.dropzone strong{color:#1a73e8;}
+.dropzone .field-note{margin:0;font-size:.75rem;color:#64748b;}
+.field-note + .link{margin-top:.35rem;display:inline-block;}
+.preview{max-width:220px;border-radius:12px;margin-top:.5rem;box-shadow:0 10px 18px -12px rgba(15,23,42,.45);display:block;}
+.preview.hidden{display:none;}
 </style>
 </head>
 <body>
+<header class="app-header">
+<img src="https://www.dublincleaners.com/wp-content/uploads/2025/06/LogosHQ.png" alt="Dublin Cleaners logo" class="app-logo">
+</header>
 <nav id="nav" role="navigation"></nav>
 <main id="app"></main>
 <div id="toast" aria-live="polite"></div>
@@ -73,6 +98,11 @@ const state = {
   selection: new Set(),
   catalog: []
 };
+
+const CAN_MANAGE_PROOF = ['approver','developer','super_admin'].includes(SESSION.role);
+const CAN_MANAGE_THUMBS = ['developer','super_admin'].includes(SESSION.role);
+let proofPanelCtx = null;
+let thumbPanelCtx = null;
 
 function init(){
   route('request');
@@ -95,6 +125,8 @@ function renderNav(){
 
 function route(r){
   state.route = r;
+  proofPanelCtx = null;
+  thumbPanelCtx = null;
   renderNav();
   const app = document.getElementById('app');
   app.innerHTML = '';
@@ -117,6 +149,14 @@ function renderRequest(app){
           <label class="field">
             <span>Item</span>
             <input id="item" placeholder="Start typing to search the catalog" list="catList">
+            <p class="field-note">Choose an item to reveal its catalog thumbnail.</p>
+            <div id="itemPreview" class="hidden">
+              <img id="itemPreviewImg" alt="Selected item thumbnail">
+              <div class="catalog-item-text">
+                <strong id="itemPreviewLabel"></strong>
+                <button id="itemPreviewOpen" type="button" class="link">Open full image</button>
+              </div>
+            </div>
           </label>
           <label class="field">
             <span>Quantity</span>
@@ -158,6 +198,50 @@ function renderRequest(app){
     </section>
   `;
   app.querySelector('#sub').onclick = submitOrder;
+  const itemInput = app.querySelector('#item');
+  const preview = app.querySelector('#itemPreview');
+  const previewImg = app.querySelector('#itemPreviewImg');
+  const previewLabel = app.querySelector('#itemPreviewLabel');
+  const previewOpen = app.querySelector('#itemPreviewOpen');
+  let previewSrc = '';
+  function hideItemPreview(){
+    if(preview){
+      preview.classList.add('hidden');
+    }
+    previewSrc = '';
+  }
+  function showItemPreview(row){
+    if(!preview || !row || !row.image_url){
+      hideItemPreview();
+      return;
+    }
+    previewImg.src = row.image_url;
+    previewImg.alt = `${row.description} thumbnail`;
+    previewLabel.textContent = row.description;
+    preview.classList.remove('hidden');
+    previewSrc = row.image_url;
+  }
+  function updateItemPreview(){
+    if(!itemInput) return;
+    const value = itemInput.value ? itemInput.value.toLowerCase().trim() : '';
+    if(!value){
+      hideItemPreview();
+      return;
+    }
+    const match = state.catalog.find(row => (row.description || '').toLowerCase() === value);
+    if(match){
+      showItemPreview(match);
+    }else{
+      hideItemPreview();
+    }
+  }
+  if(itemInput){
+    itemInput.addEventListener('input', updateItemPreview);
+    itemInput.addEventListener('change', updateItemPreview);
+  }
+  if(previewOpen){
+    previewOpen.onclick = () => { if(previewSrc) window.open(previewSrc, '_blank'); };
+  }
   app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
   loadCatalog().then(()=>{
     const dl = document.getElementById('catList');
@@ -170,6 +254,7 @@ function renderRequest(app){
       });
     }
     renderCatalogList('catalogPreview',{limit:6});
+    updateItemPreview();
   });
 }
 
@@ -221,6 +306,8 @@ function renderAll(app){
                 <th scope="col">Requester</th>
                 <th scope="col">Status</th>
                 <th scope="col">Approver</th>
+                <th scope="col">ETA</th>
+                <th scope="col">Order proof</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -228,6 +315,33 @@ function renderAll(app){
         </div>
         <div id="empty" class="empty hidden">No requests match your filters. <button id="reset" class="ghost" type="button">Reset filters</button></div>
       </section>
+      ${CAN_MANAGE_PROOF ? `
+      <section class="panel stack hidden" id="proofPanel">
+        <h2 class="panel-title">Order fulfillment evidence</h2>
+        <p class="field-note" id="proofOrderLabel">Select “Manage proof” on a request to attach details.</p>
+        <div class="field">
+          <span>ETA details</span>
+          <textarea id="etaInput" placeholder="Example: Expected delivery 3/15 via UPS"></textarea>
+        </div>
+        <div class="field">
+          <span>Order screenshot</span>
+          <div id="proofDrop" class="dropzone" tabindex="0">
+            <strong>Paste</strong> (Ctrl+V) an image or drop a file
+            <span class="field-note">Or provide a hosted image URL below.</span>
+          </div>
+          <input id="proofUrl" placeholder="https://example.com/order-proof.png">
+          <img id="proofPreview" class="preview hidden" alt="Order proof preview">
+          <div class="actions">
+            <button id="clearProof" class="ghost" type="button">Clear image</button>
+          </div>
+          <input type="hidden" id="proofData">
+        </div>
+        <div class="actions">
+          <button id="cancelProof" class="ghost" type="button">Close</button>
+          <button id="saveProof" class="primary" type="button" disabled>Save proof</button>
+        </div>
+      </section>
+      ` : ''}
       <section class="panel stack">
         <div class="panel-head">
           <h2 class="panel-title">Catalog snapshot</h2>
@@ -268,11 +382,16 @@ function renderAll(app){
     toggleBulk();
   };
   app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
-  if(['approver','developer','super_admin'].includes(state.session.role)){
-    document.getElementById('bulkBar').classList.remove('hidden');
-    document.getElementById('ap').onclick = ()=>bulk('APPROVED');
-    document.getElementById('dn').onclick = ()=>bulk('DENIED');
-    document.getElementById('oh').onclick = ()=>bulk('ON-HOLD');
+  if(CAN_MANAGE_PROOF){
+    const bulkBar = app.querySelector('#bulkBar');
+    if(bulkBar) bulkBar.classList.remove('hidden');
+    const ap = app.querySelector('#ap');
+    const dn = app.querySelector('#dn');
+    const oh = app.querySelector('#oh');
+    if(ap) ap.onclick = ()=>bulk('APPROVED');
+    if(dn) dn.onclick = ()=>bulk('DENIED');
+    if(oh) oh.onclick = ()=>bulk('ON-HOLD');
+    setupProofPanel(app);
   }
   loadOrders();
   loadCatalog().then(()=>renderCatalogList('catalogInline',{limit:6}));
@@ -289,10 +408,44 @@ function renderCatalog(app){
         </div>
         <div id="catalogFull"><p class="footnote">Loading catalog...</p></div>
       </section>
+      ${CAN_MANAGE_THUMBS ? `
+      <section class="panel stack" id="thumbPanel">
+        <h2 class="panel-title">Manage thumbnails</h2>
+        <p class="field-note">Paste or drop an image to update catalog visuals.</p>
+        <label class="field">
+          <span>Catalog item</span>
+          <select id="thumbSku">
+            <option value="">Select an item</option>
+          </select>
+        </label>
+        <div class="field">
+          <span>Thumbnail</span>
+          <div id="thumbDrop" class="dropzone" tabindex="0">
+            <strong>Paste</strong> (Ctrl+V) an image or drop a file
+            <span class="field-note">Or provide a hosted image URL below.</span>
+          </div>
+          <input id="thumbUrl" placeholder="https://example.com/catalog-item.png">
+          <img id="thumbPreview" class="preview hidden" alt="Catalog thumbnail preview">
+          <div class="actions">
+            <button id="thumbClear" class="ghost" type="button">Clear image</button>
+            <button id="thumbSave" class="primary" type="button" disabled>Save thumbnail</button>
+          </div>
+          <input type="hidden" id="thumbData">
+        </div>
+      </section>
+      ` : ''}
     </section>
   `;
   app.querySelector('[data-route="request"]').onclick = ()=>route('request');
-  loadCatalog().then(()=>renderCatalogList('catalogFull'));
+  if(CAN_MANAGE_THUMBS){
+    setupThumbPanel(app);
+  }
+  loadCatalog().then(()=>{
+    renderCatalogList('catalogFull');
+    if(CAN_MANAGE_THUMBS){
+      populateThumbOptions();
+    }
+  });
 }
 
 function renderCatalogList(targetId,{limit}={}){
@@ -316,7 +469,33 @@ function renderCatalogList(targetId,{limit}={}){
   rows.forEach(row=>{
     const tr = document.createElement('tr');
     const item = document.createElement('td');
-    item.textContent = row.description;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'catalog-item';
+    if(row.image_url){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'thumb-button';
+      const img = document.createElement('img');
+      img.className = 'thumb';
+      img.src = row.image_url;
+      img.alt = `${row.description} thumbnail`;
+      btn.appendChild(img);
+      btn.onclick = () => window.open(row.image_url, '_blank');
+      wrapper.appendChild(btn);
+    }
+    const text = document.createElement('div');
+    text.className = 'catalog-item-text';
+    const name = document.createElement('span');
+    name.textContent = row.description;
+    text.appendChild(name);
+    if(!row.image_url){
+      const note = document.createElement('span');
+      note.className = 'field-note';
+      note.textContent = 'Thumbnail not added yet';
+      text.appendChild(note);
+    }
+    wrapper.appendChild(text);
+    item.appendChild(wrapper);
     const cat = document.createElement('td');
     cat.textContent = row.category;
     tr.append(item,cat);
@@ -333,8 +512,8 @@ function renderCatalogList(targetId,{limit}={}){
   }
 }
 
-function loadCatalog(){
-  if(state.catalog.length) return Promise.resolve();
+function loadCatalog(force=false){
+  if(!force && state.catalog.length) return Promise.resolve();
   return new Promise(res=>{
     google.script.run.withSuccessHandler(rows=>{state.catalog = rows;res();}).router({action:'listCatalog'});
   });
@@ -367,7 +546,16 @@ function updateFilters(){
 }
 
 function loadOrders(){
-  google.script.run.withSuccessHandler(rows=>{state.rows=rows;renderRows();})
+  google.script.run.withSuccessHandler(rows=>{
+    state.rows=rows;
+    renderRows();
+    if(proofPanelCtx && proofPanelCtx.orderId){
+      const current = state.rows.find(r => r.id === proofPanelCtx.orderId);
+      if(current){
+        proofPanelCtx.orderLabel.textContent = `${current.item} • ${current.ts}`;
+      }
+    }
+  })
     .router({action:'listOrders',filter:state.filters});
 }
 
@@ -378,7 +566,52 @@ function renderRows(){
   state.selection = new Set();
   state.rows.forEach(r=>{
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td><input type="checkbox" value="${r.id}"></td><td>${r.ts}</td><td>${r.item}</td><td>${r.qty}</td><td>${r.est_cost}</td><td>${r.requester}</td><td>${r.statusChip}</td><td>${r.approver||''}</td>`;
+    tr.innerHTML = `<td><input type="checkbox" value="${r.id}"></td>`;
+    const requested = document.createElement('td');
+    requested.textContent = r.ts;
+    const itemCell = document.createElement('td');
+    itemCell.textContent = r.item;
+    const qty = document.createElement('td');
+    qty.textContent = r.qty;
+    const cost = document.createElement('td');
+    cost.textContent = r.est_cost;
+    const requester = document.createElement('td');
+    requester.textContent = r.requester;
+    const status = document.createElement('td');
+    status.textContent = r.statusChip;
+    const approver = document.createElement('td');
+    approver.textContent = r.approver || '';
+    const eta = document.createElement('td');
+    eta.textContent = r.eta_details || '—';
+    const proof = document.createElement('td');
+    if(r.proof_image){
+      const proofBtn = document.createElement('button');
+      proofBtn.type = 'button';
+      proofBtn.className = 'thumb-button';
+      const img = document.createElement('img');
+      img.className = 'thumb';
+      img.src = r.proof_image;
+      img.alt = `Order proof for ${r.item}`;
+      proofBtn.appendChild(img);
+      proofBtn.onclick = () => window.open(r.proof_image, '_blank');
+      proof.appendChild(proofBtn);
+    }else if(CAN_MANAGE_PROOF){
+      const note = document.createElement('span');
+      note.className = 'field-note';
+      note.textContent = 'No proof yet';
+      proof.appendChild(note);
+    }else{
+      proof.textContent = '—';
+    }
+    if(CAN_MANAGE_PROOF){
+      const manage = document.createElement('button');
+      manage.type = 'button';
+      manage.className = 'link';
+      manage.textContent = r.proof_image ? 'Update proof' : 'Manage proof';
+      manage.onclick = () => openProofPanel(r);
+      proof.appendChild(manage);
+    }
+    tr.append(requested,itemCell,qty,cost,requester,status,approver,eta,proof);
     tbody.appendChild(tr);
   });
   const empty = document.getElementById('empty');
@@ -391,6 +624,277 @@ function renderRows(){
     else state.selection.delete(e.target.value);
     toggleBulk();
   });
+}
+
+function setupProofPanel(app){
+  const panel = app.querySelector('#proofPanel');
+  if(!panel) return;
+  const dropZone = panel.querySelector('#proofDrop');
+  const preview = panel.querySelector('#proofPreview');
+  const hiddenInput = panel.querySelector('#proofData');
+  const urlInput = panel.querySelector('#proofUrl');
+  const clearButton = panel.querySelector('#clearProof');
+  const saveButton = panel.querySelector('#saveProof');
+  const etaInput = panel.querySelector('#etaInput');
+  const orderLabel = panel.querySelector('#proofOrderLabel');
+  proofPanelCtx = {
+    panel,
+    etaInput,
+    orderLabel,
+    saveButton,
+    imageField: createImageField({ dropZone, preview, hiddenInput, urlInput, clearButton, onChange: updateProofSaveState }),
+    orderId: null
+  };
+  const cancel = panel.querySelector('#cancelProof');
+  if(cancel) cancel.onclick = closeProofPanel;
+  if(saveButton) saveButton.onclick = saveProof;
+  updateProofSaveState();
+}
+
+function openProofPanel(order){
+  if(!proofPanelCtx) return;
+  proofPanelCtx.orderId = order.id;
+  proofPanelCtx.panel.classList.remove('hidden');
+  proofPanelCtx.orderLabel.textContent = `${order.item} • ${order.ts}`;
+  proofPanelCtx.etaInput.value = order.eta_details || '';
+  proofPanelCtx.imageField.setExisting(order.proof_image || '');
+  updateProofSaveState();
+  proofPanelCtx.panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const dropZone = proofPanelCtx.panel.querySelector('#proofDrop');
+  if(dropZone) dropZone.focus();
+}
+
+function closeProofPanel(){
+  if(!proofPanelCtx) return;
+  proofPanelCtx.orderId = null;
+  proofPanelCtx.etaInput.value = '';
+  proofPanelCtx.imageField.clear();
+  proofPanelCtx.orderLabel.textContent = 'Select “Manage proof” on a request to attach details.';
+  proofPanelCtx.panel.classList.add('hidden');
+  updateProofSaveState();
+}
+
+function updateProofSaveState(){
+  if(!proofPanelCtx) return;
+  const imageValue = proofPanelCtx.imageField.getValue();
+  const eta = proofPanelCtx.etaInput.value.trim();
+  const disabled = !proofPanelCtx.orderId || (!imageValue && !eta);
+  proofPanelCtx.saveButton.disabled = disabled;
+}
+
+function saveProof(){
+  if(!proofPanelCtx || !proofPanelCtx.orderId) return;
+  const payload = {
+    action: 'updateOrderProof',
+    id: proofPanelCtx.orderId,
+    eta: proofPanelCtx.etaInput.value.trim(),
+    image: proofPanelCtx.imageField.getValue(),
+    csrf: state.session.csrf
+  };
+  proofPanelCtx.saveButton.disabled = true;
+  google.script.run.withSuccessHandler(()=>{
+    toast('Proof saved');
+    closeProofPanel();
+    loadOrders();
+  }).withFailureHandler(err=>{
+    toast(err.message);
+    updateProofSaveState();
+  }).router(payload);
+}
+
+function setupThumbPanel(app){
+  const panel = app.querySelector('#thumbPanel');
+  if(!panel) return;
+  const dropZone = panel.querySelector('#thumbDrop');
+  const preview = panel.querySelector('#thumbPreview');
+  const hiddenInput = panel.querySelector('#thumbData');
+  const urlInput = panel.querySelector('#thumbUrl');
+  const clearButton = panel.querySelector('#thumbClear');
+  const saveButton = panel.querySelector('#thumbSave');
+  const select = panel.querySelector('#thumbSku');
+  thumbPanelCtx = {
+    panel,
+    select,
+    saveButton,
+    originalImage: '',
+    imageField: createImageField({ dropZone, preview, hiddenInput, urlInput, clearButton, onChange: updateThumbSaveState })
+  };
+  if(select){
+    select.onchange = () => {
+      const row = state.catalog.find(r => r.sku === select.value);
+      thumbPanelCtx.originalImage = row ? row.image_url || '' : '';
+      thumbPanelCtx.imageField.setExisting(thumbPanelCtx.originalImage);
+      updateThumbSaveState();
+    };
+  }
+  if(saveButton) saveButton.onclick = saveThumbnail;
+  updateThumbSaveState();
+}
+
+function populateThumbOptions(){
+  if(!thumbPanelCtx || !thumbPanelCtx.select) return;
+  const select = thumbPanelCtx.select;
+  const current = select.value;
+  select.innerHTML = '<option value="">Select an item</option>';
+  state.catalog.forEach(row=>{
+    const opt = document.createElement('option');
+    opt.value = row.sku;
+    opt.textContent = `${row.description} (${row.category})`;
+    select.appendChild(opt);
+  });
+  if(current){
+    select.value = current;
+    const row = state.catalog.find(r => r.sku === current);
+    thumbPanelCtx.originalImage = row ? row.image_url || '' : '';
+    thumbPanelCtx.imageField.setExisting(thumbPanelCtx.originalImage);
+  }
+  updateThumbSaveState();
+}
+
+function updateThumbSaveState(){
+  if(!thumbPanelCtx) return;
+  const sku = thumbPanelCtx.select ? thumbPanelCtx.select.value : '';
+  const value = thumbPanelCtx.imageField.getValue();
+  const canSave = !!sku && (value || thumbPanelCtx.originalImage);
+  if(thumbPanelCtx.saveButton) thumbPanelCtx.saveButton.disabled = !canSave;
+}
+
+function saveThumbnail(){
+  if(!thumbPanelCtx || !thumbPanelCtx.select) return;
+  const sku = thumbPanelCtx.select.value;
+  if(!sku){
+    updateThumbSaveState();
+    return;
+  }
+  const image = thumbPanelCtx.imageField.getValue();
+  if(thumbPanelCtx.saveButton) thumbPanelCtx.saveButton.disabled = true;
+  google.script.run.withSuccessHandler(()=>{
+    toast('Thumbnail updated');
+    loadCatalog(true).then(()=>{
+      refreshCatalogViews();
+    });
+  }).withFailureHandler(err=>{
+    toast(err.message);
+    updateThumbSaveState();
+  }).router({ action: 'updateCatalogImage', sku, image, csrf: state.session.csrf });
+}
+
+function refreshCatalogViews(){
+  if(document.getElementById('catalogPreview')) renderCatalogList('catalogPreview',{limit:6});
+  if(document.getElementById('catalogInline')) renderCatalogList('catalogInline',{limit:6});
+  if(document.getElementById('catalogFull')) renderCatalogList('catalogFull');
+  const itemInput = document.getElementById('item');
+  if(itemInput){
+    itemInput.dispatchEvent(new Event('change'));
+  }
+  if(thumbPanelCtx && thumbPanelCtx.select){
+    const row = state.catalog.find(r => r.sku === thumbPanelCtx.select.value);
+    thumbPanelCtx.originalImage = row ? row.image_url || '' : '';
+    thumbPanelCtx.imageField.setExisting(thumbPanelCtx.originalImage);
+    updateThumbSaveState();
+  }
+}
+
+function createImageField({ dropZone, preview, hiddenInput, urlInput, clearButton, onChange }){
+  if(!dropZone) return { setExisting: ()=>{}, clear: ()=>{}, getValue: ()=>'' };
+  const trigger = () => { if(typeof onChange === 'function') onChange(); };
+  const showPreview = (src, triggerChange = true) => {
+    if(preview){
+      preview.src = src;
+      preview.classList.remove('hidden');
+    }
+    dropZone.classList.add('has-image');
+    if(triggerChange) trigger();
+  };
+  const hidePreview = (triggerChange = true) => {
+    if(preview){
+      preview.src = '';
+      preview.classList.add('hidden');
+    }
+    dropZone.classList.remove('has-image');
+    if(triggerChange) trigger();
+  };
+  const clearValues = (triggerChange = true) => {
+    if(hiddenInput) hiddenInput.value = '';
+    if(urlInput) urlInput.value = '';
+    hidePreview(triggerChange);
+  };
+  const handleFile = file => {
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      if(hiddenInput) hiddenInput.value = e.target.result;
+      if(urlInput) urlInput.value = '';
+      showPreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+  dropZone.addEventListener('paste', e => {
+    const items = e.clipboardData && e.clipboardData.items ? e.clipboardData.items : [];
+    for(let i=0;i<items.length;i+=1){
+      const item = items[i];
+      if(item.type && item.type.indexOf('image') === 0){
+        const file = item.getAsFile();
+        if(file){
+          e.preventDefault();
+          handleFile(file);
+          break;
+        }
+      }
+    }
+  });
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag');
+    if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
+      handleFile(e.dataTransfer.files[0]);
+    }
+  });
+  dropZone.addEventListener('click', () => dropZone.focus());
+  if(urlInput){
+    urlInput.addEventListener('input', () => {
+      if(hiddenInput) hiddenInput.value = '';
+      const url = urlInput.value.trim();
+      if(url){
+        showPreview(url);
+      }else{
+        hidePreview();
+      }
+    });
+  }
+  if(clearButton){
+    clearButton.onclick = () => clearValues();
+  }
+  return {
+    setExisting(value){
+      clearValues(false);
+      if(value){
+        if(value.startsWith('data:')){
+          if(hiddenInput) hiddenInput.value = value;
+          showPreview(value,false);
+        }else{
+          if(urlInput) urlInput.value = value;
+          showPreview(value,false);
+        }
+      }else{
+        hidePreview(false);
+      }
+      trigger();
+    },
+    clear(){
+      clearValues();
+    },
+    getValue(){
+      const hidden = hiddenInput ? hiddenInput.value : '';
+      const url = urlInput ? urlInput.value.trim() : '';
+      return hidden || url;
+    }
+  };
 }
 
 function toggleBulk(){
