@@ -297,34 +297,39 @@ function checkCsrf_(token) {
 
 // ---------- APIs ----------
 function router(req) {
+  if (typeof req === 'string') {
+    req = { action: req };
+  }
   req = req || {};
-  const action = req.action;
+  const rawAction = typeof req.action === 'string' ? req.action : '';
+  const action = rawAction.trim();
   if (!action) throw new Error('Unknown action');
-  if (action !== 'getSession' && action !== 'listCatalog' && action !== 'listOrders' && action !== 'listBudgets') {
+  const normalized = action.toLowerCase();
+  if (['getsession', 'listcatalog', 'listorders', 'listbudgets'].indexOf(normalized) === -1) {
     checkCsrf_(req.csrf);
   }
-  switch (action) {
-    case 'getSession':
+  switch (normalized) {
+    case 'getsession':
       return getSession_();
-    case 'listCatalog':
+    case 'listcatalog':
       return readAll_(getOrCreateSheet_(SHEETS.CATALOG, CATALOG_HEADERS))
         .filter(r => String(r.active) !== 'false');
-    case 'listOrders':
+    case 'listorders':
       return apiListOrders_(req.filter || {});
-    case 'createOrder':
+    case 'createorder':
       return apiCreateOrder_(req.payload || {});
-    case 'bulkDecision':
+    case 'bulkdecision':
       return apiBulkDecision_(req.ids || [], req.decision, req.comment || '');
-    case 'updateOrderProof':
+    case 'updateorderproof':
       return apiUpdateOrderProof_(req.id, req.eta || '', req.image || '');
-    case 'listBudgets':
+    case 'listbudgets':
       return readAll_(getOrCreateSheet_(SHEETS.BUDGETS, ['cost_center', 'month', 'budget', 'spent_to_date']));
-    case 'updateCatalogImage':
+    case 'updatecatalogimage':
       return apiUpdateCatalogImage_(req.sku, req.image || '');
-    case 'uploadImage':
+    case 'uploadimage':
       return apiUploadImage_(req || {});
     default:
-      throw new Error('Unknown action');
+      throw new Error('Unknown action: ' + action);
   }
 }
 
