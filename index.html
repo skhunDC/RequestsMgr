@@ -4,16 +4,57 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Supplies Tracker</title>
 <style>
-body{font-family:Arial,sans-serif;margin:0;padding:0;}
-nav{display:flex;gap:.5rem;padding:.5rem;background:#f5f5f5;position:sticky;top:0;}
-nav button{flex:1;}
-table{width:100%;border-collapse:collapse;}
-th,td{padding:.5rem;border-bottom:1px solid #ddd;}
-tr:nth-child(even){background:#f7f7f7;}
-.chip{display:inline-block;padding:.25rem .5rem;margin:.25rem;border-radius:16px;background:#eee;cursor:pointer;}
+*,*::before,*::after{box-sizing:border-box;}
+body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#1f2933;min-height:100vh;}
+nav{display:flex;gap:.5rem;padding:.75rem 1rem;background:#fff;position:sticky;top:0;z-index:10;border-bottom:1px solid #e2e8f0;}
+nav button{flex:1;appearance:none;border:none;background:transparent;padding:.65rem .75rem;border-radius:999px;font-weight:600;color:#475569;transition:background .2s,color .2s;}
+nav button.active{background:#1a73e8;color:#fff;box-shadow:0 0 0 1px rgba(26,115,232,.2);}
+nav button:hover{background:rgba(26,115,232,.12);color:#1a73e8;}
+main{padding:1.5rem 1rem;}
+.view{display:flex;flex-direction:column;gap:1rem;margin:0 auto;width:100%;max-width:960px;}
+.view-header h1{margin:0;font-size:1.5rem;}
+.view-header p{margin:.25rem 0 0;color:#64748b;}
+.panel{background:#fff;border-radius:12px;padding:1rem;box-shadow:0 8px 16px -12px rgba(15,23,42,.45);}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;}
+.panel-title{margin:0;font-size:1rem;}
+.stack>*+*{margin-top:.75rem;}
+.form-grid{display:grid;gap:.75rem;}
+@media (min-width:640px){
+.form-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));}
+.form-grid textarea{grid-column:1 / -1;}
+}
+.field{display:flex;flex-direction:column;gap:.25rem;font-size:.875rem;color:#475569;}
+.field span{font-weight:600;}
+input,textarea{font:inherit;padding:.5rem .6rem;border-radius:8px;border:1px solid #cbd5f5;background:#f8fafc;}
+input:focus,textarea:focus{outline:2px solid #1a73e8;outline-offset:2px;}
+textarea{min-height:5rem;resize:vertical;}
+.checkbox-field{flex-direction:row;align-items:center;gap:.5rem;}
+.checkbox-field span{font-weight:500;}
+.actions{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;}
+button{font:inherit;border-radius:999px;border:none;padding:.55rem 1.1rem;cursor:pointer;transition:background .2s,box-shadow .2s,color .2s;background:#e2e8f0;color:#1f2933;}
+button:hover{background:#cbd5f5;}
+button.primary{background:#1a73e8;color:#fff;}
+button.primary:hover{background:#1666cf;}
+button.ghost{background:transparent;color:#1a73e8;box-shadow:0 0 0 1px rgba(26,115,232,.3);}
+button.ghost:hover{background:rgba(26,115,232,.12);}
+button.link{background:transparent;color:#1a73e8;padding:0;border-radius:0;font-weight:600;}
+button.link:hover{text-decoration:underline;}
+.table-wrapper{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:.95rem;}
+thead{background:#f1f5f9;color:#475569;}
+th,td{padding:.65rem;border-bottom:1px solid #e2e8f0;text-align:left;}
+tr:nth-child(even){background:#f8fafc;}
+.chip-row{display:flex;flex-wrap:wrap;margin:.25rem -.25rem 0;}
+.chip{display:inline-flex;align-items:center;padding:.25rem .65rem;margin:.25rem;border-radius:999px;background:#e2e8f0;color:#475569;font-size:.75rem;font-weight:600;cursor:pointer;transition:background .2s,color .2s;}
 .chip.active{background:#1a73e8;color:#fff;}
-#toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:#323232;color:#fff;padding:.5rem 1rem;border-radius:4px;display:none;}
+#bulkBar{display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;}
+#bulkBar .field{flex:1 1 240px;}
+#bulkBar .actions{flex:1 1 200px;justify-content:flex-end;}
+#bulkBar textarea{min-height:3rem;}
+.empty{padding:.75rem 0;color:#64748b;text-align:center;}
+#toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:#1f2933;color:#fff;padding:.65rem 1rem;border-radius:999px;display:none;box-shadow:0 10px 25px -12px rgba(15,23,42,.6);}
 .hidden{display:none;}
+.footnote{margin:.5rem 0 0;font-size:.8rem;color:#64748b;}
 </style>
 </head>
 <body>
@@ -34,121 +75,294 @@ const state = {
 };
 
 function init(){
-  renderNav();
   route('request');
 }
 
 function renderNav(){
-  const nav=document.getElementById('nav');
-  nav.innerHTML='';
-  const links=[['request','Request'],['all','All Requests'],['catalog','Catalog']];
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  const links = [['request','Request'],['all','All Requests'],['catalog','Catalog']];
   links.forEach(([r,label])=>{
-    const btn=document.createElement('button');
-    btn.textContent=label;
-    btn.onclick=()=>route(r);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = label;
+    btn.onclick = () => route(r);
+    btn.classList.toggle('active', state.route === r);
+    btn.setAttribute('aria-current', state.route === r ? 'page' : 'false');
     nav.appendChild(btn);
   });
 }
 
 function route(r){
-  state.route=r;
-  const app=document.getElementById('app');
-  app.innerHTML='';
-  if(r==='request') renderRequest(app);
-  else if(r==='all') renderAll(app);
-  else if(r==='catalog') renderCatalog(app);
+  state.route = r;
+  renderNav();
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  if(r === 'request') renderRequest(app);
+  else if(r === 'all') renderAll(app);
+  else if(r === 'catalog') renderCatalog(app);
+}
+
+function viewHeader(title, subtitle=''){
+  return `<header class="view-header"><h1>${title}</h1>${subtitle ? `<p>${subtitle}</p>` : ''}</header>`;
 }
 
 function renderRequest(app){
-  app.innerHTML=`<h2>Request</h2>
-    <div><input id="item" placeholder="Item" list="catList">
-    <input id="qty" type="number" min="1" value="1" style="width:4rem">
-    <input id="est" type="number" min="0" placeholder="Est Cost">
-    <input id="cc" placeholder="Cost Center">
-    <input id="gl" placeholder="GL Code">
-    <textarea id="just" placeholder="Justification (if override)"></textarea>
-    <label><input type="checkbox" id="ov"> Override</label>
-    <button id="sub">Submit</button></div>
-    <datalist id="catList"></datalist>`;
+  app.innerHTML = `
+    <section class="view">
+      ${viewHeader('New request','Choose an item from the catalog and share any required details.')}
+      <section class="panel stack">
+        <h2 class="panel-title">Request details</h2>
+        <div class="form-grid">
+          <label class="field">
+            <span>Item</span>
+            <input id="item" placeholder="Start typing to search the catalog" list="catList">
+          </label>
+          <label class="field">
+            <span>Quantity</span>
+            <input id="qty" type="number" min="1" value="1">
+          </label>
+          <label class="field">
+            <span>Estimated cost</span>
+            <input id="est" type="number" min="0" placeholder="0.00">
+          </label>
+          <label class="field">
+            <span>Cost center</span>
+            <input id="cc" placeholder="Cost center">
+          </label>
+          <label class="field">
+            <span>GL code</span>
+            <input id="gl" placeholder="GL code">
+          </label>
+          <label class="field checkbox-field">
+            <input type="checkbox" id="ov">
+            <span>Override catalog guidance</span>
+          </label>
+          <label class="field">
+            <span>Justification</span>
+            <textarea id="just" placeholder="Provide context when overriding the catalog."></textarea>
+          </label>
+        </div>
+        <div class="actions">
+          <button id="sub" class="primary" type="button">Submit request</button>
+        </div>
+      </section>
+      <section class="panel stack">
+        <div class="panel-head">
+          <h2 class="panel-title">Catalog snapshot</h2>
+          <button class="link" type="button" data-route="catalog">View full catalog</button>
+        </div>
+        <div id="catalogPreview"><p class="footnote">Loading catalog...</p></div>
+      </section>
+      <datalist id="catList"></datalist>
+    </section>
+  `;
+  app.querySelector('#sub').onclick = submitOrder;
+  app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
   loadCatalog().then(()=>{
-    const dl=document.getElementById('catList');
-    dl.innerHTML='';
-    state.catalog.forEach(c=>{const o=document.createElement('option');o.value=c.description;dl.appendChild(o);});
+    const dl = document.getElementById('catList');
+    if(dl){
+      dl.innerHTML = '';
+      state.catalog.forEach(c=>{
+        const o = document.createElement('option');
+        o.value = c.description;
+        dl.appendChild(o);
+      });
+    }
+    renderCatalogList('catalogPreview',{limit:6});
   });
-  app.querySelector('#sub').onclick=submitOrder;
+}
+
+function renderAll(app){
+  app.innerHTML = `
+    <section class="view">
+      ${viewHeader('Requests','Track submissions and make decisions in one place.')}
+      <section class="panel stack" id="filters">
+        <h2 class="panel-title">Filters</h2>
+        <div class="form-grid">
+          <label class="field checkbox-field">
+            <input type="checkbox" id="mine">
+            <span>Show only my requests</span>
+          </label>
+          <label class="field">
+            <span>Search</span>
+            <input id="search" placeholder="Search by item, requester or status">
+          </label>
+          <div class="field">
+            <span>Status</span>
+            <div id="statusChips" class="chip-row"></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="clear" class="ghost" type="button">Clear filters</button>
+        </div>
+      </section>
+      <section class="panel stack">
+        <div id="bulkBar" class="hidden">
+          <label class="field">
+            <span>Decision comment</span>
+            <textarea id="comment" placeholder="Optional note"></textarea>
+          </label>
+          <div class="actions">
+            <button id="ap" class="primary" type="button">Approve</button>
+            <button id="dn" class="ghost" type="button">Deny</button>
+            <button id="oh" class="ghost" type="button">On-Hold</button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table id="list">
+            <thead>
+              <tr>
+                <th scope="col"><input type="checkbox" id="selAll"></th>
+                <th scope="col">Requested</th>
+                <th scope="col">Item</th>
+                <th scope="col">Qty</th>
+                <th scope="col">Est Cost</th>
+                <th scope="col">Requester</th>
+                <th scope="col">Status</th>
+                <th scope="col">Approver</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="empty" class="empty hidden">No requests match your filters. <button id="reset" class="ghost" type="button">Reset filters</button></div>
+      </section>
+      <section class="panel stack">
+        <div class="panel-head">
+          <h2 class="panel-title">Catalog snapshot</h2>
+          <button class="link" type="button" data-route="catalog">View full catalog</button>
+        </div>
+        <div id="catalogInline"><p class="footnote">Loading catalog...</p></div>
+      </section>
+    </section>
+  `;
+  const st = ['PENDING','APPROVED','DENIED','ON-HOLD'];
+  const chipsDiv = app.querySelector('#statusChips');
+  st.forEach(s=>{
+    const sp = document.createElement('span');
+    sp.textContent = s;
+    sp.className = 'chip';
+    sp.onclick = ()=>{sp.classList.toggle('active');updateFilters();};
+    chipsDiv.appendChild(sp);
+  });
+  app.querySelector('#mine').onchange = updateFilters;
+  app.querySelector('#search').oninput = debounce(updateFilters,300);
+  app.querySelector('#clear').onclick = ()=>{
+    state.filters = {mineOnly:false,status:[],search:''};
+    route('all');
+    loadOrders();
+  };
+  app.querySelector('#reset').onclick = ()=>{
+    state.filters = {mineOnly:false,status:[],search:''};
+    route('all');
+    loadOrders();
+  };
+  app.querySelector('#selAll').onchange = e=>{
+    const c = e.target.checked;
+    state.selection = new Set();
+    document.querySelectorAll('#list tbody input[type=checkbox]').forEach(cb=>{
+      cb.checked = c;
+      if(c) state.selection.add(cb.value);
+    });
+    toggleBulk();
+  };
+  app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
+  if(['approver','developer','super_admin'].includes(state.session.role)){
+    document.getElementById('bulkBar').classList.remove('hidden');
+    document.getElementById('ap').onclick = ()=>bulk('APPROVED');
+    document.getElementById('dn').onclick = ()=>bulk('DENIED');
+    document.getElementById('oh').onclick = ()=>bulk('ON-HOLD');
+  }
+  loadOrders();
+  loadCatalog().then(()=>renderCatalogList('catalogInline',{limit:6}));
 }
 
 function renderCatalog(app){
-  loadCatalog().then(()=>{
-    app.innerHTML='<h2>Catalog</h2><table><thead><tr><th>Item</th><th>Category</th></tr></thead><tbody id="catBody"></tbody></table>';
-    const tb=document.getElementById('catBody');
-    state.catalog.forEach(c=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${c.description}</td><td>${c.category}</td>`;tb.appendChild(tr);});
+  app.innerHTML = `
+    <section class="view">
+      ${viewHeader('Catalog','Browse approved items for quick ordering.')}
+      <section class="panel stack">
+        <div class="panel-head">
+          <h2 class="panel-title">All items</h2>
+          <button class="link" type="button" data-route="request">Submit a request</button>
+        </div>
+        <div id="catalogFull"><p class="footnote">Loading catalog...</p></div>
+      </section>
+    </section>
+  `;
+  app.querySelector('[data-route="request"]').onclick = ()=>route('request');
+  loadCatalog().then(()=>renderCatalogList('catalogFull'));
+}
+
+function renderCatalogList(targetId,{limit}={}){
+  const target = document.getElementById(targetId);
+  if(!target) return;
+  target.innerHTML = '';
+  const rows = typeof limit === 'number' ? state.catalog.slice(0,limit) : state.catalog;
+  if(!rows.length){
+    const p = document.createElement('p');
+    p.className = 'empty';
+    p.textContent = 'No catalog items available yet.';
+    target.appendChild(p);
+    return;
+  }
+  const wrapper = document.createElement('div');
+  wrapper.className = 'table-wrapper';
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  thead.innerHTML = '<tr><th scope="col">Item</th><th scope="col">Category</th></tr>';
+  const tbody = document.createElement('tbody');
+  rows.forEach(row=>{
+    const tr = document.createElement('tr');
+    const item = document.createElement('td');
+    item.textContent = row.description;
+    const cat = document.createElement('td');
+    cat.textContent = row.category;
+    tr.append(item,cat);
+    tbody.appendChild(tr);
   });
+  table.append(thead,tbody);
+  wrapper.appendChild(table);
+  target.appendChild(wrapper);
+  if(limit && state.catalog.length > limit){
+    const foot = document.createElement('p');
+    foot.className = 'footnote';
+    foot.textContent = `Showing ${rows.length} of ${state.catalog.length} items.`;
+    target.appendChild(foot);
+  }
 }
 
 function loadCatalog(){
   if(state.catalog.length) return Promise.resolve();
   return new Promise(res=>{
-    google.script.run.withSuccessHandler(rows=>{state.catalog=rows;res();}).router({action:'listCatalog'});
+    google.script.run.withSuccessHandler(rows=>{state.catalog = rows;res();}).router({action:'listCatalog'});
   });
 }
 
 function submitOrder(){
-  const payload={
-    item:document.getElementById('item').value,
-    qty:Number(document.getElementById('qty').value||1),
-    est_cost:Number(document.getElementById('est').value||0),
-    cost_center:document.getElementById('cc').value,
-    gl_code:document.getElementById('gl').value,
-    override:document.getElementById('ov').checked,
-    justification:document.getElementById('just').value
+  const payload = {
+    item: document.getElementById('item').value,
+    qty: Number(document.getElementById('qty').value||1),
+    est_cost: Number(document.getElementById('est').value||0),
+    cost_center: document.getElementById('cc').value,
+    gl_code: document.getElementById('gl').value,
+    override: document.getElementById('ov').checked,
+    justification: document.getElementById('just').value
   };
   google.script.run.withSuccessHandler(o=>{
     toast('Submitted');
-    state.filters={mineOnly:true,status:['PENDING'],search:''};
+    state.filters = {mineOnly:true,status:['PENDING'],search:''};
     route('all');
     loadOrders();
   }).withFailureHandler(err=>toast(err.message))
     .router({action:'createOrder',payload,csrf:state.session.csrf});
 }
 
-function renderAll(app){
-  app.innerHTML=`<h2>All Requests</h2>
-    <div id="filters">
-      <label><input type="checkbox" id="mine"> Mine only</label>
-      <div id="statusChips"></div>
-      <input id="search" placeholder="Search">
-      <button id="clear">Clear</button>
-    </div>
-    <div id="bulkBar" class="hidden">
-      <textarea id="comment" placeholder="Decision comment"></textarea>
-      <button id="ap">Approve</button>
-      <button id="dn">Deny</button>
-      <button id="oh">On-Hold</button>
-    </div>
-    <table id="list"><thead><tr><th><input type="checkbox" id="selAll"></th><th>Requested</th><th>Item</th><th>Qty</th><th>Est Cost</th><th>Requester</th><th>Status</th><th>Approver</th></tr></thead><tbody></tbody></table>
-    <div id="empty" class="hidden">No requests match your filters. <button id="reset">Reset</button></div>`;
-  const st=['PENDING','APPROVED','DENIED','ON-HOLD'];
-  const chipsDiv=app.querySelector('#statusChips');
-  st.forEach(s=>{const sp=document.createElement('span');sp.textContent=s;sp.className='chip';sp.onclick=()=>{sp.classList.toggle('active');updateFilters();};chipsDiv.appendChild(sp);});
-  app.querySelector('#mine').onchange=updateFilters;
-  app.querySelector('#search').oninput=debounce(updateFilters,300);
-  app.querySelector('#clear').onclick=()=>{state.filters={mineOnly:false,status:[],search:''};route('all');loadOrders();};
-  app.querySelector('#reset').onclick=()=>{state.filters={mineOnly:false,status:[],search:''};route('all');loadOrders();};
-  app.querySelector('#selAll').onchange=e=>{const c=e.target.checked;state.selection=new Set();document.querySelectorAll('#list tbody input[type=checkbox]').forEach(cb=>{cb.checked=c;if(c)state.selection.add(cb.value);});toggleBulk();};
-  if(['approver','developer','super_admin'].includes(state.session.role)){
-    document.getElementById('bulkBar').classList.remove('hidden');
-    document.getElementById('ap').onclick=()=>bulk('APPROVED');
-    document.getElementById('dn').onclick=()=>bulk('DENIED');
-    document.getElementById('oh').onclick=()=>bulk('ON-HOLD');
-  }
-  loadOrders();
-}
-
 function updateFilters(){
-  state.filters.mineOnly=document.getElementById('mine').checked;
-  state.filters.search=document.getElementById('search').value;
-  state.filters.status=[...document.querySelectorAll('#statusChips .chip.active')].map(c=>c.textContent);
+  state.filters.mineOnly = document.getElementById('mine').checked;
+  state.filters.search = document.getElementById('search').value;
+  state.filters.status = [...document.querySelectorAll('#statusChips .chip.active')].map(c=>c.textContent);
   loadOrders();
 }
 
@@ -158,26 +372,50 @@ function loadOrders(){
 }
 
 function renderRows(){
-  const tbody=document.querySelector('#list tbody');
+  const tbody = document.querySelector('#list tbody');
   if(!tbody) return;
-  tbody.innerHTML='';
-  state.selection=new Set();
-  state.rows.forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td><input type="checkbox" value="${r.id}"></td><td>${r.ts}</td><td>${r.item}</td><td>${r.qty}</td><td>${r.est_cost}</td><td>${r.requester}</td><td>${r.statusChip}</td><td>${r.approver||''}</td>`;tbody.appendChild(tr);});
-  if(!state.rows.length) document.getElementById('empty').classList.remove('hidden'); else document.getElementById('empty').classList.add('hidden');
-  document.querySelectorAll('#list tbody input[type=checkbox]').forEach(cb=>cb.onchange=e=>{if(e.target.checked)state.selection.add(e.target.value);else state.selection.delete(e.target.value);toggleBulk();});
+  tbody.innerHTML = '';
+  state.selection = new Set();
+  state.rows.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><input type="checkbox" value="${r.id}"></td><td>${r.ts}</td><td>${r.item}</td><td>${r.qty}</td><td>${r.est_cost}</td><td>${r.requester}</td><td>${r.statusChip}</td><td>${r.approver||''}</td>`;
+    tbody.appendChild(tr);
+  });
+  const empty = document.getElementById('empty');
+  if(empty){
+    if(!state.rows.length) empty.classList.remove('hidden');
+    else empty.classList.add('hidden');
+  }
+  document.querySelectorAll('#list tbody input[type=checkbox]').forEach(cb=>cb.onchange=e=>{
+    if(e.target.checked) state.selection.add(e.target.value);
+    else state.selection.delete(e.target.value);
+    toggleBulk();
+  });
 }
 
-function toggleBulk(){const bar=document.getElementById('bulkBar');if(!bar)return;bar.classList.toggle('hidden',state.selection.size===0);}
+function toggleBulk(){
+  const bar = document.getElementById('bulkBar');
+  if(!bar) return;
+  bar.classList.toggle('hidden', state.selection.size === 0);
+}
 
 function bulk(decision){
-  const ids=[...state.selection];
-  const comment=document.getElementById('comment').value;
-  google.script.run.withSuccessHandler(()=>{toast('Done');loadOrders();})
+  const ids = [...state.selection];
+  const comment = document.getElementById('comment').value;
+  google.script.run.withSuccessHandler(()=>{
+    toast('Done');
+    loadOrders();
+  })
     .withFailureHandler(e=>toast(e.message))
     .router({action:'bulkDecision',ids,decision,comment,csrf:state.session.csrf});
 }
 
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3000);}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(()=>t.style.display='none',3000);
+}
 function debounce(fn,ms){let t;return function(){clearTimeout(t);t=setTimeout(fn,ms);};}
 
 init();
