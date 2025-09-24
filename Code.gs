@@ -11,7 +11,7 @@ const SHEETS = {
 };
 const SS_ID_PROP = 'SS_ID';
 const DEV_EMAILS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
-const DEV_EMAILS_LOWER = DEV_EMAILS.map(email => email.toLowerCase());
+const DEV_EMAILS_LOWER = DEV_EMAILS.map(email => normalizeEmail_(email));
 const UPLOAD_FOLDER_PROP = 'UPLOAD_FOLDER_ID';
 const DRIVE_VIEW_PREFIX = 'https://drive.google.com/uc?export=view&id=';
 
@@ -104,18 +104,19 @@ function init_() {
   getOrCreateSheet_(SHEETS.AUDIT, ['ts', 'actor', 'entity', 'entity_id', 'action', 'diff_json']);
   // Roles
   const roles = getOrCreateSheet_(SHEETS.ROLES, ['email', 'role']);
-  const email = Session.getActiveUser().getEmail();
-  const existing = readAll_(roles).map(r => r.email);
+  const email = getActiveUserNormalizedEmail_();
+  const existing = readAll_(roles).map(r => normalizeEmail_(r.email));
   if (email && existing.indexOf(email) === -1) roles.appendRow([email, 'requester']);
   DEV_EMAILS.forEach(dev => {
-    if (existing.indexOf(dev) === -1) roles.appendRow([dev, 'developer']);
+    if (existing.indexOf(normalizeEmail_(dev)) === -1) roles.appendRow([normalizeEmail_(dev), 'developer']);
   });
   // LT_Devs
   const lt = getOrCreateSheet_(SHEETS.LT_DEVS, ['email', 'salt', 'hash']);
   const ltRows = readAll_(lt);
   DEV_EMAILS.forEach(dev => {
-    if (!ltRows.some(r => String(r.email).toLowerCase() === dev.toLowerCase())) {
-      writeRow_(lt, { email: dev, salt: '', hash: '' });
+    const normalized = normalizeEmail_(dev);
+    if (!ltRows.some(r => normalizeEmail_(r.email) === normalized)) {
+      writeRow_(lt, { email: normalized, salt: '', hash: '' });
     }
   });
 }
@@ -227,15 +228,17 @@ function ensureDevRows_() {
   const sheet = devSheet_();
   const rows = readAll_(sheet);
   DEV_EMAILS.forEach(email => {
-    if (!rows.some(r => String(r.email).toLowerCase() === email.toLowerCase())) {
-      writeRow_(sheet, { email, salt: '', hash: '' });
+    const normalized = normalizeEmail_(email);
+    if (!rows.some(r => normalizeEmail_(r.email) === normalized)) {
+      writeRow_(sheet, { email: normalized, salt: '', hash: '' });
     }
   });
 }
 
 function getDevRow_(email) {
   const sheet = devSheet_();
-  return readAll_(sheet).find(r => String(r.email).toLowerCase() === email.toLowerCase()) || null;
+  const normalized = normalizeEmail_(email);
+  return readAll_(sheet).find(r => normalizeEmail_(r.email) === normalized) || null;
 }
 
 function upsertDevRow_(email, updates) {
@@ -243,11 +246,12 @@ function upsertDevRow_(email, updates) {
   const headers = indexHeaders_(sheet);
   const values = sheet.getDataRange().getValues();
   const rows = values.slice(1);
-  const rowIdx = rows.findIndex(r => String(r[headers.email]).toLowerCase() === email.toLowerCase());
+  const normalized = normalizeEmail_(email);
+  const rowIdx = rows.findIndex(r => normalizeEmail_(r[headers.email]) === normalized);
   if (rowIdx === -1) {
     const headerRow = Object.keys(headers).sort((a, b) => headers[a] - headers[b]);
     const row = headerRow.map(key => {
-      if (key === 'email') return email;
+      if (key === 'email') return normalized;
       if (Object.prototype.hasOwnProperty.call(updates, key)) return updates[key];
       return '';
     });
@@ -261,10 +265,62 @@ function upsertDevRow_(email, updates) {
   }
 }
 
-function requireDevEmail_() {
-  const email = (Session.getActiveUser().getEmail() || '').toLowerCase();
-  if (DEV_EMAILS_LOWER.indexOf(email) === -1) throw new Error('Forbidden');
+function normalizeEmail_(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function getActiveUserEmail_() {
+  let email = '';
+  try {
+    const user = Session.getActiveUser ? Session.getActiveUser() : null;
+    if (user) {
+      if (typeof user.getEmail === 'function') {
+        try {
+          email = user.getEmail();
+        } catch (err) {
+          email = '';
+        }
+      }
+      if (!email && typeof user.getUserLoginId === 'function') {
+        try {
+          email = user.getUserLoginId();
+        } catch (err2) {
+          email = '';
+        }
+      }
+    }
+  } catch (err3) {
+    email = '';
+  }
+  email = String(email || '').trim();
+  if (!email) {
+    try {
+      const effective = Session.getEffectiveUser ? Session.getEffectiveUser() : null;
+      if (effective && typeof effective.getEmail === 'function') {
+        const effEmail = String(effective.getEmail() || '').trim();
+        const normalized = normalizeEmail_(effEmail);
+        if (normalized && DEV_EMAILS_LOWER.indexOf(normalized) !== -1) {
+          email = effEmail;
+        }
+      }
+    } catch (err4) {
+      email = email || '';
+    }
+  }
   return email;
+}
+
+function getActiveUserNormalizedEmail_() {
+  return normalizeEmail_(getActiveUserEmail_());
+}
+
+function requireDevEmail_() {
+  const email = getActiveUserNormalizedEmail_();
+  if (!email) throw new Error('Forbidden');
+  const role = getUserRole_(email);
+  if (role === 'developer' || role === 'super_admin') return email;
+  if (DEV_EMAILS_LOWER.indexOf(email) !== -1) return email;
+  throw new Error('Forbidden');
 }
 
 function getDevSessionToken_() {
@@ -353,7 +409,7 @@ function appendAudit_(entity, entity_id, action, diffJson) {
   const sheet = getOrCreateSheet_(SHEETS.AUDIT, ['ts', 'actor', 'entity', 'entity_id', 'action', 'diff_json']);
   writeRow_(sheet, {
     ts: nowIso_(),
-    actor: Session.getActiveUser().getEmail(),
+    actor: getActiveUserEmail_(),
     entity,
     entity_id,
     action,
@@ -363,12 +419,14 @@ function appendAudit_(entity, entity_id, action, diffJson) {
 
 function getUserRole_(email) {
   const sheet = getOrCreateSheet_(SHEETS.ROLES, ['email', 'role']);
-  const row = readAll_(sheet).find(r => r.email === email);
-  return row ? row.role : 'viewer';
+  const normalized = normalizeEmail_(email);
+  if (!normalized) return 'viewer';
+  const row = readAll_(sheet).find(r => normalizeEmail_(r.email) === normalized);
+  return row ? (String(row.role || '').trim().toLowerCase() || 'viewer') : 'viewer';
 }
 
 function requireRole_(allowed) {
-  const email = Session.getActiveUser().getEmail();
+  const email = getActiveUserNormalizedEmail_();
   const role = getUserRole_(email);
   if (allowed.indexOf(role) === -1) throw new Error('Forbidden');
   return role;
@@ -390,7 +448,7 @@ function willExceedBudget_(cc, month, addAmount) {
 
 function getSession_() {
   init_();
-  const email = Session.getActiveUser().getEmail();
+  const email = getActiveUserNormalizedEmail_();
   const role = getUserRole_(email);
   const cache = CacheService.getUserCache();
   let csrf = cache.get('csrf');
@@ -475,9 +533,10 @@ function apiListOrders_(filter) {
     proof_image: r.proof_image || '',
     statusChip: r.status
   }));
-  const email = Session.getActiveUser().getEmail();
+  const email = getActiveUserEmail_();
+  const normalizedEmail = normalizeEmail_(email);
   let res = rows;
-  if (filter.mineOnly) res = res.filter(r => r.requester === email);
+  if (filter.mineOnly) res = res.filter(r => normalizeEmail_(r.requester) === normalizedEmail);
   if (filter.status && filter.status.length) res = res.filter(r => filter.status.indexOf(r.status) !== -1);
   if (filter.search) {
     const s = String(filter.search).toLowerCase();
@@ -489,7 +548,7 @@ function apiListOrders_(filter) {
 }
 
 function apiCreateOrder_(payload) {
-  const email = Session.getActiveUser().getEmail();
+  const email = getActiveUserEmail_();
   if (!payload.item) throw new Error('Missing item');
   const qty = Number(payload.qty);
   if (!qty || qty < 1) throw new Error('Missing qty');
@@ -523,7 +582,7 @@ function apiCreateOrder_(payload) {
 function apiBulkDecision_(ids, decision, comment) {
   if (!decision) throw new Error('Missing decision');
   requireRole_(['approver', 'developer', 'super_admin']);
-  const email = Session.getActiveUser().getEmail();
+  const email = getActiveUserEmail_();
   const sheet = getOrCreateSheet_(SHEETS.ORDERS, ORDER_HEADERS);
   const headers = indexHeaders_(sheet);
   const data = sheet.getDataRange().getValues();
@@ -631,8 +690,9 @@ function apiUploadImage_(payload) {
 }
 
 function apiDevStatus_() {
-  const email = (Session.getActiveUser().getEmail() || '').toLowerCase();
-  const allowed = DEV_EMAILS_LOWER.indexOf(email) !== -1;
+  const email = getActiveUserNormalizedEmail_();
+  const role = getUserRole_(email);
+  const allowed = !!email && (role === 'developer' || role === 'super_admin' || DEV_EMAILS_LOWER.indexOf(email) !== -1);
   if (!allowed) {
     clearDevSessionToken_();
     return { allowed: false, hasPassword: false, sessionActive: false, token: '' };
@@ -697,7 +757,7 @@ function apiDevAddUser_(req) {
   const email = requireDevEmail_();
   requireDevSession_(req.token || '');
   const payload = req.payload || {};
-  const targetEmail = String(payload.email || '').trim().toLowerCase();
+  const targetEmail = normalizeEmail_(payload.email);
   const role = String(payload.role || '').trim();
   if (!targetEmail || targetEmail.indexOf('@') === -1) throw new Error('Valid email required');
   const allowedRoles = ['requester', 'approver', 'developer', 'super_admin'];
