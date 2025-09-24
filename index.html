@@ -478,12 +478,42 @@ function renderRequest(app){
     if(!currentValue.trim() || itemBrowseRestore) return;
     const currentMatch = state.catalog.find(row => (row.description || '').toLowerCase() === currentValue.toLowerCase().trim());
     itemBrowseRestore = { value: currentValue, match: currentMatch };
-    requestAnimationFrame(()=>{
-      if(!itemBrowseRestore || itemInput.value !== currentValue) return;
+    const pointerId = evt && typeof evt.pointerId === 'number' ? evt.pointerId : null;
+
+    function cleanup(){
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handleCancel);
+      window.removeEventListener('blur', handleCancel);
+    }
+
+    function handleCancel(){
+      cleanup();
+      if(itemBrowseRestore && itemBrowseRestore.value === currentValue){
+        itemBrowseRestore = null;
+      }
+    }
+
+    function handlePointerUp(upEvt){
+      if(pointerId !== null && typeof upEvt.pointerId === 'number' && upEvt.pointerId !== pointerId){
+        return;
+      }
+      cleanup();
+      if(upEvt.target !== itemInput){
+        if(itemBrowseRestore && itemBrowseRestore.value === currentValue){
+          itemBrowseRestore = null;
+        }
+        return;
+      }
+      if(!itemBrowseRestore || itemInput.value !== currentValue){
+        return;
+      }
       itemInput.value = '';
       itemInput.dispatchEvent(new Event('input'));
-      openItemPicker();
-    });
+    }
+
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handleCancel);
+    window.addEventListener('blur', handleCancel);
   }
   let itemPickerUnavailable = false;
   let itemPickerWarned = false;
