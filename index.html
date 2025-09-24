@@ -457,9 +457,28 @@ function renderRequest(app){
       hideItemPreview();
     }
   }
+  function openItemPicker(){
+    if(!itemInput) return;
+    if(typeof itemInput.showPicker === 'function'){
+      try{
+        itemInput.showPicker();
+        return;
+      }catch(err){
+        console.warn('showPicker failed', err);
+      }
+    }
+    if(itemInput.value){
+      itemInput.select();
+    }
+  }
   if(itemInput){
     itemInput.addEventListener('input', updateItemPreview);
     itemInput.addEventListener('change', updateItemPreview);
+    itemInput.addEventListener('click', openItemPicker);
+    itemInput.addEventListener('focus', openItemPicker);
+    itemInput.addEventListener('keydown', evt=>{
+      if(evt.key === 'ArrowDown') openItemPicker();
+    });
   }
   function toggleGroupVisibility(group, hidden){
     if(!group) return;
@@ -500,6 +519,7 @@ function renderRequest(app){
         itemInput.value = '';
         itemInput.focus();
         itemInput.dispatchEvent(new Event('input'));
+        openItemPicker();
       }
     };
   }
