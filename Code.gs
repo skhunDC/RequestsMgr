@@ -11,6 +11,7 @@ const SHEETS = {
 };
 const SS_ID_PROP = 'SS_ID';
 const DEV_EMAILS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
+const DEV_EMAILS_LOWER = DEV_EMAILS.map(email => email.toLowerCase());
 const UPLOAD_FOLDER_PROP = 'UPLOAD_FOLDER_ID';
 const DRIVE_VIEW_PREFIX = 'https://drive.google.com/uc?export=view&id=';
 
@@ -110,8 +111,13 @@ function init_() {
     if (existing.indexOf(dev) === -1) roles.appendRow([dev, 'developer']);
   });
   // LT_Devs
-  const lt = getOrCreateSheet_(SHEETS.LT_DEVS, ['email']);
-  if (lt.getLastRow() === 1) DEV_EMAILS.forEach(dev => lt.appendRow([dev]));
+  const lt = getOrCreateSheet_(SHEETS.LT_DEVS, ['email', 'salt', 'hash']);
+  const ltRows = readAll_(lt);
+  DEV_EMAILS.forEach(dev => {
+    if (!ltRows.some(r => String(r.email).toLowerCase() === dev.toLowerCase())) {
+      writeRow_(lt, { email: dev, salt: '', hash: '' });
+    }
+  });
 }
 
 function seedCatalogIfEmpty_() {
@@ -197,6 +203,100 @@ function getUploadFolder_() {
   }
   ensureFolderShare_(folder);
   return folder;
+}
+
+function hexDigest_(bytes) {
+  return bytes.map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
+}
+
+function generateSalt_() {
+  return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 48);
+}
+
+function computeSaltedHash_(password, salt) {
+  const material = (salt || '') + '::' + password;
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, material, Utilities.Charset.UTF_8);
+  return hexDigest_(digest);
+}
+
+function devSheet_() {
+  return getOrCreateSheet_(SHEETS.LT_DEVS, ['email', 'salt', 'hash']);
+}
+
+function ensureDevRows_() {
+  const sheet = devSheet_();
+  const rows = readAll_(sheet);
+  DEV_EMAILS.forEach(email => {
+    if (!rows.some(r => String(r.email).toLowerCase() === email.toLowerCase())) {
+      writeRow_(sheet, { email, salt: '', hash: '' });
+    }
+  });
+}
+
+function getDevRow_(email) {
+  const sheet = devSheet_();
+  return readAll_(sheet).find(r => String(r.email).toLowerCase() === email.toLowerCase()) || null;
+}
+
+function upsertDevRow_(email, updates) {
+  const sheet = devSheet_();
+  const headers = indexHeaders_(sheet);
+  const values = sheet.getDataRange().getValues();
+  const rows = values.slice(1);
+  const rowIdx = rows.findIndex(r => String(r[headers.email]).toLowerCase() === email.toLowerCase());
+  if (rowIdx === -1) {
+    const headerRow = Object.keys(headers).sort((a, b) => headers[a] - headers[b]);
+    const row = headerRow.map(key => {
+      if (key === 'email') return email;
+      if (Object.prototype.hasOwnProperty.call(updates, key)) return updates[key];
+      return '';
+    });
+    sheet.appendRow(row);
+  } else {
+    const rowNumber = rowIdx + 2;
+    Object.keys(updates).forEach(key => {
+      if (typeof headers[key] === 'undefined') return;
+      sheet.getRange(rowNumber, headers[key] + 1).setValue(updates[key]);
+    });
+  }
+}
+
+function requireDevEmail_() {
+  const email = (Session.getActiveUser().getEmail() || '').toLowerCase();
+  if (DEV_EMAILS_LOWER.indexOf(email) === -1) throw new Error('Forbidden');
+  return email;
+}
+
+function getDevSessionToken_() {
+  return CacheService.getUserCache().get('devSession') || '';
+}
+
+function refreshDevSessionToken_(token) {
+  if (!token) return;
+  CacheService.getUserCache().put('devSession', token, 1800);
+}
+
+function clearDevSessionToken_() {
+  CacheService.getUserCache().remove('devSession');
+}
+
+function createDevSessionToken_() {
+  const token = Utilities.getUuid();
+  refreshDevSessionToken_(token);
+  return token;
+}
+
+function requireDevSession_(token) {
+  if (!token) throw new Error('Developer session required');
+  const cached = getDevSessionToken_();
+  if (!cached || cached !== token) throw new Error('Developer session expired');
+  refreshDevSessionToken_(token);
+}
+
+function verifyDevPassword_(row, password) {
+  if (!row || !row.salt || !row.hash) return false;
+  const hashed = computeSaltedHash_(password, row.salt);
+  return hashed === row.hash;
 }
 
 function parseDataUrl_(dataUrl) {
@@ -298,7 +398,7 @@ function getSession_() {
     csrf = uuid_();
     cache.put('csrf', csrf, 21600);
   }
-  return { email, role, csrf };
+  return { email, role, csrf, devEmails: DEV_EMAILS };
 }
 
 function checkCsrf_(token) {
@@ -340,6 +440,18 @@ function router(req) {
       return apiUpdateCatalogImage_(req.sku, req.image || '');
     case 'uploadimage':
       return apiUploadImage_(req || {});
+    case 'devstatus':
+      return apiDevStatus_();
+    case 'devlogin':
+      return apiDevLogin_(req.password || '');
+    case 'devsetpassword':
+      return apiDevSetPassword_(req || {});
+    case 'devadduser':
+      return apiDevAddUser_(req || {});
+    case 'devlistroles':
+      return apiDevListRoles_(req || {});
+    case 'devlogout':
+      return apiDevLogout_(req.token || '');
     default:
       throw new Error('Unknown action: ' + action);
   }
@@ -521,6 +633,115 @@ function apiUploadImage_(payload) {
   ensureFilePublic_(file);
   appendAudit_('Uploads', file.getId(), 'CREATE', JSON.stringify({ name: fileName, contentType: parsed.contentType }));
   return { url: DRIVE_VIEW_PREFIX + file.getId() };
+}
+
+function apiDevStatus_() {
+  const email = (Session.getActiveUser().getEmail() || '').toLowerCase();
+  const allowed = DEV_EMAILS_LOWER.indexOf(email) !== -1;
+  if (!allowed) {
+    clearDevSessionToken_();
+    return { allowed: false, hasPassword: false, sessionActive: false, token: '' };
+  }
+  ensureDevRows_();
+  const row = getDevRow_(email);
+  const token = getDevSessionToken_();
+  if (token) refreshDevSessionToken_(token);
+  return {
+    allowed: true,
+    hasPassword: !!(row && row.hash),
+    sessionActive: !!token,
+    token: token || ''
+  };
+}
+
+function apiDevLogin_(password) {
+  if (!password) throw new Error('Missing password');
+  const email = requireDevEmail_();
+  ensureDevRows_();
+  const row = getDevRow_(email);
+  if (!row || !row.hash) throw new Error('Developer password not set');
+  if (!verifyDevPassword_(row, password)) throw new Error('Invalid developer credentials');
+  const token = createDevSessionToken_();
+  appendAudit_('DevAuth', email, 'LOGIN', '{}');
+  return { token };
+}
+
+function apiDevSetPassword_(req) {
+  const email = requireDevEmail_();
+  ensureDevRows_();
+  const row = getDevRow_(email);
+  const newPassword = String(req.newPassword || '').trim();
+  if (!newPassword || newPassword.length < 12) {
+    throw new Error('Password must be at least 12 characters');
+  }
+  const hasExisting = row && row.hash;
+  if (hasExisting) {
+    let authed = false;
+    if (req.token) {
+      try {
+        requireDevSession_(req.token);
+        authed = true;
+      } catch (err) {
+        authed = false;
+      }
+    }
+    if (!authed && req.currentPassword) {
+      authed = verifyDevPassword_(row, req.currentPassword);
+    }
+    if (!authed) throw new Error('Current password required');
+  }
+  const salt = generateSalt_();
+  const hash = computeSaltedHash_(newPassword, salt);
+  upsertDevRow_(email, { salt, hash });
+  const token = createDevSessionToken_();
+  appendAudit_('DevAuth', email, 'SET_PASSWORD', '{}');
+  return { token };
+}
+
+function apiDevAddUser_(req) {
+  const email = requireDevEmail_();
+  requireDevSession_(req.token || '');
+  const payload = req.payload || {};
+  const targetEmail = String(payload.email || '').trim().toLowerCase();
+  const role = String(payload.role || '').trim();
+  if (!targetEmail || targetEmail.indexOf('@') === -1) throw new Error('Valid email required');
+  const allowedRoles = ['requester', 'approver', 'developer', 'super_admin'];
+  if (allowedRoles.indexOf(role) === -1) throw new Error('Invalid role');
+  const sheet = getOrCreateSheet_(SHEETS.ROLES, ['email', 'role']);
+  const headers = indexHeaders_(sheet);
+  withLock_(() => {
+    const data = sheet.getDataRange().getValues();
+    const header = data[0] || Object.keys(headers).sort((a, b) => headers[a] - headers[b]);
+    const rows = data.slice(1);
+    const emailIdx = headers.email;
+    const roleIdx = headers.role;
+    const existingIdx = rows.findIndex(r => String(r[emailIdx]).toLowerCase() === targetEmail);
+    if (existingIdx === -1) {
+      const row = header.map((col, i) => {
+        if (col === 'email') return targetEmail;
+        if (col === 'role') return role;
+        return '';
+      });
+      sheet.appendRow(row);
+    } else {
+      sheet.getRange(existingIdx + 2, roleIdx + 1).setValue(role);
+    }
+  });
+  appendAudit_('Roles', targetEmail, 'UPSERT', JSON.stringify({ role }));
+  return { email: targetEmail, role };
+}
+
+function apiDevListRoles_(req) {
+  requireDevEmail_();
+  requireDevSession_(req.token || '');
+  return readAll_(getOrCreateSheet_(SHEETS.ROLES, ['email', 'role']));
+}
+
+function apiDevLogout_(token) {
+  requireDevEmail_();
+  requireDevSession_(token);
+  clearDevSessionToken_();
+  return { success: true };
 }
 
 // ---------- Notification placeholders ----------
