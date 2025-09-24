@@ -7,28 +7,6 @@
 :root{--brand-primary:#1a73e8;--brand-accent:#39bdf8;--brand-secondary:#0b1120;--brand-light:#f1f5f9;}
 *,*::before,*::after{box-sizing:border-box;}
 body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#1f2933;min-height:100vh;}
-body.is-loading{overflow:hidden;}
-body.app-ready{overflow:auto;}
-.loading-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#e5e7eb;color:#94a3b8;z-index:120;transition:background .6s ease,color .4s ease,opacity .45s ease,visibility .45s ease;pointer-events:auto;}
-.loading-overlay .loading-inner{display:flex;flex-direction:column;align-items:center;gap:1.25rem;padding:2rem;text-align:center;}
-.glitch{position:relative;font-size:clamp(2.75rem,7vw,5rem);font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:transparent;-webkit-text-stroke:2px #64748b;filter:drop-shadow(0 20px 40px rgba(15,23,42,.25));}
-.glitch span{display:block;color:currentColor;-webkit-text-stroke:0;}
-.glitch::before,.glitch::after{content:attr(data-text);position:absolute;left:0;top:0;width:100%;color:currentColor;opacity:.75;mix-blend-mode:screen;}
-.glitch::before{transform:translate(-2px,-2px);clip-path:polygon(0 2%,100% 0,100% 48%,0 54%);animation:glitch-shift 2.1s infinite ease-in-out alternate;}
-.glitch::after{transform:translate(2px,2px);clip-path:polygon(0 52%,100% 48%,100% 100%,0 98%);animation:glitch-shift-alt 1.8s infinite ease-in-out alternate-reverse;}
-.loading-subtitle{margin:0;font-size:1rem;color:inherit;letter-spacing:.08em;text-transform:uppercase;}
-.loading-bar{width:min(320px,80vw);height:8px;border-radius:999px;background:rgba(148,163,184,.4);overflow:hidden;box-shadow:0 12px 30px -20px rgba(15,23,42,.45);}
-.loading-progress{display:block;height:100%;width:100%;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,var(--brand-primary),var(--brand-accent));transition:transform .8s cubic-bezier(.4,0,.2,1);}
-.loading-overlay.loading-complete{background:radial-gradient(circle at top,var(--brand-light) 0%,rgba(241,245,249,0) 55%),var(--brand-secondary);color:#e0f2fe;}
-.loading-overlay.loading-complete .glitch{color:var(--brand-primary);-webkit-text-stroke:1px rgba(255,255,255,.5);}
-.loading-overlay.loading-complete .glitch::before{color:var(--brand-accent);mix-blend-mode:normal;}
-.loading-overlay.loading-complete .glitch::after{color:#c4f1ff;mix-blend-mode:normal;}
-.loading-overlay.loading-complete .loading-subtitle{color:#f8fafc;}
-.loading-overlay.loading-complete .loading-progress{transform:scaleX(1);}
-body.app-ready .loading-overlay{opacity:0;visibility:hidden;pointer-events:none;}
-@keyframes glitch-shift{0%{transform:translate(-1px,-1px);}20%{transform:translate(1px,1px);}40%{transform:translate(-3px,2px);}60%{transform:translate(2px,-2px);}80%{transform:translate(-1px,1px);}100%{transform:translate(1px,-1px);}}
-@keyframes glitch-shift-alt{0%{transform:translate(1px,1px);}20%{transform:translate(-1px,-1px);}40%{transform:translate(3px,-2px);}60%{transform:translate(-2px,2px);}80%{transform:translate(1px,-1px);}100%{transform:translate(-1px,1px);}}
-@media (prefers-reduced-motion:reduce){.glitch::before,.glitch::after{animation:none;}.loading-progress{transition-duration:.01ms;}}
 .app-header{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem 1rem .75rem;background:#fff;box-shadow:0 1px 0 rgba(15,23,42,.08);gap:.5rem;text-align:center;}
 .app-logo{height:80px;object-fit:contain;}
 @media (min-width:640px){.app-logo{height:96px;}}
@@ -135,14 +113,7 @@ tr:nth-child(even){background:#f8fafc;}
 .preview.hidden{display:none;}
 </style>
 </head>
-<body class="is-loading">
-<div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite">
-  <div class="loading-inner">
-    <div class="glitch" data-text="Dublin Cleaners"><span>Dublin</span><span>Cleaners</span></div>
-    <p class="loading-subtitle">Booting up supplies tracker…</p>
-    <div class="loading-bar" aria-hidden="true"><span class="loading-progress"></span></div>
-  </div>
-</div>
+<body>
 <header class="app-header">
 <img src="https://www.dublincleaners.com/wp-content/uploads/2025/06/LogosHQ.png" alt="Dublin Cleaners logo" class="app-logo">
 </header>
@@ -194,11 +165,6 @@ const CAN_UPLOAD_IMAGES = ['developer','super_admin'].includes(SESSION.role);
 let proofPanelCtx = null;
 let thumbPanelCtx = null;
 let devModalReady = false;
-let initialRouteRendered = false;
-let loaderFinalized = false;
-const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const LOADER_COLOR_DELAY = prefersReducedMotion ? 120 : 820;
-const LOADER_FADE_DELAY = prefersReducedMotion ? 160 : 520;
 
 function scheduleWork(fn,{priority='normal',timeout=600}={}){
   if(typeof fn !== 'function') return;
@@ -211,46 +177,6 @@ function scheduleWork(fn,{priority='normal',timeout=600}={}){
   }else{
     const delay = priority === 'low' ? 140 : 40;
     setTimeout(fn,delay);
-  }
-}
-
-function markLoaderComplete(){
-  if(loaderFinalized){
-    return;
-  }
-  loaderFinalized = true;
-  const overlay = document.getElementById('loadingOverlay');
-  const cleanup = ()=>{
-    document.body.classList.remove('is-loading');
-    document.body.classList.add('app-ready');
-    if(overlay){
-      const removeOverlay = ()=>{
-        if(overlay.parentNode){
-          overlay.parentNode.removeChild(overlay);
-        }
-      };
-      overlay.addEventListener('transitionend',function handler(e){
-        if(e.propertyName === 'opacity'){
-          overlay.removeEventListener('transitionend',handler);
-          removeOverlay();
-        }
-      });
-      if(prefersReducedMotion){
-        removeOverlay();
-      }else{
-        setTimeout(removeOverlay,LOADER_FADE_DELAY);
-      }
-    }
-  };
-  if(overlay){
-    overlay.classList.add('loading-complete');
-    if(prefersReducedMotion){
-      cleanup();
-    }else{
-      setTimeout(cleanup,LOADER_COLOR_DELAY);
-    }
-  }else{
-    cleanup();
   }
 }
 
@@ -329,10 +255,6 @@ function route(r){
   if(r === 'request') renderRequest(app);
   else if(r === 'all') renderAll(app);
   else if(r === 'catalog') renderCatalog(app);
-  if(!initialRouteRendered){
-    initialRouteRendered = true;
-    requestAnimationFrame(()=>requestAnimationFrame(markLoaderComplete));
-  }
 }
 
 function viewHeader(title, subtitle=''){
