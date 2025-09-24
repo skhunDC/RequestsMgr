@@ -104,7 +104,9 @@ function init_() {
   getOrCreateSheet_(SHEETS.AUDIT, ['ts', 'actor', 'entity', 'entity_id', 'action', 'diff_json']);
   // Roles
   const roles = getOrCreateSheet_(SHEETS.ROLES, ['email', 'role']);
+
   const email = getActiveUserNormalizedEmail_();
+
   const existing = readAll_(roles).map(r => normalizeEmail_(r.email));
   if (email && existing.indexOf(email) === -1) roles.appendRow([email, 'requester']);
   DEV_EMAILS.forEach(dev => {
@@ -269,6 +271,7 @@ function normalizeEmail_(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+
 function getActiveUserEmail_() {
   let email = '';
   try {
@@ -308,6 +311,7 @@ function getActiveUserEmail_() {
     }
   }
   return email;
+
 }
 
 function getActiveUserNormalizedEmail_() {
@@ -426,7 +430,9 @@ function getUserRole_(email) {
 }
 
 function requireRole_(allowed) {
+
   const email = getActiveUserNormalizedEmail_();
+
   const role = getUserRole_(email);
   if (allowed.indexOf(role) === -1) throw new Error('Forbidden');
   return role;
@@ -448,7 +454,9 @@ function willExceedBudget_(cc, month, addAmount) {
 
 function getSession_() {
   init_();
+
   const email = getActiveUserNormalizedEmail_();
+
   const role = getUserRole_(email);
   const cache = CacheService.getUserCache();
   let csrf = cache.get('csrf');
@@ -690,7 +698,9 @@ function apiUploadImage_(payload) {
 }
 
 function apiDevStatus_() {
+
   const email = getActiveUserNormalizedEmail_();
+
   const role = getUserRole_(email);
   const allowed = !!email && (role === 'developer' || role === 'super_admin' || DEV_EMAILS_LOWER.indexOf(email) !== -1);
   if (!allowed) {
