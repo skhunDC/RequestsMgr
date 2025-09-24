@@ -426,6 +426,7 @@ function renderRequest(app){
   const previewOpen = app.querySelector('#itemPreviewOpen');
   const previewChange = app.querySelector('#itemPreviewChange');
   let previewSrc = '';
+  let itemBrowseRestore = null;
   function hideItemPreview(){
     if(preview){
       preview.classList.add('hidden');
@@ -445,9 +446,14 @@ function renderRequest(app){
   }
   function updateItemPreview(){
     if(!itemInput) return;
-    const value = itemInput.value ? itemInput.value.toLowerCase().trim() : '';
-    if(!value){
-      hideItemPreview();
+    const raw = itemInput.value || '';
+    const value = raw.toLowerCase().trim();
+    if(!raw.trim()){
+      if(itemBrowseRestore && itemBrowseRestore.match){
+        showItemPreview(itemBrowseRestore.match);
+      }else{
+        hideItemPreview();
+      }
       return;
     }
     const match = state.catalog.find(row => (row.description || '').toLowerCase() === value);
@@ -456,6 +462,20 @@ function renderRequest(app){
     }else{
       hideItemPreview();
     }
+    itemBrowseRestore = null;
+  }
+  function beginItemReselection(){
+    if(!itemInput) return;
+    const currentValue = itemInput.value || '';
+    if(!currentValue.trim() || itemBrowseRestore) return;
+    const currentMatch = state.catalog.find(row => (row.description || '').toLowerCase() === currentValue.toLowerCase().trim());
+    itemBrowseRestore = { value: currentValue, match: currentMatch };
+    requestAnimationFrame(()=>{
+      if(!itemBrowseRestore || itemInput.value !== currentValue) return;
+      itemInput.value = '';
+      itemInput.dispatchEvent(new Event('input'));
+      openItemPicker();
+    });
   }
   function openItemPicker(){
     if(!itemInput) return;
@@ -476,6 +496,14 @@ function renderRequest(app){
     itemInput.addEventListener('change', updateItemPreview);
     itemInput.addEventListener('click', openItemPicker);
     itemInput.addEventListener('focus', openItemPicker);
+    itemInput.addEventListener('pointerdown', beginItemReselection);
+    itemInput.addEventListener('blur', ()=>{
+      if(itemBrowseRestore && !itemInput.value){
+        itemInput.value = itemBrowseRestore.value;
+        itemInput.dispatchEvent(new Event('input'));
+      }
+      itemBrowseRestore = null;
+    });
     itemInput.addEventListener('keydown', evt=>{
       if(evt.key === 'ArrowDown') openItemPicker();
     });
