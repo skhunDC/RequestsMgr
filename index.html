@@ -276,6 +276,10 @@ function renderRequest(app){
   const itemInput = app.querySelector('#item');
   const preview = app.querySelector('#itemPreview');
   const previewImg = app.querySelector('#itemPreviewImg');
+  if(previewImg){
+    previewImg.loading = 'lazy';
+    previewImg.decoding = 'async';
+  }
   const previewLabel = app.querySelector('#itemPreviewLabel');
   const previewOpen = app.querySelector('#itemPreviewOpen');
   let previewSrc = '';
@@ -318,19 +322,26 @@ function renderRequest(app){
     previewOpen.onclick = () => { if(previewSrc) window.open(previewSrc, '_blank'); };
   }
   app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
-  loadCatalog().then(()=>{
-    const dl = document.getElementById('catList');
-    if(dl){
-      dl.innerHTML = '';
-      state.catalog.forEach(c=>{
-        const o = document.createElement('option');
-        o.value = c.description;
-        dl.appendChild(o);
-      });
-    }
-    renderCatalogList('catalogPreview',{limit:6});
-    updateItemPreview();
-  });
+  const schedulePreviewLoad = () => {
+    loadCatalog().then(()=>{
+      const dl = document.getElementById('catList');
+      if(dl){
+        dl.innerHTML = '';
+        state.catalog.forEach(c=>{
+          const o = document.createElement('option');
+          o.value = c.description;
+          dl.appendChild(o);
+        });
+      }
+      renderCatalogList('catalogPreview',{limit:6});
+      updateItemPreview();
+    });
+  };
+  if('requestIdleCallback' in window){
+    requestIdleCallback(()=>schedulePreviewLoad());
+  }else{
+    setTimeout(schedulePreviewLoad,120);
+  }
 }
 
 function renderAll(app){
@@ -455,10 +466,13 @@ function renderAll(app){
   app.querySelector('#selAll').onchange = e=>{
     const c = e.target.checked;
     state.selection = new Set();
-    document.querySelectorAll('#list tbody input[type=checkbox]').forEach(cb=>{
-      cb.checked = c;
-      if(c) state.selection.add(cb.value);
-    });
+    const tbody = document.querySelector('#list tbody');
+    if(tbody){
+      tbody.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+        cb.checked = c;
+        if(c) state.selection.add(cb.value);
+      });
+    }
     toggleBulk();
   };
   app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
@@ -525,12 +539,19 @@ function renderCatalog(app){
   if(CAN_MANAGE_THUMBS){
     setupThumbPanel(app);
   }
-  loadCatalog().then(()=>{
-    renderCatalogList('catalogFull');
-    if(CAN_MANAGE_THUMBS){
-      populateThumbOptions();
-    }
-  });
+  const scheduleCatalogLoad = () => {
+    loadCatalog().then(()=>{
+      renderCatalogList('catalogFull');
+      if(CAN_MANAGE_THUMBS){
+        populateThumbOptions();
+      }
+    });
+  };
+  if('requestIdleCallback' in window){
+    requestIdleCallback(()=>scheduleCatalogLoad());
+  }else{
+    setTimeout(scheduleCatalogLoad,120);
+  }
 }
 
 function renderCatalogList(targetId,{limit}={}){
@@ -551,22 +572,25 @@ function renderCatalogList(targetId,{limit}={}){
   const thead = document.createElement('thead');
   thead.innerHTML = '<tr><th scope="col">Item</th><th scope="col">Category</th></tr>';
   const tbody = document.createElement('tbody');
+  const fragment = document.createDocumentFragment();
   rows.forEach(row=>{
     const tr = document.createElement('tr');
     const item = document.createElement('td');
-    const wrapper = document.createElement('div');
-    wrapper.className = 'catalog-item';
+    const itemWrapper = document.createElement('div');
+    itemWrapper.className = 'catalog-item';
     if(row.image_url){
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'thumb-button';
       const img = document.createElement('img');
       img.className = 'thumb';
-      img.src = row.image_url;
+      img.loading = 'lazy';
+      img.decoding = 'async';
       img.alt = `${row.description} thumbnail`;
+      img.src = row.image_url;
       btn.appendChild(img);
       btn.onclick = () => window.open(row.image_url, '_blank');
-      wrapper.appendChild(btn);
+      itemWrapper.appendChild(btn);
     }
     const text = document.createElement('div');
     text.className = 'catalog-item-text';
@@ -579,13 +603,14 @@ function renderCatalogList(targetId,{limit}={}){
       note.textContent = 'Thumbnail not added yet';
       text.appendChild(note);
     }
-    wrapper.appendChild(text);
-    item.appendChild(wrapper);
+    itemWrapper.appendChild(text);
+    item.appendChild(itemWrapper);
     const cat = document.createElement('td');
     cat.textContent = row.category;
     tr.append(item,cat);
-    tbody.appendChild(tr);
+    fragment.appendChild(tr);
   });
+  tbody.appendChild(fragment);
   table.append(thead,tbody);
   wrapper.appendChild(table);
   target.appendChild(wrapper);
@@ -647,6 +672,7 @@ function renderRows(){
   if(!tbody) return;
   tbody.innerHTML = '';
   state.selection = new Set();
+  const fragment = document.createDocumentFragment();
   state.rows.forEach(r=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `<td><input type="checkbox" value="${r.id}"></td>`;
@@ -673,8 +699,10 @@ function renderRows(){
       proofBtn.className = 'thumb-button';
       const img = document.createElement('img');
       img.className = 'thumb';
-      img.src = r.proof_image;
+      img.loading = 'lazy';
+      img.decoding = 'async';
       img.alt = `Order proof for ${r.item}`;
+      img.src = r.proof_image;
       proofBtn.appendChild(img);
       proofBtn.onclick = () => window.open(r.proof_image, '_blank');
       proof.appendChild(proofBtn);
@@ -695,18 +723,22 @@ function renderRows(){
       proof.appendChild(manage);
     }
     tr.append(requested,itemCell,qty,cost,requester,status,approver,eta,proof);
-    tbody.appendChild(tr);
+    fragment.appendChild(tr);
   });
+  tbody.appendChild(fragment);
+  tbody.onchange = e => {
+    const target = e.target;
+    if(target && target.matches('input[type=checkbox]')){
+      if(target.checked) state.selection.add(target.value);
+      else state.selection.delete(target.value);
+      toggleBulk();
+    }
+  };
   const empty = document.getElementById('empty');
   if(empty){
     if(!state.rows.length) empty.classList.remove('hidden');
     else empty.classList.add('hidden');
   }
-  document.querySelectorAll('#list tbody input[type=checkbox]').forEach(cb=>cb.onchange=e=>{
-    if(e.target.checked) state.selection.add(e.target.value);
-    else state.selection.delete(e.target.value);
-    toggleBulk();
-  });
 }
 
 function setupProofPanel(app){
