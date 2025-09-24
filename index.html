@@ -464,8 +464,16 @@ function renderRequest(app){
     }
     itemBrowseRestore = null;
   }
-  function beginItemReselection(){
+  function beginItemReselection(evt){
     if(!itemInput) return;
+    if(evt){
+      const pointerType = typeof evt.pointerType === 'string' ? evt.pointerType : '';
+      const isTouchLike = pointerType === 'touch' || pointerType === 'pen';
+      if(!isTouchLike){
+        if(typeof evt.button === 'number' && evt.button !== 0) return;
+        if(evt.ctrlKey) return;
+      }
+    }
     const currentValue = itemInput.value || '';
     if(!currentValue.trim() || itemBrowseRestore) return;
     const currentMatch = state.catalog.find(row => (row.description || '').toLowerCase() === currentValue.toLowerCase().trim());
