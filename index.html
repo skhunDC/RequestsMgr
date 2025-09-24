@@ -76,6 +76,7 @@ tr:nth-child(even){background:#f8fafc;}
 #toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:#1f2933;color:#fff;padding:.65rem 1rem;border-radius:999px;display:none;box-shadow:0 10px 25px -12px rgba(15,23,42,.6);}
 .hidden{display:none;}
 .footnote{margin:.5rem 0 0;font-size:.8rem;color:#64748b;}
+.item-note{margin-top:.25rem;font-size:.8rem;color:#64748b;white-space:pre-wrap;}
 .field-note{margin:.25rem 0 0;font-size:.8rem;color:#64748b;}
 .thumb{width:60px;height:60px;object-fit:cover;border-radius:8px;box-shadow:0 0 0 1px rgba(148,163,184,.4);transition:transform .2s,box-shadow .2s;cursor:pointer;background:#fff;}
 .thumb:hover{transform:translateY(-2px);box-shadow:0 8px 12px -10px rgba(30,64,175,.45);}
@@ -248,7 +249,7 @@ function renderRequest(app){
       ${viewHeader('New request','Choose an item from the catalog and share any required details.')}
       <section class="panel stack">
         <h2 class="panel-title">Request details</h2>
-        <div class="form-grid">
+        <div id="catalogFields" class="form-grid">
           <label class="field">
             <span>Item</span>
             <input id="item" placeholder="Start typing to search the catalog" list="catList">
@@ -269,13 +270,27 @@ function renderRequest(app){
             <span>Estimated cost</span>
             <input id="est" type="number" min="0" placeholder="0.00">
           </label>
-          <label class="field checkbox-field">
-            <input type="checkbox" id="ov">
-            <span>Override catalog guidance</span>
+        </div>
+        <label class="field checkbox-field">
+          <input type="checkbox" id="nonCat">
+          <span>Request item not in the catalog</span>
+        </label>
+        <div id="nonCatalogFields" class="form-grid hidden">
+          <label class="field">
+            <span>Item name</span>
+            <input id="nonCatItem" placeholder="What do you need?">
           </label>
           <label class="field">
-            <span>Justification</span>
-            <textarea id="just" placeholder="Provide context when overriding the catalog."></textarea>
+            <span>Description</span>
+            <textarea id="nonCatDesc" placeholder="Share details so we can source the item."></textarea>
+          </label>
+          <label class="field">
+            <span>Quantity</span>
+            <input id="nonCatQty" type="number" min="1" value="1">
+          </label>
+          <label class="field">
+            <span>Estimated cost</span>
+            <input id="nonCatEst" type="number" min="0" placeholder="0.00">
           </label>
         </div>
         <div class="actions">
@@ -294,6 +309,9 @@ function renderRequest(app){
   `;
   app.querySelector('#sub').onclick = submitOrder;
   const itemInput = app.querySelector('#item');
+  const nonCatToggle = app.querySelector('#nonCat');
+  const catalogFields = app.querySelector('#catalogFields');
+  const nonCatalogFields = app.querySelector('#nonCatalogFields');
   const preview = app.querySelector('#itemPreview');
   const previewImg = app.querySelector('#itemPreviewImg');
   if(previewImg){
@@ -337,6 +355,35 @@ function renderRequest(app){
   if(itemInput){
     itemInput.addEventListener('input', updateItemPreview);
     itemInput.addEventListener('change', updateItemPreview);
+  }
+  function toggleGroupVisibility(group, hidden){
+    if(!group) return;
+    group.classList.toggle('hidden', hidden);
+    group.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+    group.querySelectorAll('input,textarea').forEach(el=>{
+      el.disabled = hidden;
+      if(hidden){
+        el.setAttribute('aria-disabled','true');
+      }else{
+        el.removeAttribute('aria-disabled');
+      }
+    });
+  }
+  function applyRequestMode(){
+    const useNonCatalog = nonCatToggle && nonCatToggle.checked;
+    toggleGroupVisibility(catalogFields, !!useNonCatalog);
+    toggleGroupVisibility(nonCatalogFields, !useNonCatalog);
+    if(itemInput){
+      if(useNonCatalog){
+        hideItemPreview();
+      }else{
+        updateItemPreview();
+      }
+    }
+  }
+  if(nonCatToggle){
+    nonCatToggle.addEventListener('change', applyRequestMode);
+    applyRequestMode();
   }
   if(previewOpen){
     previewOpen.onclick = () => { if(previewSrc) window.open(previewSrc, '_blank'); };
@@ -650,13 +697,28 @@ function loadCatalog(force=false){
 }
 
 function submitOrder(){
+  const nonCatInput = document.getElementById('nonCat');
+  const nonCat = !!(nonCatInput && nonCatInput.checked);
   const payload = {
-    item: document.getElementById('item').value,
-    qty: Number(document.getElementById('qty').value||1),
-    est_cost: Number(document.getElementById('est').value||0),
-    override: document.getElementById('ov').checked,
-    justification: document.getElementById('just').value
+    non_catalog: nonCat,
+    item: '',
+    qty: 0,
+    est_cost: 0,
+    description: ''
   };
+  if(nonCat){
+    payload.item = (document.getElementById('nonCatItem').value || '').trim();
+    payload.description = (document.getElementById('nonCatDesc').value || '').trim();
+    if(!payload.item && payload.description){
+      payload.item = payload.description;
+    }
+    payload.qty = Number(document.getElementById('nonCatQty').value||1);
+    payload.est_cost = Number(document.getElementById('nonCatEst').value||0);
+  }else{
+    payload.item = (document.getElementById('item').value || '').trim();
+    payload.qty = Number(document.getElementById('qty').value||1);
+    payload.est_cost = Number(document.getElementById('est').value||0);
+  }
   google.script.run.withSuccessHandler(o=>{
     toast('Submitted');
     state.filters = {mineOnly:true,status:['PENDING'],search:''};
@@ -699,7 +761,15 @@ function renderRows(){
     const requested = document.createElement('td');
     requested.textContent = r.ts;
     const itemCell = document.createElement('td');
-    itemCell.textContent = r.item;
+    const itemLabel = document.createElement('div');
+    itemLabel.textContent = r.item;
+    itemCell.appendChild(itemLabel);
+    if(r.details){
+      const itemNote = document.createElement('div');
+      itemNote.className = 'item-note';
+      itemNote.textContent = r.details;
+      itemCell.appendChild(itemNote);
+    }
     const qty = document.createElement('td');
     qty.textContent = r.qty;
     const cost = document.createElement('td');

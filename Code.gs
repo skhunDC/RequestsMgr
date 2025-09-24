@@ -469,8 +469,8 @@ function apiListOrders_(filter) {
     status: r.status,
     approver: r.approver,
     decision_ts: r.decision_ts,
-    override: String(r['override?']) === 'true',
-    justification: r.justification,
+    non_catalog: String(r['override?']) === 'true',
+    details: r.justification,
     eta_details: r.eta_details || '',
     proof_image: r.proof_image || '',
     statusChip: r.status
@@ -494,13 +494,8 @@ function apiCreateOrder_(payload) {
   const qty = Number(payload.qty);
   if (!qty || qty < 1) throw new Error('Missing qty');
   const estCost = Number(payload.est_cost);
-  const catalog = readAll_(getOrCreateSheet_(SHEETS.CATALOG, CATALOG_HEADERS));
-  const catRow = catalog.find(r => r.sku === payload.sku);
-  if (catRow && String(catRow.override_required) === 'true') {
-    if (!(payload.override === true && payload.justification && payload.justification.length >= 40)) {
-      throw new Error('Override justification required');
-    }
-  }
+  const nonCatalog = String(payload.non_catalog) === 'true';
+  const details = payload.description ? String(payload.description) : '';
   const order = {
     id: uuid_(),
     ts: nowIso_(),
@@ -511,8 +506,8 @@ function apiCreateOrder_(payload) {
     status: 'PENDING',
     approver: '',
     decision_ts: '',
-    'override?': payload.override === true,
-    justification: payload.justification || '',
+    'override?': nonCatalog,
+    justification: details,
     eta_details: '',
     proof_image: ''
   };
