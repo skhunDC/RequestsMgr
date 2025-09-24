@@ -15,8 +15,10 @@ nav button.active{background:#1a73e8;color:#fff;box-shadow:0 0 0 1px rgba(26,115
 nav button:hover{background:rgba(26,115,232,.12);color:#1a73e8;}
 nav button.dev-trigger{flex:0 0 auto;margin-left:auto;}
 nav button.dev-trigger:hover{background:#0b1120;color:#fff;}
-.dev-trigger{background:#0f172a;color:#fff;box-shadow:0 12px 24px -18px rgba(15,23,42,.7);} 
+.dev-trigger{background:#0f172a;color:#fff;box-shadow:0 12px 24px -18px rgba(15,23,42,.7);}
 .dev-trigger:hover{background:#0b1120;color:#fff;}
+.dev-trigger[disabled]{opacity:.6;cursor:not-allowed;box-shadow:none;}
+.dev-trigger[disabled]:hover{background:#0f172a;color:#fff;}
 .dev-launcher{position:fixed;top:1rem;right:1rem;z-index:80;}
 .dev-launcher button{flex:0 0 auto;padding:.55rem 1.25rem;}
 @media (max-width:640px){
@@ -114,7 +116,7 @@ tr:nth-child(even){background:#f8fafc;}
 <img src="https://www.dublincleaners.com/wp-content/uploads/2025/06/LogosHQ.png" alt="Dublin Cleaners logo" class="app-logo">
 </header>
 <nav id="nav" role="navigation"></nav>
-<div id="devLauncher" class="dev-launcher hidden">
+<div id="devLauncher" class="dev-launcher">
   <button id="devLauncherButton" type="button" class="dev-trigger">Developer</button>
 </div>
 <main id="app"></main>
@@ -188,19 +190,20 @@ function renderNav(){
 function setupDevLauncher(){
   const trigger = document.getElementById('devLauncherButton');
   if(trigger){
-    trigger.onclick = () => openDevModal();
+    trigger.onclick = () => { if(!trigger.disabled) openDevModal(); };
   }
   updateDevLauncher();
 }
 
 function updateDevLauncher(){
   const launcher = document.getElementById('devLauncher');
-  if(!launcher) return;
-  if(state.dev && state.dev.allowed){
-    launcher.classList.remove('hidden');
-  } else {
-    launcher.classList.add('hidden');
-  }
+  const trigger = document.getElementById('devLauncherButton');
+  if(!launcher || !trigger) return;
+  launcher.classList.remove('hidden');
+  const allowed = !!(state.dev && state.dev.allowed);
+  trigger.disabled = !allowed;
+  trigger.setAttribute('aria-disabled', allowed ? 'false' : 'true');
+  trigger.title = allowed ? 'Open developer tools' : 'Developer tools restricted to authorized users';
 }
 
 function route(r){
