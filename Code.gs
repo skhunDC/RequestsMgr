@@ -11,7 +11,7 @@ const SHEETS = {
 };
 const SS_ID_PROP = 'SS_ID';
 const DEV_EMAILS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
-const DEV_EMAILS_LOWER = DEV_EMAILS.map(email => email.toLowerCase());
+const DEV_EMAILS_LOWER = DEV_EMAILS.map(email => normalizeEmail_(email));
 const UPLOAD_FOLDER_PROP = 'UPLOAD_FOLDER_ID';
 const DRIVE_VIEW_PREFIX = 'https://drive.google.com/uc?export=view&id=';
 
@@ -104,18 +104,19 @@ function init_() {
   getOrCreateSheet_(SHEETS.AUDIT, ['ts', 'actor', 'entity', 'entity_id', 'action', 'diff_json']);
   // Roles
   const roles = getOrCreateSheet_(SHEETS.ROLES, ['email', 'role']);
-  const email = Session.getActiveUser().getEmail();
-  const existing = readAll_(roles).map(r => r.email);
+  const email = normalizeEmail_(Session.getActiveUser().getEmail());
+  const existing = readAll_(roles).map(r => normalizeEmail_(r.email));
   if (email && existing.indexOf(email) === -1) roles.appendRow([email, 'requester']);
   DEV_EMAILS.forEach(dev => {
-    if (existing.indexOf(dev) === -1) roles.appendRow([dev, 'developer']);
+    if (existing.indexOf(normalizeEmail_(dev)) === -1) roles.appendRow([normalizeEmail_(dev), 'developer']);
   });
   // LT_Devs
   const lt = getOrCreateSheet_(SHEETS.LT_DEVS, ['email', 'salt', 'hash']);
   const ltRows = readAll_(lt);
   DEV_EMAILS.forEach(dev => {
-    if (!ltRows.some(r => String(r.email).toLowerCase() === dev.toLowerCase())) {
-      writeRow_(lt, { email: dev, salt: '', hash: '' });
+    const normalized = normalizeEmail_(dev);
+    if (!ltRows.some(r => normalizeEmail_(r.email) === normalized)) {
+      writeRow_(lt, { email: normalized, salt: '', hash: '' });
     }
   });
 }
@@ -227,15 +228,17 @@ function ensureDevRows_() {
   const sheet = devSheet_();
   const rows = readAll_(sheet);
   DEV_EMAILS.forEach(email => {
-    if (!rows.some(r => String(r.email).toLowerCase() === email.toLowerCase())) {
-      writeRow_(sheet, { email, salt: '', hash: '' });
+    const normalized = normalizeEmail_(email);
+    if (!rows.some(r => normalizeEmail_(r.email) === normalized)) {
+      writeRow_(sheet, { email: normalized, salt: '', hash: '' });
     }
   });
 }
 
 function getDevRow_(email) {
   const sheet = devSheet_();
-  return readAll_(sheet).find(r => String(r.email).toLowerCase() === email.toLowerCase()) || null;
+  const normalized = normalizeEmail_(email);
+  return readAll_(sheet).find(r => normalizeEmail_(r.email) === normalized) || null;
 }
 
 function upsertDevRow_(email, updates) {
@@ -243,11 +246,12 @@ function upsertDevRow_(email, updates) {
   const headers = indexHeaders_(sheet);
   const values = sheet.getDataRange().getValues();
   const rows = values.slice(1);
-  const rowIdx = rows.findIndex(r => String(r[headers.email]).toLowerCase() === email.toLowerCase());
+  const normalized = normalizeEmail_(email);
+  const rowIdx = rows.findIndex(r => normalizeEmail_(r[headers.email]) === normalized);
   if (rowIdx === -1) {
     const headerRow = Object.keys(headers).sort((a, b) => headers[a] - headers[b]);
     const row = headerRow.map(key => {
-      if (key === 'email') return email;
+      if (key === 'email') return normalized;
       if (Object.prototype.hasOwnProperty.call(updates, key)) return updates[key];
       return '';
     });
@@ -261,10 +265,17 @@ function upsertDevRow_(email, updates) {
   }
 }
 
+function normalizeEmail_(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
 function requireDevEmail_() {
-  const email = (Session.getActiveUser().getEmail() || '').toLowerCase();
-  if (DEV_EMAILS_LOWER.indexOf(email) === -1) throw new Error('Forbidden');
-  return email;
+  const email = normalizeEmail_(Session.getActiveUser().getEmail());
+  if (!email) throw new Error('Forbidden');
+  const role = getUserRole_(email);
+  if (role === 'developer' || role === 'super_admin') return email;
+  if (DEV_EMAILS_LOWER.indexOf(email) !== -1) return email;
+  throw new Error('Forbidden');
 }
 
 function getDevSessionToken_() {
@@ -363,12 +374,14 @@ function appendAudit_(entity, entity_id, action, diffJson) {
 
 function getUserRole_(email) {
   const sheet = getOrCreateSheet_(SHEETS.ROLES, ['email', 'role']);
-  const row = readAll_(sheet).find(r => r.email === email);
-  return row ? row.role : 'viewer';
+  const normalized = normalizeEmail_(email);
+  if (!normalized) return 'viewer';
+  const row = readAll_(sheet).find(r => normalizeEmail_(r.email) === normalized);
+  return row ? (String(row.role || '').trim().toLowerCase() || 'viewer') : 'viewer';
 }
 
 function requireRole_(allowed) {
-  const email = Session.getActiveUser().getEmail();
+  const email = normalizeEmail_(Session.getActiveUser().getEmail());
   const role = getUserRole_(email);
   if (allowed.indexOf(role) === -1) throw new Error('Forbidden');
   return role;
@@ -390,7 +403,7 @@ function willExceedBudget_(cc, month, addAmount) {
 
 function getSession_() {
   init_();
-  const email = Session.getActiveUser().getEmail();
+  const email = normalizeEmail_(Session.getActiveUser().getEmail());
   const role = getUserRole_(email);
   const cache = CacheService.getUserCache();
   let csrf = cache.get('csrf');
@@ -631,8 +644,9 @@ function apiUploadImage_(payload) {
 }
 
 function apiDevStatus_() {
-  const email = (Session.getActiveUser().getEmail() || '').toLowerCase();
-  const allowed = DEV_EMAILS_LOWER.indexOf(email) !== -1;
+  const email = normalizeEmail_(Session.getActiveUser().getEmail());
+  const role = getUserRole_(email);
+  const allowed = !!email && (role === 'developer' || role === 'super_admin' || DEV_EMAILS_LOWER.indexOf(email) !== -1);
   if (!allowed) {
     clearDevSessionToken_();
     return { allowed: false, hasPassword: false, sessionActive: false, token: '' };
@@ -697,7 +711,7 @@ function apiDevAddUser_(req) {
   const email = requireDevEmail_();
   requireDevSession_(req.token || '');
   const payload = req.payload || {};
-  const targetEmail = String(payload.email || '').trim().toLowerCase();
+  const targetEmail = normalizeEmail_(payload.email);
   const role = String(payload.role || '').trim();
   if (!targetEmail || targetEmail.indexOf('@') === -1) throw new Error('Valid email required');
   const allowedRoles = ['requester', 'approver', 'developer', 'super_admin'];

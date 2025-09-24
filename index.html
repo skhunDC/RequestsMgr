@@ -159,13 +159,17 @@ tr:nth-child(even){background:#f8fafc;}
 const SESSION = <?!= JSON.stringify(session) ?>;
 </script>
 <script type="module">
-const DEV_ALLOWED_EMAILS = Array.isArray(SESSION.devEmails) ? SESSION.devEmails.map(e => String(e).toLowerCase()) : [];
+const SESSION_EMAIL = typeof SESSION.email === 'string' ? SESSION.email.trim() : '';
+const SESSION_ROLE = typeof SESSION.role === 'string' ? SESSION.role.trim().toLowerCase() : '';
+const NORMALIZED_SESSION_EMAIL = SESSION_EMAIL.toLowerCase();
+const DEV_ALLOWED_EMAILS = Array.isArray(SESSION.devEmails) ? SESSION.devEmails.map(e => String(e || '').trim().toLowerCase()) : [];
 const DEV_ALLOWED_SET = new Set(DEV_ALLOWED_EMAILS);
-const INITIAL_DEV_ALLOWED = DEV_ALLOWED_SET.has((SESSION.email || '').toLowerCase());
+const DEV_ROLE_ALLOWED = SESSION_ROLE === 'developer' || SESSION_ROLE === 'super_admin';
+const INITIAL_DEV_ALLOWED = DEV_ROLE_ALLOWED || DEV_ALLOWED_SET.has(NORMALIZED_SESSION_EMAIL);
 const DEV_ACCESS_DENIED_MESSAGE = 'Your account is not authorized for developer tools.';
 
 const state = {
-  session: SESSION,
+  session: { ...SESSION, email: SESSION_EMAIL, role: SESSION_ROLE },
   route: 'request',
   filters: { mineOnly: false, status: [], search: '' },
   rows: [],
@@ -188,9 +192,9 @@ const state = {
   }
 };
 
-const CAN_MANAGE_PROOF = ['approver','developer','super_admin'].includes(SESSION.role);
-const CAN_MANAGE_THUMBS = ['developer','super_admin'].includes(SESSION.role);
-const CAN_UPLOAD_IMAGES = ['developer','super_admin'].includes(SESSION.role);
+const CAN_MANAGE_PROOF = ['approver','developer','super_admin'].includes(SESSION_ROLE);
+const CAN_MANAGE_THUMBS = ['developer','super_admin'].includes(SESSION_ROLE);
+const CAN_UPLOAD_IMAGES = ['developer','super_admin'].includes(SESSION_ROLE);
 let proofPanelCtx = null;
 let thumbPanelCtx = null;
 let devModalReady = false;
@@ -1564,11 +1568,13 @@ function fetchDevStatus(){
   state.dev.statusLoaded = false;
   if(state.dev.show) renderDevModal();
   google.script.run.withSuccessHandler(res => {
+    const allowed = !!(res && res.allowed);
+    state.dev.allowed = allowed;
     state.dev.statusLoaded = true;
     state.dev.hasPassword = !!(res && res.hasPassword);
     const active = !!(res && res.sessionActive && res.token);
-    state.dev.authed = active;
-    state.dev.token = active ? res.token : '';
+    state.dev.authed = allowed && active;
+    state.dev.token = state.dev.authed ? res.token : '';
     state.dev.view = state.dev.authed ? 'main' : (state.dev.hasPassword ? 'login' : 'set');
     state.dev.error = '';
     if(state.dev.authed){
@@ -1579,11 +1585,16 @@ function fetchDevStatus(){
       state.dev.users = [];
       state.dev.loadedUsers = false;
       state.dev.loadingUsers = false;
+      if(!allowed && state.dev.show){
+        closeDevModal();
+      }
     }
+    updateDevLauncher();
     if(state.dev.show) renderDevModal();
   }).withFailureHandler(err => {
     state.dev.statusLoaded = true;
     state.dev.error = err.message;
+    updateDevLauncher();
     if(state.dev.show) renderDevModal();
   }).router({action:'devStatus',csrf:state.session.csrf});
 }
