@@ -362,6 +362,7 @@ function renderRequest(app){
               <div class="catalog-item-text">
                 <strong id="itemPreviewLabel"></strong>
                 <button id="itemPreviewOpen" type="button" class="link">Open full image</button>
+                <button id="itemPreviewChange" type="button" class="link">Choose another item</button>
               </div>
             </div>
           </label>
@@ -423,6 +424,7 @@ function renderRequest(app){
   }
   const previewLabel = app.querySelector('#itemPreviewLabel');
   const previewOpen = app.querySelector('#itemPreviewOpen');
+  const previewChange = app.querySelector('#itemPreviewChange');
   let previewSrc = '';
   function hideItemPreview(){
     if(preview){
@@ -490,6 +492,16 @@ function renderRequest(app){
   }
   if(previewOpen){
     previewOpen.onclick = () => { if(previewSrc) window.open(previewSrc, '_blank'); };
+  }
+  if(previewChange){
+    previewChange.onclick = () => {
+      hideItemPreview();
+      if(itemInput){
+        itemInput.value = '';
+        itemInput.focus();
+        itemInput.dispatchEvent(new Event('input'));
+      }
+    };
   }
   app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
   const schedulePreviewLoad = () => {
