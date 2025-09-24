@@ -142,6 +142,10 @@ const state = {
   rows: [],
   selection: new Set(),
   catalog: [],
+  loading: {
+    orders: false,
+    catalog: false
+  },
   dev: {
     allowed: INITIAL_DEV_ALLOWED,
     show: false,
@@ -165,7 +169,6 @@ const CAN_UPLOAD_IMAGES = ['developer','super_admin'].includes(SESSION.role);
 let proofPanelCtx = null;
 let thumbPanelCtx = null;
 let devModalReady = false;
-
 function scheduleWork(fn,{priority='normal',timeout=600}={}){
   if(typeof fn !== 'function') return;
   if(priority === 'high'){
@@ -420,6 +423,13 @@ function renderRequest(app){
       }
       renderCatalogList('catalogPreview',{limit:6});
       updateItemPreview();
+    }).catch(err=>{
+      console.error(err);
+      const previewWrap = document.getElementById('catalogPreview');
+      if(previewWrap){
+        previewWrap.innerHTML = '<p class="footnote">Catalog preview unavailable.</p>';
+      }
+      toast('Unable to load catalog preview.');
     });
   };
   if('requestIdleCallback' in window){
@@ -464,6 +474,10 @@ function renderAll(app){
             <button id="dn" class="ghost" type="button">Deny</button>
             <button id="oh" class="ghost" type="button">On-Hold</button>
           </div>
+        </div>
+        <div id="ordersLoading" class="section-loading hidden" role="status" aria-live="polite" aria-hidden="true" aria-busy="false">
+          <span class="section-loading-label">Loading requests…</span>
+          <div class="section-loading-bar" aria-hidden="true"><span class="section-loading-progress"></span></div>
         </div>
         <div class="table-wrapper">
           <table id="list">
@@ -527,6 +541,7 @@ function renderAll(app){
       </section>
     </section>
   `;
+  updateSectionLoader('orders');
   const st = ['PENDING','APPROVED','DENIED','ON-HOLD'];
   const chipsDiv = app.querySelector('#statusChips');
   st.forEach(s=>{
@@ -573,7 +588,15 @@ function renderAll(app){
     setupProofPanel(app);
   }
   loadOrders();
-  loadCatalog().then(()=>renderCatalogList('catalogInline',{limit:6}));
+  loadCatalog().then(()=>renderCatalogList('catalogInline',{limit:6}))
+    .catch(err=>{
+      console.error(err);
+      const inline = document.getElementById('catalogInline');
+      if(inline){
+        inline.innerHTML = '<p class="footnote">Catalog snapshot unavailable.</p>';
+      }
+      toast('Unable to load catalog snapshot.');
+    });
 }
 
 function renderCatalog(app){
@@ -585,7 +608,11 @@ function renderCatalog(app){
           <h2 class="panel-title">All items</h2>
           <button class="link" type="button" data-route="request">Submit a request</button>
         </div>
-        <div id="catalogFull"><p class="footnote">Loading catalog...</p></div>
+        <div id="catalogLoading" class="section-loading hidden" role="status" aria-live="polite" aria-hidden="true" aria-busy="false">
+          <span class="section-loading-label">Loading catalog…</span>
+          <div class="section-loading-bar" aria-hidden="true"><span class="section-loading-progress"></span></div>
+        </div>
+        <div id="catalogFull"></div>
       </section>
       ${CAN_MANAGE_THUMBS ? `
       <section class="panel stack" id="thumbPanel">
@@ -620,16 +647,27 @@ function renderCatalog(app){
       ` : ''}
     </section>
   `;
+  updateSectionLoader('catalog');
   app.querySelector('[data-route="request"]').onclick = ()=>route('request');
   if(CAN_MANAGE_THUMBS){
     setupThumbPanel(app);
   }
   const scheduleCatalogLoad = () => {
+    setSectionLoading('catalog', true);
     loadCatalog().then(()=>{
       renderCatalogList('catalogFull');
       if(CAN_MANAGE_THUMBS){
         populateThumbOptions();
       }
+      setSectionLoading('catalog', false);
+    }).catch(err=>{
+      const message = err && err.message ? err.message : 'Unable to load catalog.';
+      toast(message);
+      const target = document.getElementById('catalogFull');
+      if(target){
+        target.innerHTML = `<p class="footnote">${message}</p>`;
+      }
+      setSectionLoading('catalog', false);
     });
   };
   if('requestIdleCallback' in window){
@@ -708,9 +746,11 @@ function renderCatalogList(targetId,{limit}={}){
 }
 
 function loadCatalog(force=false){
-  if(!force && state.catalog.length) return Promise.resolve();
-  return new Promise(res=>{
-    google.script.run.withSuccessHandler(rows=>{state.catalog = rows;res();}).router({action:'listCatalog'});
+  if(!force && state.catalog.length) return Promise.resolve(state.catalog);
+  return new Promise((resolve,reject)=>{
+    google.script.run.withSuccessHandler(rows=>{state.catalog = rows;resolve(rows);})
+      .withFailureHandler(err=>reject(err))
+      .router({action:'listCatalog'});
   });
 }
 
@@ -754,6 +794,7 @@ function updateFilters(){
 }
 
 function loadOrders(){
+  setSectionLoading('orders', true);
   google.script.run.withSuccessHandler(rows=>{
     state.rows=rows;
     renderRows();
@@ -763,6 +804,11 @@ function loadOrders(){
         proofPanelCtx.orderLabel.textContent = `${current.item} • ${current.ts}`;
       }
     }
+    setSectionLoading('orders', false);
+  }).withFailureHandler(err=>{
+    setSectionLoading('orders', false);
+    const message = err && err.message ? err.message : 'Unable to load requests.';
+    toast(message);
   })
     .router({action:'listOrders',filter:state.filters});
 }
@@ -1044,8 +1090,15 @@ function saveThumbnail(){
   if(thumbPanelCtx.saveButton) thumbPanelCtx.saveButton.disabled = true;
   google.script.run.withSuccessHandler(()=>{
     toast('Thumbnail updated');
+    const catalogVisible = !!document.getElementById('catalogFull');
+    if(catalogVisible) setSectionLoading('catalog', true);
     loadCatalog(true).then(()=>{
       refreshCatalogViews();
+      if(catalogVisible) setSectionLoading('catalog', false);
+    }).catch(err=>{
+      console.error(err);
+      if(catalogVisible) setSectionLoading('catalog', false);
+      toast(err && err.message ? err.message : 'Unable to refresh catalog.');
     });
   }).withFailureHandler(err=>{
     toast(err.message);
