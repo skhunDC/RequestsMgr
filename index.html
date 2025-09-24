@@ -485,15 +485,24 @@ function renderRequest(app){
       openItemPicker();
     });
   }
+  let itemPickerUnavailable = false;
+  let itemPickerWarned = false;
   function openItemPicker(){
     if(!itemInput) return;
-    if(typeof itemInput.showPicker === 'function'){
+    if(!itemPickerUnavailable && typeof itemInput.showPicker === 'function'){
       try{
         itemInput.showPicker();
         return;
       }catch(err){
-        console.warn('showPicker failed', err);
+        itemPickerUnavailable = true;
+        if(!itemPickerWarned){
+          itemPickerWarned = true;
+          console.warn('showPicker failed', err);
+        }
       }
+    }
+    if(document.activeElement !== itemInput){
+      itemInput.focus();
     }
     if(itemInput.value){
       itemInput.select();
