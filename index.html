@@ -13,6 +13,8 @@ nav{display:flex;gap:.5rem;padding:.75rem 1rem;background:#fff;position:sticky;t
 nav button{flex:1;appearance:none;border:none;background:transparent;padding:.65rem .75rem;border-radius:999px;font-weight:600;color:#475569;transition:background .2s,color .2s;}
 nav button.active{background:#1a73e8;color:#fff;box-shadow:0 0 0 1px rgba(26,115,232,.2);}
 nav button:hover{background:rgba(26,115,232,.12);color:#1a73e8;}
+nav button.dev-trigger{flex:0 0 auto;margin-left:auto;background:#0f172a;color:#fff;}
+nav button.dev-trigger:hover{background:#0b1120;color:#fff;}
 main{padding:1.5rem 1rem;}
 .view{display:flex;flex-direction:column;gap:1rem;margin:0 auto;width:100%;max-width:960px;}
 .view-header h1{margin:0;font-size:1.5rem;}
@@ -71,6 +73,25 @@ tr:nth-child(even){background:#f8fafc;}
 .catalog-item{display:flex;align-items:center;gap:.75rem;}
 .catalog-item-text{display:flex;flex-direction:column;gap:.25rem;}
 .thumb-button{padding:0;border:none;background:transparent;cursor:pointer;}
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:1.25rem;z-index:50;}
+.modal-overlay.hidden{display:none;}
+.modal-card{background:#fff;border-radius:16px;width:100%;max-width:420px;padding:1.25rem;box-shadow:0 24px 48px -24px rgba(15,23,42,.55);display:flex;flex-direction:column;gap:1rem;}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;}
+.modal-head h2{margin:0;font-size:1.25rem;}
+.modal-close{appearance:none;border:none;background:transparent;color:#475569;font-size:1.5rem;line-height:1;cursor:pointer;padding:.25rem;}
+.modal-close:hover{color:#1f2933;}
+.modal-body{display:flex;flex-direction:column;gap:1rem;}
+.notice{padding:.65rem .75rem;border-radius:10px;font-size:.9rem;}
+.notice.ok{background:#ecfdf5;color:#047857;}
+.notice.error{background:#fef2f2;color:#b91c1c;}
+.dev-form .actions{justify-content:flex-end;}
+.dev-users{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.35rem;font-size:.9rem;}
+.dev-users li{display:flex;justify-content:space-between;gap:.5rem;padding:.35rem .5rem;border-radius:8px;background:#f8fafc;color:#1f2933;}
+.dev-users li span{font-weight:600;word-break:break-all;}
+.modal-actions{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;}
+.modal-actions.spread{justify-content:space-between;}
+.modal-actions button{flex:0 0 auto;}
+
 .dropzone{border:1px dashed #94a3b8;border-radius:10px;padding:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;text-align:center;background:#f8fafc;color:#475569;transition:border-color .2s,background .2s;min-height:120px;justify-content:center;}
 .dropzone.drag{border-color:#1a73e8;background:rgba(26,115,232,.08);}
 .dropzone.has-image{border-style:solid;background:#fff;}
@@ -87,18 +108,39 @@ tr:nth-child(even){background:#f8fafc;}
 </header>
 <nav id="nav" role="navigation"></nav>
 <main id="app"></main>
+<div id="devModalOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="devModalTitle">
+  <section id="devModalCard" class="modal-card"></section>
+</div>
 <div id="toast" aria-live="polite"></div>
 <script>
 const SESSION = <?!= JSON.stringify(session) ?>;
 </script>
 <script type="module">
+const DEV_ALLOWED_EMAILS = Array.isArray(SESSION.devEmails) ? SESSION.devEmails.map(e => String(e).toLowerCase()) : [];
+const DEV_ALLOWED_SET = new Set(DEV_ALLOWED_EMAILS);
+
 const state = {
   session: SESSION,
   route: 'request',
   filters: { mineOnly: false, status: [], search: '' },
   rows: [],
   selection: new Set(),
-  catalog: []
+  catalog: [],
+  dev: {
+    allowed: DEV_ALLOWED_SET.has((SESSION.email || '').toLowerCase()),
+    show: false,
+    statusLoaded: false,
+    hasPassword: false,
+    authed: false,
+    token: '',
+    loading: false,
+    error: '',
+    message: '',
+    view: 'login',
+    users: [],
+    loadingUsers: false,
+    loadedUsers: false
+  }
 };
 
 const CAN_MANAGE_PROOF = ['approver','developer','super_admin'].includes(SESSION.role);
@@ -106,8 +148,13 @@ const CAN_MANAGE_THUMBS = ['developer','super_admin'].includes(SESSION.role);
 const CAN_UPLOAD_IMAGES = ['developer','super_admin'].includes(SESSION.role);
 let proofPanelCtx = null;
 let thumbPanelCtx = null;
+let devModalReady = false;
 
 function init(){
+  setupDevModal();
+  if(state.dev.allowed){
+    fetchDevStatus();
+  }
   route('request');
 }
 
@@ -124,6 +171,14 @@ function renderNav(){
     btn.setAttribute('aria-current', state.route === r ? 'page' : 'false');
     nav.appendChild(btn);
   });
+  if(state.dev && state.dev.allowed){
+    const devBtn = document.createElement('button');
+    devBtn.type = 'button';
+    devBtn.textContent = 'Developer';
+    devBtn.className = 'dev-trigger';
+    devBtn.onclick = () => openDevModal();
+    nav.appendChild(devBtn);
+  }
 }
 
 function route(r){
@@ -1054,6 +1109,378 @@ function bulk(decision){
   })
     .withFailureHandler(e=>toast(e.message))
     .router({action:'bulkDecision',ids,decision,comment,csrf:state.session.csrf});
+}
+
+function escapeHtml(str){
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return String(str == null ? '' : str).replace(/[&<>"']/g, ch => map[ch]);
+}
+
+function setupDevModal(){
+  if(devModalReady) return;
+  const overlay = document.getElementById('devModalOverlay');
+  if(!overlay) return;
+  devModalReady = true;
+  overlay.addEventListener('click', e => {
+    if(e.target === overlay){
+      closeDevModal();
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && state.dev && state.dev.show){
+      closeDevModal();
+    }
+  });
+}
+
+function openDevModal(){
+  if(!state.dev || !state.dev.allowed) return;
+  state.dev.show = true;
+  state.dev.error = '';
+  state.dev.message = '';
+  renderDevModal();
+  if(!state.dev.statusLoaded){
+    fetchDevStatus();
+  }else if(state.dev.authed && !state.dev.loadedUsers && !state.dev.loadingUsers){
+    loadDevUsers();
+  }
+}
+
+function closeDevModal(){
+  if(!state.dev) return;
+  state.dev.show = false;
+  state.dev.loading = false;
+  state.dev.error = '';
+  state.dev.message = '';
+  const overlay = document.getElementById('devModalOverlay');
+  const card = document.getElementById('devModalCard');
+  if(overlay){
+    overlay.classList.add('hidden');
+    overlay.setAttribute('aria-hidden','true');
+  }
+  if(card){
+    card.innerHTML = '';
+  }
+}
+
+function renderDevModal(){
+  const overlay = document.getElementById('devModalOverlay');
+  const card = document.getElementById('devModalCard');
+  if(!overlay || !card) return;
+  if(!state.dev || !state.dev.allowed || !state.dev.show){
+    overlay.classList.add('hidden');
+    overlay.setAttribute('aria-hidden','true');
+    card.innerHTML = '';
+    return;
+  }
+  overlay.classList.remove('hidden');
+  overlay.setAttribute('aria-hidden','false');
+  let body = '';
+  const disabledAttr = state.dev.loading ? 'disabled' : '';
+  if(!state.dev.statusLoaded){
+    body = '<p class="footnote">Loading developer tools…</p>';
+  }else if(state.dev.authed && state.dev.view === 'main'){
+    const sorted = Array.isArray(state.dev.users) ? [...state.dev.users].sort((a,b)=>String(a.email||'').localeCompare(String(b.email||''))) : [];
+    let list = '';
+    if(state.dev.loadingUsers){
+      list = '<p class="footnote">Loading access list…</p>';
+    }else if(sorted.length){
+      list = '<ul class="dev-users">' + sorted.map(row => `<li><span>${escapeHtml(row.email || '')}</span><small>${escapeHtml(row.role || '')}</small></li>`).join('') + '</ul>';
+    }else{
+      list = '<p class="field-note">No users added yet.</p>';
+    }
+    body = `
+      <p class="field-note">Signed in as <strong>${escapeHtml(state.session.email || '')}</strong>.</p>
+      <form id="devAddUserForm" class="dev-form">
+        <label class="field">
+          <span>User email</span>
+          <input type="email" id="devUserEmail" autocomplete="email" required ${disabledAttr} data-autofocus>
+        </label>
+        <label class="field">
+          <span>Role</span>
+          <select id="devUserRole" ${disabledAttr}>
+            <option value="requester">Requester</option>
+            <option value="approver">Approver</option>
+            <option value="developer">Developer</option>
+            <option value="super_admin">Super Admin</option>
+          </select>
+        </label>
+        <div class="actions">
+          <button class="primary" type="submit" ${disabledAttr}>Save access</button>
+        </div>
+      </form>
+      <section>
+        <h3 class="panel-title">Project users</h3>
+        ${list}
+      </section>
+      <div class="modal-actions spread">
+        <button type="button" class="ghost" data-change-pass ${disabledAttr}>Change password</button>
+        <button type="button" class="ghost" data-logout ${disabledAttr}>Sign out</button>
+      </div>
+    `;
+  }else if(state.dev.view === 'set'){
+    const needCurrent = state.dev.hasPassword && !state.dev.authed;
+    const currentField = needCurrent ? `<label class="field"><span>Current password</span><input type="password" id="devCurrentPassword" autocomplete="current-password" ${disabledAttr} data-autofocus></label>` : '';
+    const newAutofocus = needCurrent ? '' : 'data-autofocus';
+    body = `
+      <form id="devSetForm" class="dev-form">
+        ${currentField}
+        <label class="field">
+          <span>New password</span>
+          <input type="password" id="devNewPassword" autocomplete="new-password" minlength="12" required ${disabledAttr} ${newAutofocus}>
+          <p class="field-note">Use at least 12 characters.</p>
+        </label>
+        <label class="field">
+          <span>Confirm password</span>
+          <input type="password" id="devConfirmPassword" autocomplete="new-password" required ${disabledAttr}>
+        </label>
+        <div class="actions">
+          <button class="primary" type="submit" ${disabledAttr}>Save password</button>
+          ${state.dev.hasPassword ? `<button type="button" class="ghost" data-cancel-reset ${disabledAttr}>Cancel</button>` : ''}
+        </div>
+      </form>
+    `;
+  }else{
+    body = `
+      <form id="devLoginForm" class="dev-form">
+        <label class="field">
+          <span>Developer password</span>
+          <input type="password" id="devLoginPassword" autocomplete="current-password" required ${disabledAttr} data-autofocus>
+        </label>
+        <div class="actions">
+          <button class="primary" type="submit" ${disabledAttr}>Sign in</button>
+          <button type="button" class="ghost" data-reset ${disabledAttr}>Reset password</button>
+        </div>
+      </form>
+    `;
+  }
+  const title = state.dev.authed ? 'Developer tools' : state.dev.hasPassword ? 'Developer sign-in' : 'Set developer access';
+  const messageBlock = state.dev.message ? `<div class="notice ok">${escapeHtml(state.dev.message)}</div>` : '';
+  const errorBlock = state.dev.error ? `<div class="notice error">${escapeHtml(state.dev.error)}</div>` : '';
+  card.innerHTML = `
+    <header class="modal-head">
+      <h2 id="devModalTitle">${title}</h2>
+      <button type="button" class="modal-close" data-close aria-label="Close developer tools">&times;</button>
+    </header>
+    <div class="modal-body">${body}</div>
+    ${messageBlock}${errorBlock}
+  `;
+  const closer = card.querySelector('[data-close]');
+  if(closer) closer.onclick = closeDevModal;
+  const loginForm = card.querySelector('#devLoginForm');
+  if(loginForm){
+    loginForm.onsubmit = handleDevLogin;
+    const resetBtn = card.querySelector('[data-reset]');
+    if(resetBtn){
+      resetBtn.onclick = () => {
+        state.dev.view = 'set';
+        state.dev.error = '';
+        state.dev.message = '';
+        renderDevModal();
+      };
+    }
+  }
+  const setForm = card.querySelector('#devSetForm');
+  if(setForm){
+    setForm.onsubmit = handleDevSetPassword;
+    const cancel = card.querySelector('[data-cancel-reset]');
+    if(cancel){
+      cancel.onclick = () => {
+        state.dev.view = state.dev.authed ? 'main' : (state.dev.hasPassword ? 'login' : 'set');
+        state.dev.error = '';
+        state.dev.message = '';
+        renderDevModal();
+      };
+    }
+  }
+  const addForm = card.querySelector('#devAddUserForm');
+  if(addForm){
+    addForm.onsubmit = handleDevAddUser;
+    const changeBtn = card.querySelector('[data-change-pass]');
+    if(changeBtn){
+      changeBtn.onclick = () => {
+        state.dev.view = 'set';
+        state.dev.error = '';
+        state.dev.message = '';
+        renderDevModal();
+      };
+    }
+    const logoutBtn = card.querySelector('[data-logout]');
+    if(logoutBtn){
+      logoutBtn.onclick = handleDevLogout;
+    }
+  }
+  const focusTarget = card.querySelector('[data-autofocus]');
+  if(focusTarget && typeof focusTarget.focus === 'function'){
+    focusTarget.focus();
+  }
+}
+
+function fetchDevStatus(){
+  if(!state.dev || !state.dev.allowed) return;
+  state.dev.statusLoaded = false;
+  if(state.dev.show) renderDevModal();
+  google.script.run.withSuccessHandler(res => {
+    state.dev.statusLoaded = true;
+    state.dev.hasPassword = !!(res && res.hasPassword);
+    const active = !!(res && res.sessionActive && res.token);
+    state.dev.authed = active;
+    state.dev.token = active ? res.token : '';
+    state.dev.view = state.dev.authed ? 'main' : (state.dev.hasPassword ? 'login' : 'set');
+    state.dev.error = '';
+    if(state.dev.authed){
+      state.dev.loadedUsers = false;
+      state.dev.loadingUsers = false;
+      loadDevUsers();
+    }else{
+      state.dev.users = [];
+      state.dev.loadedUsers = false;
+      state.dev.loadingUsers = false;
+    }
+    if(state.dev.show) renderDevModal();
+  }).withFailureHandler(err => {
+    state.dev.statusLoaded = true;
+    state.dev.error = err.message;
+    if(state.dev.show) renderDevModal();
+  }).router({action:'devStatus',csrf:state.session.csrf});
+}
+
+function handleDevLogin(e){
+  e.preventDefault();
+  if(!state.dev || state.dev.loading) return;
+  const input = e.target.querySelector('#devLoginPassword');
+  const password = input ? input.value : '';
+  if(!password){
+    state.dev.error = 'Enter your developer password.';
+    renderDevModal();
+    return;
+  }
+  state.dev.loading = true;
+  state.dev.error = '';
+  renderDevModal();
+  google.script.run.withSuccessHandler(res => {
+    state.dev.loading = false;
+    state.dev.authed = true;
+    state.dev.hasPassword = true;
+    state.dev.token = res && res.token ? res.token : '';
+    state.dev.view = 'main';
+    state.dev.message = 'Signed in';
+    state.dev.loadedUsers = false;
+    if(input) input.value = '';
+    loadDevUsers();
+    renderDevModal();
+  }).withFailureHandler(err => {
+    state.dev.loading = false;
+    state.dev.error = err.message;
+    renderDevModal();
+  }).router({action:'devLogin',password,csrf:state.session.csrf});
+}
+
+function handleDevSetPassword(e){
+  e.preventDefault();
+  if(!state.dev || state.dev.loading) return;
+  const form = e.target;
+  const current = form.querySelector('#devCurrentPassword') ? form.querySelector('#devCurrentPassword').value : '';
+  const next = form.querySelector('#devNewPassword') ? form.querySelector('#devNewPassword').value : '';
+  const confirm = form.querySelector('#devConfirmPassword') ? form.querySelector('#devConfirmPassword').value : '';
+  if(!next || next.length < 12){
+    state.dev.error = 'Password must be at least 12 characters.';
+    renderDevModal();
+    return;
+  }
+  if(next !== confirm){
+    state.dev.error = 'Passwords do not match.';
+    renderDevModal();
+    return;
+  }
+  state.dev.loading = true;
+  state.dev.error = '';
+  renderDevModal();
+  google.script.run.withSuccessHandler(res => {
+    state.dev.loading = false;
+    state.dev.authed = true;
+    state.dev.hasPassword = true;
+    state.dev.token = res && res.token ? res.token : '';
+    state.dev.view = 'main';
+    state.dev.message = state.dev.show ? 'Password saved' : '';
+    state.dev.loadedUsers = false;
+    loadDevUsers();
+    renderDevModal();
+  }).withFailureHandler(err => {
+    state.dev.loading = false;
+    state.dev.error = err.message;
+    renderDevModal();
+  }).router({action:'devSetPassword',token:state.dev.token,currentPassword:current,newPassword:next,csrf:state.session.csrf});
+}
+
+function handleDevAddUser(e){
+  e.preventDefault();
+  if(!state.dev || state.dev.loading) return;
+  const form = e.target;
+  const emailInput = form.querySelector('#devUserEmail');
+  const roleSelect = form.querySelector('#devUserRole');
+  const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
+  const role = roleSelect ? roleSelect.value : '';
+  if(!email || email.indexOf('@') === -1){
+    state.dev.error = 'Enter a valid email address.';
+    renderDevModal();
+    return;
+  }
+  state.dev.loading = true;
+  state.dev.error = '';
+  renderDevModal();
+  google.script.run.withSuccessHandler(() => {
+    state.dev.loading = false;
+    state.dev.message = 'Access saved';
+    state.dev.error = '';
+    state.dev.loadedUsers = false;
+    if(emailInput) emailInput.value = '';
+    if(roleSelect) roleSelect.value = 'requester';
+    loadDevUsers();
+    renderDevModal();
+  }).withFailureHandler(err => {
+    state.dev.loading = false;
+    state.dev.error = err.message;
+    renderDevModal();
+  }).router({action:'devAddUser',token:state.dev.token,payload:{email,role},csrf:state.session.csrf});
+}
+
+function handleDevLogout(){
+  if(!state.dev || state.dev.loading) return;
+  state.dev.loading = true;
+  state.dev.error = '';
+  renderDevModal();
+  google.script.run.withSuccessHandler(() => {
+    state.dev.loading = false;
+    state.dev.authed = false;
+    state.dev.token = '';
+    state.dev.users = [];
+    state.dev.loadedUsers = false;
+    state.dev.loadingUsers = false;
+    state.dev.view = state.dev.hasPassword ? 'login' : 'set';
+    state.dev.message = 'Signed out';
+    renderDevModal();
+  }).withFailureHandler(err => {
+    state.dev.loading = false;
+    state.dev.error = err.message;
+    renderDevModal();
+  }).router({action:'devLogout',token:state.dev.token,csrf:state.session.csrf});
+}
+
+function loadDevUsers(){
+  if(!state.dev || !state.dev.authed || !state.dev.token || state.dev.loadingUsers) return;
+  state.dev.loadingUsers = true;
+  google.script.run.withSuccessHandler(rows => {
+    state.dev.loadingUsers = false;
+    state.dev.loadedUsers = true;
+    state.dev.users = Array.isArray(rows) ? rows : [];
+    if(state.dev.show) renderDevModal();
+  }).withFailureHandler(err => {
+    state.dev.loadingUsers = false;
+    state.dev.loadedUsers = true;
+    state.dev.error = err.message;
+    if(state.dev.show) renderDevModal();
+  }).router({action:'devListRoles',token:state.dev.token,csrf:state.session.csrf});
 }
 
 function toast(msg){
