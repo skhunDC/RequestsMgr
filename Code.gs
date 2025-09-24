@@ -13,6 +13,8 @@ const SS_ID_PROP = 'SS_ID';
 const DEV_EMAILS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
 const DEV_EMAILS_LOWER = DEV_EMAILS.map(email => email.toLowerCase());
 const UPLOAD_FOLDER_PROP = 'UPLOAD_FOLDER_ID';
+const OAUTH_CLIENT_ID_PROP = 'OAUTH_CLIENT_ID';
+const OAUTH_CLIENT_ID = (PropertiesService.getScriptProperties().getProperty(OAUTH_CLIENT_ID_PROP) || '').trim();
 const DRIVE_VIEW_PREFIX = 'https://drive.google.com/uc?export=view&id=';
 
 const ORDER_HEADERS = ['id', 'ts', 'requester', 'item', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification', 'eta_details', 'proof_image'];
@@ -398,7 +400,7 @@ function getSession_() {
     csrf = uuid_();
     cache.put('csrf', csrf, 21600);
   }
-  return { email, role, csrf, devEmails: DEV_EMAILS };
+  return { email, role, csrf, devEmails: DEV_EMAILS, oauthClientId: OAUTH_CLIENT_ID };
 }
 
 function checkCsrf_(token) {
