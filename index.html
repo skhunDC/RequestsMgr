@@ -857,6 +857,8 @@ function renderRows(){
   if(!tbody) return;
   tbody.innerHTML = '';
   state.selection = new Set();
+  const selAll = document.getElementById('selAll');
+  if(selAll) selAll.checked = false;
   const fragment = document.createDocumentFragment();
   state.rows.forEach(r=>{
     const tr = document.createElement('tr');
@@ -919,6 +921,7 @@ function renderRows(){
     fragment.appendChild(tr);
   });
   tbody.appendChild(fragment);
+  toggleBulk();
   tbody.onchange = e => {
     const target = e.target;
     if(target && target.matches('input[type=checkbox]')){
@@ -1746,7 +1749,7 @@ function toast(msg){
   t.style.display = 'block';
   setTimeout(()=>t.style.display='none',3000);
 }
-function debounce(fn,ms){let t;return function(){clearTimeout(t);t=setTimeout(fn,ms);};}
+function debounce(fn,ms){let t;return function(...args){const ctx=this;clearTimeout(t);t=setTimeout(()=>fn.apply(ctx,args),ms);};}
 
 init();
 </script>
