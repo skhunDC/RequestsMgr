@@ -110,7 +110,6 @@ tr:nth-child(even){background:#f8fafc;}
 .preview{max-width:220px;border-radius:12px;margin-top:.5rem;box-shadow:0 10px 18px -12px rgba(15,23,42,.45);display:block;}
 .preview.hidden{display:none;}
 </style>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <header class="app-header">
@@ -131,12 +130,8 @@ const SESSION = <?!= JSON.stringify(session) ?>;
 <script type="module">
 const DEV_ALLOWED_EMAILS = Array.isArray(SESSION.devEmails) ? SESSION.devEmails.map(e => String(e).toLowerCase()) : [];
 const DEV_ALLOWED_SET = new Set(DEV_ALLOWED_EMAILS);
-const DEV_USERINFO_ENDPOINT = 'https://www.googleapis.com/oauth2/v3/userinfo';
-const DEV_AUTH_SCOPES = 'openid https://www.googleapis.com/auth/userinfo.email';
-const OAUTH_LOAD_TIMEOUT_MS = 10000;
-const HAS_OAUTH_CLIENT = typeof SESSION.oauthClientId === 'string' && SESSION.oauthClientId.trim() !== '';
-const INITIAL_DEV_ALLOWED = !HAS_OAUTH_CLIENT && DEV_ALLOWED_SET.has((SESSION.email || '').toLowerCase());
-const oauthState = { client: null, token: '' };
+const INITIAL_DEV_ALLOWED = DEV_ALLOWED_SET.has((SESSION.email || '').toLowerCase());
+const DEV_ACCESS_DENIED_MESSAGE = 'Your account is not authorized for developer tools.';
 
 const state = {
   session: SESSION,
@@ -147,11 +142,6 @@ const state = {
   catalog: [],
   dev: {
     allowed: INITIAL_DEV_ALLOWED,
-    oauthConfigured: HAS_OAUTH_CLIENT,
-    oauthLoading: false,
-    oauthError: '',
-    oauthEmail: INITIAL_DEV_ALLOWED ? (SESSION.email || '').toLowerCase() : '',
-    oauthToken: '',
     show: false,
     statusLoaded: false,
     hasPassword: false,
@@ -173,153 +163,6 @@ const CAN_UPLOAD_IMAGES = ['developer','super_admin'].includes(SESSION.role);
 let proofPanelCtx = null;
 let thumbPanelCtx = null;
 let devModalReady = false;
-
-function waitForGoogleIdentity(timeout = OAUTH_LOAD_TIMEOUT_MS){
-  if(window.google && window.google.accounts && window.google.accounts.oauth2){
-    return Promise.resolve();
-  }
-  return new Promise((resolve, reject) => {
-    const start = Date.now();
-    (function check(){
-      if(window.google && window.google.accounts && window.google.accounts.oauth2){
-        resolve();
-        return;
-      }
-      if(Date.now() - start >= timeout){
-        reject(new Error('Google authentication library failed to load.'));
-        return;
-      }
-      setTimeout(check, 100);
-    })();
-  });
-}
-
-function ensureOauthClient(){
-  if(!state.dev || !state.dev.oauthConfigured) return null;
-  if(oauthState.client) return oauthState.client;
-  if(!(window.google && window.google.accounts && window.google.accounts.oauth2)) return null;
-  oauthState.client = window.google.accounts.oauth2.initTokenClient({
-    client_id: state.session.oauthClientId,
-    scope: DEV_AUTH_SCOPES,
-    callback: () => {}
-  });
-  return oauthState.client;
-}
-
-function requestOauthToken(forcePrompt = false){
-  return new Promise((resolve, reject) => {
-    const client = ensureOauthClient();
-    if(!client){
-      reject(new Error('Google authentication is not available. Refresh and try again.'));
-      return;
-    }
-    client.callback = response => {
-      if(response && response.error){
-        reject(new Error(response.error_description || 'Authorization was denied.'));
-        return;
-      }
-      if(response && response.access_token){
-        oauthState.token = response.access_token;
-        resolve(response.access_token);
-        return;
-      }
-      reject(new Error('Authorization failed.'));
-    };
-    try {
-      client.requestAccessToken({ prompt: forcePrompt ? 'consent' : '' });
-    } catch (err) {
-      reject(err);
-    }
-  });
-}
-
-async function fetchOauthEmail(token){
-  if(!token) throw new Error('Missing authorization token.');
-  const res = await fetch(DEV_USERINFO_ENDPOINT, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  if(res.status === 401 || res.status === 403){
-    const err = new Error('Authorization expired. Please try again.');
-    err.retry = true;
-    throw err;
-  }
-  if(!res.ok){
-    throw new Error('Unable to verify Google account.');
-  }
-  const data = await res.json();
-  const email = String(data && data.email ? data.email : '').toLowerCase();
-  if(!email){
-    throw new Error('Google account email unavailable.');
-  }
-  if(data && data.email_verified === false){
-    throw new Error('Google account email is not verified.');
-  }
-  return email;
-}
-
-async function authorizeDevAccess(){
-  if(!state.dev || state.dev.allowed) return true;
-  if(!state.dev.oauthConfigured){
-    toast('Developer authentication is not configured.');
-    return false;
-  }
-  if(state.dev.oauthLoading) return false;
-  state.dev.oauthLoading = true;
-  state.dev.oauthError = '';
-  updateDevLauncher();
-  try {
-    await waitForGoogleIdentity();
-  } catch (err) {
-    state.dev.oauthError = err.message || 'Google authentication unavailable.';
-    state.dev.oauthLoading = false;
-    updateDevLauncher();
-    toast(state.dev.oauthError);
-    return false;
-  }
-  try {
-    let token = oauthState.token || '';
-    if(!token){
-      token = await requestOauthToken(false);
-    }
-    let email;
-    try {
-      email = await fetchOauthEmail(token);
-    } catch (err) {
-      if(err && err.retry){
-        token = await requestOauthToken(true);
-        email = await fetchOauthEmail(token);
-      } else {
-        throw err;
-      }
-    }
-    if(!DEV_ALLOWED_SET.has(email)){
-      const message = 'This Google account is not authorized for developer tools.';
-      state.dev.oauthError = message;
-      toast(message);
-      oauthState.token = '';
-      state.dev.oauthLoading = false;
-      updateDevLauncher();
-      return false;
-    }
-    state.dev.allowed = true;
-    state.dev.oauthEmail = email;
-    state.dev.oauthToken = token;
-    if(!state.session.email){
-      state.session.email = email;
-    }
-    state.dev.oauthError = '';
-    toast('Developer access verified.');
-    state.dev.oauthLoading = false;
-    updateDevLauncher();
-    return true;
-  } catch (err) {
-    state.dev.oauthError = err.message || 'Authorization failed.';
-    toast(state.dev.oauthError);
-    state.dev.oauthLoading = false;
-    updateDevLauncher();
-    return false;
-  }
-}
 
 function init(){
   setupDevModal();
@@ -349,19 +192,16 @@ function renderNav(){
 function setupDevLauncher(){
   const trigger = document.getElementById('devLauncherButton');
   if(trigger){
-    trigger.onclick = async () => {
+    trigger.onclick = () => {
       if(trigger.disabled) return;
       if(state.dev && state.dev.allowed){
-        openDevModal();
-        return;
-      }
-      const authorized = await authorizeDevAccess();
-      if(authorized){
         if(!state.dev.statusLoaded){
           fetchDevStatus();
         }
         openDevModal();
+        return;
       }
+      toast(DEV_ACCESS_DENIED_MESSAGE);
     };
   }
   updateDevLauncher();
@@ -374,24 +214,14 @@ function updateDevLauncher(){
   launcher.classList.remove('hidden');
   const devState = state.dev || {};
   const allowed = !!devState.allowed;
-  const loading = !!devState.oauthLoading;
-  const configured = devState.oauthConfigured !== false;
-  const disabled = loading || (!configured && !allowed);
+  const disabled = !allowed;
   trigger.disabled = disabled;
-  trigger.textContent = loading ? 'Verifying…' : 'Developer';
+  trigger.textContent = 'Developer';
   trigger.setAttribute('aria-disabled', disabled ? 'true' : 'false');
   let title = 'Developer tools restricted to authorized users';
-  if(loading){
-    title = 'Verifying developer access…';
-  }else if(allowed){
-    const email = devState.oauthEmail || (state.session.email ? state.session.email.toLowerCase() : '');
-    title = email ? `Open developer tools (verified as ${email})` : 'Open developer tools';
-  }else if(!configured){
-    title = 'Developer authentication is not configured.';
-  }else if(devState.oauthError){
-    title = devState.oauthError;
-  }else{
-    title = 'Authorize with Google to access developer tools';
+  if(allowed){
+    const email = state.session.email ? state.session.email.toLowerCase() : '';
+    title = email ? `Open developer tools (${email})` : 'Open developer tools';
   }
   trigger.title = title;
 }
