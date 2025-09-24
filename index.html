@@ -169,14 +169,6 @@ function renderRequest(app){
             <span>Estimated cost</span>
             <input id="est" type="number" min="0" placeholder="0.00">
           </label>
-          <label class="field">
-            <span>Cost center</span>
-            <input id="cc" placeholder="Cost center">
-          </label>
-          <label class="field">
-            <span>GL code</span>
-            <input id="gl" placeholder="GL code">
-          </label>
           <label class="field checkbox-field">
             <input type="checkbox" id="ov">
             <span>Override catalog guidance</span>
@@ -537,8 +529,6 @@ function submitOrder(){
     item: document.getElementById('item').value,
     qty: Number(document.getElementById('qty').value||1),
     est_cost: Number(document.getElementById('est').value||0),
-    cost_center: document.getElementById('cc').value,
-    gl_code: document.getElementById('gl').value,
     override: document.getElementById('ov').checked,
     justification: document.getElementById('just').value
   };

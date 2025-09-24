@@ -14,7 +14,7 @@ const DEV_EMAILS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
 const UPLOAD_FOLDER_PROP = 'UPLOAD_FOLDER_ID';
 const DRIVE_VIEW_PREFIX = 'https://drive.google.com/uc?export=view&id=';
 
-const ORDER_HEADERS = ['id', 'ts', 'requester', 'item', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification', 'cost_center', 'gl_code', 'eta_details', 'proof_image'];
+const ORDER_HEADERS = ['id', 'ts', 'requester', 'item', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification', 'eta_details', 'proof_image'];
 const CATALOG_HEADERS = ['sku', 'description', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active', 'image_url'];
 
 // Seed catalog items grouped by category
@@ -347,8 +347,6 @@ function apiListOrders_(filter) {
     decision_ts: r.decision_ts,
     override: String(r['override?']) === 'true',
     justification: r.justification,
-    cost_center: r.cost_center,
-    gl_code: r.gl_code,
     eta_details: r.eta_details || '',
     proof_image: r.proof_image || '',
     statusChip: r.status
@@ -359,9 +357,8 @@ function apiListOrders_(filter) {
   if (filter.status && filter.status.length) res = res.filter(r => filter.status.indexOf(r.status) !== -1);
   if (filter.search) {
     const s = String(filter.search).toLowerCase();
-    res = res.filter(r => (r.item || '').toLowerCase().includes(s) || (r.requester || '').toLowerCase().includes(s) || (r.gl_code || '').toLowerCase().includes(s));
+    res = res.filter(r => (r.item || '').toLowerCase().includes(s) || (r.requester || '').toLowerCase().includes(s));
   }
-  if (filter.costCenter) res = res.filter(r => r.cost_center === filter.costCenter);
   if (filter.sinceTs) res = res.filter(r => r.ts >= filter.sinceTs);
   res.sort((a, b) => b.ts.localeCompare(a.ts));
   return res;
@@ -369,9 +366,10 @@ function apiListOrders_(filter) {
 
 function apiCreateOrder_(payload) {
   const email = Session.getActiveUser().getEmail();
-  ['item', 'qty', 'est_cost', 'cost_center', 'gl_code'].forEach(k => {
-    if (!payload[k]) throw new Error('Missing ' + k);
-  });
+  if (!payload.item) throw new Error('Missing item');
+  const qty = Number(payload.qty);
+  if (!qty || qty < 1) throw new Error('Missing qty');
+  const estCost = Number(payload.est_cost);
   const catalog = readAll_(getOrCreateSheet_(SHEETS.CATALOG, CATALOG_HEADERS));
   const catRow = catalog.find(r => r.sku === payload.sku);
   if (catRow && String(catRow.override_required) === 'true') {
@@ -384,15 +382,13 @@ function apiCreateOrder_(payload) {
     ts: nowIso_(),
     requester: email,
     item: payload.item,
-    qty: Number(payload.qty),
-    est_cost: Number(payload.est_cost),
+    qty,
+    est_cost: estCost || 0,
     status: 'PENDING',
     approver: '',
     decision_ts: '',
     'override?': payload.override === true,
     justification: payload.justification || '',
-    cost_center: payload.cost_center,
-    gl_code: payload.gl_code,
     eta_details: '',
     proof_image: ''
   };
@@ -425,9 +421,10 @@ function apiBulkDecision_(ids, decision, comment) {
       if (current === 'PENDING' && ['APPROVED', 'DENIED', 'ON-HOLD'].indexOf(decision) === -1) return;
       if (current === 'ON-HOLD' && ['APPROVED', 'DENIED'].indexOf(decision) === -1) return;
       const est = Number(row[headers.est_cost]) || 0;
-      const cc = row[headers.cost_center];
       const month = String(row[headers.ts]).slice(0, 7);
-      if (decision === 'APPROVED') {
+      const hasCostCenter = typeof headers.cost_center !== 'undefined';
+      const cc = hasCostCenter ? row[headers.cost_center] : '';
+      if (decision === 'APPROVED' && hasCostCenter && cc) {
         const { warns, blocks } = willExceedBudget_(cc, month, est);
         if (blocks && !(['developer', 'super_admin'].indexOf(getUserRole_(email)) !== -1 && comment)) {
           throw new Error('Budget exceeded');
