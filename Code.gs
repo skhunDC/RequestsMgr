@@ -104,7 +104,9 @@ function init_() {
   getOrCreateSheet_(SHEETS.AUDIT, ['ts', 'actor', 'entity', 'entity_id', 'action', 'diff_json']);
   // Roles
   const roles = getOrCreateSheet_(SHEETS.ROLES, ['email', 'role']);
-  const email = normalizeEmail_(Session.getActiveUser().getEmail());
+
+  const email = getActiveUserNormalizedEmail_();
+
   const existing = readAll_(roles).map(r => normalizeEmail_(r.email));
   if (email && existing.indexOf(email) === -1) roles.appendRow([email, 'requester']);
   DEV_EMAILS.forEach(dev => {
@@ -269,8 +271,55 @@ function normalizeEmail_(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+
+function getActiveUserEmail_() {
+  let email = '';
+  try {
+    const user = Session.getActiveUser ? Session.getActiveUser() : null;
+    if (user) {
+      if (typeof user.getEmail === 'function') {
+        try {
+          email = user.getEmail();
+        } catch (err) {
+          email = '';
+        }
+      }
+      if (!email && typeof user.getUserLoginId === 'function') {
+        try {
+          email = user.getUserLoginId();
+        } catch (err2) {
+          email = '';
+        }
+      }
+    }
+  } catch (err3) {
+    email = '';
+  }
+  email = String(email || '').trim();
+  if (!email) {
+    try {
+      const effective = Session.getEffectiveUser ? Session.getEffectiveUser() : null;
+      if (effective && typeof effective.getEmail === 'function') {
+        const effEmail = String(effective.getEmail() || '').trim();
+        const normalized = normalizeEmail_(effEmail);
+        if (normalized && DEV_EMAILS_LOWER.indexOf(normalized) !== -1) {
+          email = effEmail;
+        }
+      }
+    } catch (err4) {
+      email = email || '';
+    }
+  }
+  return email;
+
+}
+
+function getActiveUserNormalizedEmail_() {
+  return normalizeEmail_(getActiveUserEmail_());
+}
+
 function requireDevEmail_() {
-  const email = normalizeEmail_(Session.getActiveUser().getEmail());
+  const email = getActiveUserNormalizedEmail_();
   if (!email) throw new Error('Forbidden');
   const role = getUserRole_(email);
   if (role === 'developer' || role === 'super_admin') return email;
@@ -364,7 +413,7 @@ function appendAudit_(entity, entity_id, action, diffJson) {
   const sheet = getOrCreateSheet_(SHEETS.AUDIT, ['ts', 'actor', 'entity', 'entity_id', 'action', 'diff_json']);
   writeRow_(sheet, {
     ts: nowIso_(),
-    actor: Session.getActiveUser().getEmail(),
+    actor: getActiveUserEmail_(),
     entity,
     entity_id,
     action,
@@ -381,7 +430,9 @@ function getUserRole_(email) {
 }
 
 function requireRole_(allowed) {
-  const email = normalizeEmail_(Session.getActiveUser().getEmail());
+
+  const email = getActiveUserNormalizedEmail_();
+
   const role = getUserRole_(email);
   if (allowed.indexOf(role) === -1) throw new Error('Forbidden');
   return role;
@@ -403,7 +454,9 @@ function willExceedBudget_(cc, month, addAmount) {
 
 function getSession_() {
   init_();
-  const email = normalizeEmail_(Session.getActiveUser().getEmail());
+
+  const email = getActiveUserNormalizedEmail_();
+
   const role = getUserRole_(email);
   const cache = CacheService.getUserCache();
   let csrf = cache.get('csrf');
@@ -488,9 +541,10 @@ function apiListOrders_(filter) {
     proof_image: r.proof_image || '',
     statusChip: r.status
   }));
-  const email = Session.getActiveUser().getEmail();
+  const email = getActiveUserEmail_();
+  const normalizedEmail = normalizeEmail_(email);
   let res = rows;
-  if (filter.mineOnly) res = res.filter(r => r.requester === email);
+  if (filter.mineOnly) res = res.filter(r => normalizeEmail_(r.requester) === normalizedEmail);
   if (filter.status && filter.status.length) res = res.filter(r => filter.status.indexOf(r.status) !== -1);
   if (filter.search) {
     const s = String(filter.search).toLowerCase();
@@ -502,7 +556,7 @@ function apiListOrders_(filter) {
 }
 
 function apiCreateOrder_(payload) {
-  const email = Session.getActiveUser().getEmail();
+  const email = getActiveUserEmail_();
   if (!payload.item) throw new Error('Missing item');
   const qty = Number(payload.qty);
   if (!qty || qty < 1) throw new Error('Missing qty');
@@ -536,7 +590,7 @@ function apiCreateOrder_(payload) {
 function apiBulkDecision_(ids, decision, comment) {
   if (!decision) throw new Error('Missing decision');
   requireRole_(['approver', 'developer', 'super_admin']);
-  const email = Session.getActiveUser().getEmail();
+  const email = getActiveUserEmail_();
   const sheet = getOrCreateSheet_(SHEETS.ORDERS, ORDER_HEADERS);
   const headers = indexHeaders_(sheet);
   const data = sheet.getDataRange().getValues();
@@ -644,7 +698,9 @@ function apiUploadImage_(payload) {
 }
 
 function apiDevStatus_() {
-  const email = normalizeEmail_(Session.getActiveUser().getEmail());
+
+  const email = getActiveUserNormalizedEmail_();
+
   const role = getUserRole_(email);
   const allowed = !!email && (role === 'developer' || role === 'super_admin' || DEV_EMAILS_LOWER.indexOf(email) !== -1);
   if (!allowed) {
