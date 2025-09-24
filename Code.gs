@@ -227,15 +227,27 @@ function buildUploadFilename_(nameHint, filename, contentType) {
   return `${sanitized}-${stamp}.${ext}`;
 }
 
-function withLock_(fn) {
-  const lock = LockService.getDocumentLock();
-  if (!lock.tryLock(5000)) throw new Error('System busy, please retry.');
-  try {
-    return fn();
-  } finally {
-    try { lock.releaseLock(); } catch (err) { /* ignore */ }
+  function withLock_(fn) {
+    let lock;
+    try {
+      lock = LockService.getDocumentLock();
+    } catch (err) {
+      lock = null;
+    }
+    if (!lock || typeof lock.tryLock !== 'function') {
+      lock = LockService.getScriptLock();
+    }
+    if (!lock.tryLock(5000)) throw new Error('System busy, please retry.');
+    try {
+      return fn();
+    } finally {
+      try {
+        if (lock && typeof lock.releaseLock === 'function') {
+          lock.releaseLock();
+        }
+      } catch (err) { /* ignore */ }
+    }
   }
-}
 
 function appendAudit_(entity, entity_id, action, diffJson) {
   const sheet = getOrCreateSheet_(SHEETS.AUDIT, ['ts', 'actor', 'entity', 'entity_id', 'action', 'diff_json']);
