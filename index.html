@@ -13,8 +13,15 @@ nav{display:flex;gap:.5rem;padding:.75rem 1rem;background:#fff;position:sticky;t
 nav button{flex:1;appearance:none;border:none;background:transparent;padding:.65rem .75rem;border-radius:999px;font-weight:600;color:#475569;transition:background .2s,color .2s;}
 nav button.active{background:#1a73e8;color:#fff;box-shadow:0 0 0 1px rgba(26,115,232,.2);}
 nav button:hover{background:rgba(26,115,232,.12);color:#1a73e8;}
-nav button.dev-trigger{flex:0 0 auto;margin-left:auto;background:#0f172a;color:#fff;}
+nav button.dev-trigger{flex:0 0 auto;margin-left:auto;}
 nav button.dev-trigger:hover{background:#0b1120;color:#fff;}
+.dev-trigger{background:#0f172a;color:#fff;box-shadow:0 12px 24px -18px rgba(15,23,42,.7);} 
+.dev-trigger:hover{background:#0b1120;color:#fff;}
+.dev-launcher{position:fixed;top:1rem;right:1rem;z-index:80;}
+.dev-launcher button{flex:0 0 auto;padding:.55rem 1.25rem;}
+@media (max-width:640px){
+.dev-launcher{top:.75rem;right:.75rem;}
+}
 main{padding:1.5rem 1rem;}
 .view{display:flex;flex-direction:column;gap:1rem;margin:0 auto;width:100%;max-width:960px;}
 .view-header h1{margin:0;font-size:1.5rem;}
@@ -107,6 +114,9 @@ tr:nth-child(even){background:#f8fafc;}
 <img src="https://www.dublincleaners.com/wp-content/uploads/2025/06/LogosHQ.png" alt="Dublin Cleaners logo" class="app-logo">
 </header>
 <nav id="nav" role="navigation"></nav>
+<div id="devLauncher" class="dev-launcher hidden">
+  <button id="devLauncherButton" type="button" class="dev-trigger">Developer</button>
+</div>
 <main id="app"></main>
 <div id="devModalOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="devModalTitle">
   <section id="devModalCard" class="modal-card"></section>
@@ -152,6 +162,7 @@ let devModalReady = false;
 
 function init(){
   setupDevModal();
+  setupDevLauncher();
   if(state.dev.allowed){
     fetchDevStatus();
   }
@@ -171,13 +182,24 @@ function renderNav(){
     btn.setAttribute('aria-current', state.route === r ? 'page' : 'false');
     nav.appendChild(btn);
   });
+  updateDevLauncher();
+}
+
+function setupDevLauncher(){
+  const trigger = document.getElementById('devLauncherButton');
+  if(trigger){
+    trigger.onclick = () => openDevModal();
+  }
+  updateDevLauncher();
+}
+
+function updateDevLauncher(){
+  const launcher = document.getElementById('devLauncher');
+  if(!launcher) return;
   if(state.dev && state.dev.allowed){
-    const devBtn = document.createElement('button');
-    devBtn.type = 'button';
-    devBtn.textContent = 'Developer';
-    devBtn.className = 'dev-trigger';
-    devBtn.onclick = () => openDevModal();
-    nav.appendChild(devBtn);
+    launcher.classList.remove('hidden');
+  } else {
+    launcher.classList.add('hidden');
   }
 }
 
