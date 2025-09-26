@@ -588,7 +588,8 @@ function apiCreateOrder_(payload) {
 }
 
 function apiBulkDecision_(ids, decision, comment) {
-  if (!decision) throw new Error('Missing decision');
+  const normalizedDecision = String(decision || '').trim().toUpperCase();
+  if (!normalizedDecision) throw new Error('Missing decision');
   requireRole_(['approver', 'developer', 'super_admin']);
   const email = getActiveUserEmail_();
   const sheet = getOrCreateSheet_(SHEETS.ORDERS, ORDER_HEADERS);
@@ -603,14 +604,17 @@ function apiBulkDecision_(ids, decision, comment) {
       if (rowIdx === -1) return;
       const row = data[rowIdx];
       const statusIdx = headers.status;
-      const current = row[statusIdx];
-      if (current === 'PENDING' && ['APPROVED', 'DENIED', 'ON-HOLD'].indexOf(decision) === -1) return;
-      if (current === 'ON-HOLD' && ['APPROVED', 'DENIED'].indexOf(decision) === -1) return;
+      const current = String(row[statusIdx] || '').trim().toUpperCase();
+      const isPending = current === 'PENDING';
+      const isOnHold = current === 'ON-HOLD' || current === 'ON HOLD';
+      if (isPending && ['APPROVED', 'DENIED', 'ON-HOLD'].indexOf(normalizedDecision) === -1) return;
+      if (isOnHold && ['APPROVED', 'DENIED'].indexOf(normalizedDecision) === -1) return;
+      if (!isPending && !isOnHold) return;
       const est = Number(row[headers.est_cost]) || 0;
       const month = String(row[headers.ts]).slice(0, 7);
       const hasCostCenter = typeof headers.cost_center !== 'undefined';
       const cc = hasCostCenter ? row[headers.cost_center] : '';
-      if (decision === 'APPROVED' && hasCostCenter && cc) {
+      if (normalizedDecision === 'APPROVED' && hasCostCenter && cc) {
         const { warns, blocks } = willExceedBudget_(cc, month, est);
         if (blocks && !(['developer', 'super_admin'].indexOf(getUserRole_(email)) !== -1 && comment)) {
           throw new Error('Budget exceeded');
@@ -626,14 +630,14 @@ function apiBulkDecision_(ids, decision, comment) {
         }
       }
       const r = rowIdx + 2;
-      sheet.getRange(r, headers.status + 1).setValue(decision);
+      sheet.getRange(r, headers.status + 1).setValue(normalizedDecision);
       sheet.getRange(r, headers.approver + 1).setValue(email);
       sheet.getRange(r, headers.decision_ts + 1).setValue(nowIso_());
-      appendAudit_('Orders', id, 'DECISION', JSON.stringify({ decision, comment }));
+      appendAudit_('Orders', id, 'DECISION', JSON.stringify({ decision: normalizedDecision, comment }));
       updates.push({ type: 'ok', id });
     });
   });
-  if (updates.length) postToChatWebhook_('Bulk decision: ' + decision);
+  if (updates.length) postToChatWebhook_('Bulk decision: ' + normalizedDecision);
   return { updates };
 }
 
