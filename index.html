@@ -9,6 +9,8 @@
 body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#1f2933;min-height:100vh;}
 body.is-loading{overflow:hidden;}
 body.app-ready{overflow:auto;}
+body.auth-locked{overflow:hidden;}
+body.auth-locked main,body.auth-locked nav,body.auth-locked header,body.auth-locked .dev-launcher{filter:blur(2px);pointer-events:none;user-select:none;}
 .loading-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;color:#64748b;z-index:120;transition:background .6s ease,color .4s ease,opacity .45s ease,visibility .45s ease;pointer-events:auto;}
 .loading-overlay .loading-inner{display:flex;flex-direction:column;align-items:center;gap:1.25rem;padding:2rem;text-align:center;}
 .glitch-logo{position:relative;display:block;width:min(320px,70vw);filter:drop-shadow(0 20px 40px rgba(15,23,42,.25));}
@@ -110,6 +112,7 @@ tr:nth-child(even){background:#f8fafc;}
 .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:1.25rem;z-index:50;}
 .modal-overlay.hidden{display:none;}
 .modal-card{background:#fff;border-radius:16px;width:100%;max-width:420px;padding:1.25rem;box-shadow:0 24px 48px -24px rgba(15,23,42,.55);display:flex;flex-direction:column;gap:1rem;}
+.auth-card{max-width:420px;text-align:left;}
 .modal-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;}
 .modal-head h2{margin:0;font-size:1.25rem;}
 .modal-close{appearance:none;border:none;background:transparent;color:#475569;font-size:1.5rem;line-height:1;cursor:pointer;padding:.25rem;}
@@ -125,6 +128,12 @@ tr:nth-child(even){background:#f8fafc;}
 .modal-actions{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;}
 .modal-actions.spread{justify-content:space-between;}
 .modal-actions button{flex:0 0 auto;}
+#authModalOverlay{z-index:200;}
+.auth-info{margin:0;font-size:.85rem;color:#64748b;}
+.auth-meta{font-size:.8rem;color:#94a3b8;margin-top:-.35rem;}
+.auth-meta strong{color:#1f2933;}
+.auth-help{font-size:.8rem;color:#475569;margin:0;}
+.auth-actions{display:flex;gap:.5rem;justify-content:flex-end;}
 
 .dropzone{border:1px dashed #94a3b8;border-radius:10px;padding:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;text-align:center;background:#f8fafc;color:#475569;transition:border-color .2s,background .2s;min-height:120px;justify-content:center;}
 .dropzone.drag{border-color:#1a73e8;background:rgba(26,115,232,.08);}
@@ -157,28 +166,30 @@ tr:nth-child(even){background:#f8fafc;}
 <div id="devModalOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="devModalTitle">
   <section id="devModalCard" class="modal-card"></section>
 </div>
+<div id="authModalOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+  <section id="authModalCard" class="modal-card auth-card"></section>
+</div>
 <div id="toast" aria-live="polite"></div>
 <script>
 const SESSION = <?!= JSON.stringify(session) ?>;
 </script>
 <script type="module">
-const SESSION_EMAIL = typeof SESSION.email === 'string' ? SESSION.email.trim() : '';
-const SESSION_ROLE = typeof SESSION.role === 'string' ? SESSION.role.trim().toLowerCase() : '';
-const NORMALIZED_SESSION_EMAIL = SESSION_EMAIL.toLowerCase();
+const INITIAL_EMAIL = typeof SESSION.email === 'string' ? SESSION.email.trim().toLowerCase() : '';
+const INITIAL_ROLE = typeof SESSION.role === 'string' ? SESSION.role.trim().toLowerCase() : '';
 const DEV_ALLOWED_EMAILS = Array.isArray(SESSION.devEmails) ? SESSION.devEmails.map(e => String(e || '').trim().toLowerCase()) : [];
 const DEV_ALLOWED_SET = new Set(DEV_ALLOWED_EMAILS);
-const DEV_ROLE_ALLOWED = SESSION_ROLE === 'developer' || SESSION_ROLE === 'super_admin';
-const INITIAL_DEV_ALLOWED = DEV_ROLE_ALLOWED || DEV_ALLOWED_SET.has(NORMALIZED_SESSION_EMAIL);
 const DEV_ACCESS_DENIED_MESSAGE = 'Your account is not authorized for developer tools.';
+const AUTH_TOKEN_KEY = 'suppliesTrackerAuthToken';
 
 const state = {
-  session: { ...SESSION, email: SESSION_EMAIL, role: SESSION_ROLE },
+  session: { ...SESSION, email: INITIAL_EMAIL, role: INITIAL_ROLE },
+  auth: { token: '', authed: false, loading: false, error: '', checking: true },
   route: 'request',
   filters: { mineOnly: false, status: [], search: '' },
   rows: [],
   catalog: [],
   dev: {
-    allowed: INITIAL_DEV_ALLOWED,
+    allowed: false,
     show: false,
     statusLoaded: false,
     hasPassword: false,
@@ -194,10 +205,21 @@ const state = {
   }
 };
 
-const CAN_DECIDE_REQUESTS = ['approver','developer','super_admin'].includes(SESSION_ROLE);
-const CAN_MANAGE_PROOF = ['approver','developer','super_admin'].includes(SESSION_ROLE);
-const CAN_MANAGE_THUMBS = ['developer','super_admin'].includes(SESSION_ROLE);
-const CAN_UPLOAD_IMAGES = ['developer','super_admin'].includes(SESSION_ROLE);
+function currentRole(){
+  return String(state.session.role || '').trim().toLowerCase();
+}
+function canDecideRequests(){
+  return ['approver','developer','super_admin'].includes(currentRole());
+}
+function canManageProof(){
+  return ['approver','developer','super_admin'].includes(currentRole());
+}
+function canManageThumbs(){
+  return ['developer','super_admin'].includes(currentRole());
+}
+function canUploadImages(){
+  return ['developer','super_admin'].includes(currentRole());
+}
 const DECISION_COPY = {
   APPROVED: { label: 'Approve', progress: 'Approving…', success: 'Request approved.' },
   DENIED: { label: 'Deny', progress: 'Denying…', success: 'Request denied.' },
@@ -213,6 +235,7 @@ let thumbPanelCtx = null;
 let devModalReady = false;
 let initialRouteRendered = false;
 let loaderFinalized = false;
+let appInitialized = false;
 const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const LOADER_COLOR_DELAY = prefersReducedMotion ? 120 : 820;
 const LOADER_FADE_DELAY = prefersReducedMotion ? 160 : 520;
@@ -272,17 +295,244 @@ function markLoaderComplete(){
 }
 
 function init(){
-  setupDevLauncher();
-  scheduleWork(setupDevModal,{priority:'normal',timeout:420});
-  if(state.dev.allowed){
+  setupAuthModal();
+  scheduleWork(bootstrapAuth,{priority:'high'});
+}
+
+function startApp(){
+  if(!state.auth.authed){
+    return;
+  }
+  if(!appInitialized){
+    appInitialized = true;
+    setupDevLauncher();
+    scheduleWork(setupDevModal,{priority:'normal',timeout:420});
+  }
+  renderNav();
+  route(state.route || 'request');
+  if(state.dev.allowed && !state.dev.statusLoaded){
     scheduleWork(()=>fetchDevStatus(),{priority:'low',timeout:1200});
   }
-  scheduleWork(()=>route('request'),{priority:'high'});
+}
+
+function setupAuthModal(){
+  renderAuthModal();
+}
+
+function bootstrapAuth(){
+  const saved = getStoredAuthToken();
+  if(saved){
+    state.auth.token = saved;
+    state.auth.authed = false;
+    state.auth.checking = true;
+    state.auth.error = '';
+    renderAuthModal();
+    google.script.run.withSuccessHandler(res => {
+      handleAuthStatus(res || {});
+    }).withFailureHandler(() => {
+      handleAuthStatus({ authed: false });
+    }).router({ action:'siteStatus', token:saved, csrf: state.session.csrf });
+  }else{
+    state.auth.token = '';
+    state.auth.authed = false;
+    state.auth.checking = false;
+    state.auth.error = '';
+    renderAuthModal();
+  }
+}
+
+function getStoredAuthToken(){
+  try{
+    return window.localStorage ? window.localStorage.getItem(AUTH_TOKEN_KEY) || '' : '';
+  }catch(err){
+    return '';
+  }
+}
+
+function setStoredAuthToken(token){
+  try{
+    if(!window.localStorage) return;
+    if(token){
+      window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+    }else{
+      window.localStorage.removeItem(AUTH_TOKEN_KEY);
+    }
+  }catch(err){/* ignore */}
+}
+
+function renderAuthModal(){
+  const overlay = document.getElementById('authModalOverlay');
+  const card = document.getElementById('authModalCard');
+  if(!overlay || !card) return;
+  if(state.auth.authed){
+    overlay.classList.add('hidden');
+    overlay.setAttribute('aria-hidden','true');
+    card.innerHTML = '';
+    document.body.classList.remove('auth-locked');
+    return;
+  }
+  document.body.classList.add('auth-locked');
+  overlay.classList.remove('hidden');
+  overlay.setAttribute('aria-hidden','false');
+  if(state.auth.checking){
+    card.innerHTML = '<div class="modal-body"><p class="auth-info">Verifying access…</p></div>';
+    return;
+  }
+  const disabledAttr = state.auth.loading ? 'disabled' : '';
+  const errorBlock = state.auth.error ? `<div class="notice error" role="alert">${escapeHtml(state.auth.error)}</div>` : '';
+  const emailValue = state.session.email ? escapeHtml(state.session.email) : '';
+  card.innerHTML = `
+    <header class="modal-head">
+      <h2 id="authModalTitle">Sign in</h2>
+    </header>
+    <div class="modal-body">
+      <p class="auth-info">Only users approved by a developer can access the supplies tracker.</p>
+      <p class="auth-meta">Use the email and password provided by your administrator.</p>
+      <form id="authLoginForm" class="stack">
+        <label class="field">
+          <span>Email address</span>
+          <input type="email" id="authEmail" autocomplete="email" required ${disabledAttr} value="${emailValue}" data-autofocus>
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" id="authPassword" autocomplete="current-password" required ${disabledAttr}>
+        </label>
+        <div class="auth-actions">
+          <button class="primary" type="submit" ${disabledAttr}>Sign in</button>
+        </div>
+      </form>
+    </div>
+    ${errorBlock}
+  `;
+  const form = card.querySelector('#authLoginForm');
+  if(form){
+    form.onsubmit = handleAuthLogin;
+  }
+  const focusTarget = card.querySelector('[data-autofocus]');
+  if(focusTarget && typeof focusTarget.focus === 'function'){
+    requestAnimationFrame(()=>focusTarget.focus());
+  }
+}
+
+function handleAuthLogin(e){
+  e.preventDefault();
+  if(state.auth.loading) return;
+  const form = e.target;
+  const emailInput = form.querySelector('#authEmail');
+  const passwordInput = form.querySelector('#authPassword');
+  const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
+  const password = passwordInput ? passwordInput.value : '';
+  if(!email || email.indexOf('@') === -1){
+    state.auth.error = 'Enter a valid email address.';
+    renderAuthModal();
+    return;
+  }
+  if(!password){
+    state.auth.error = 'Enter your password.';
+    renderAuthModal();
+    return;
+  }
+  state.auth.loading = true;
+  state.auth.error = '';
+  renderAuthModal();
+  google.script.run.withSuccessHandler(res => {
+    state.auth.loading = false;
+    const payload = Object.assign({}, res || {}, { authed: true });
+    handleAuthStatus(payload);
+  }).withFailureHandler(err => {
+    state.auth.loading = false;
+    state.auth.error = err && err.message ? err.message : 'Sign in failed';
+    renderAuthModal();
+  }).router({ action:'siteLogin', email, password, csrf: state.session.csrf });
+}
+
+function handleSignOut(){
+  if(!state.auth.authed || state.auth.loading) return;
+  state.auth.loading = true;
+  renderNav();
+  google.script.run.withSuccessHandler(() => {
+    state.auth.loading = false;
+    setStoredAuthToken('');
+    handleAuthStatus({ authed: false });
+  }).withFailureHandler(err => {
+    state.auth.loading = false;
+    toast(err && err.message ? err.message : 'Sign out failed');
+    renderNav();
+  }).router({ action:'siteLogout', token: state.auth.token, csrf: state.session.csrf, siteToken: state.auth.token });
+}
+
+function handleAuthStatus(res){
+  const authed = !!(res && res.authed);
+  if(authed){
+    state.auth.authed = true;
+    state.auth.checking = false;
+    state.auth.error = '';
+    state.auth.token = res && res.token ? res.token : state.auth.token;
+    setStoredAuthToken(state.auth.token);
+    state.session.email = res && res.email ? String(res.email).trim().toLowerCase() : '';
+    state.session.role = res && res.role ? String(res.role).trim().toLowerCase() : '';
+    renderAuthModal();
+    syncPermissions();
+    startApp();
+  }else{
+    state.auth.authed = false;
+    state.auth.token = '';
+    state.auth.checking = false;
+    state.session.email = '';
+    state.session.role = '';
+    setStoredAuthToken('');
+    resetDevState();
+    renderAuthModal();
+    updateDevLauncher();
+    renderNav();
+  }
+}
+
+function resetDevState(){
+  state.dev.allowed = false;
+  state.dev.show = false;
+  state.dev.statusLoaded = false;
+  state.dev.hasPassword = false;
+  state.dev.authed = false;
+  state.dev.token = '';
+  state.dev.loading = false;
+  state.dev.error = '';
+  state.dev.message = '';
+  state.dev.view = 'login';
+  state.dev.users = [];
+  state.dev.loadingUsers = false;
+  state.dev.loadedUsers = false;
+  closeDevModal();
+}
+
+function syncPermissions(){
+  const normalizedEmail = state.session.email ? state.session.email.toLowerCase() : '';
+  const roleAllowed = ['developer','super_admin'].includes(currentRole());
+  state.dev.allowed = state.auth.authed && (roleAllowed || DEV_ALLOWED_SET.has(normalizedEmail));
+  if(!state.dev.allowed){
+    state.dev.authed = false;
+    state.dev.token = '';
+    state.dev.statusLoaded = false;
+    state.dev.loadedUsers = false;
+    state.dev.loadingUsers = false;
+    state.dev.users = [];
+    if(state.dev.view !== 'login') state.dev.view = 'login';
+    closeDevModal();
+  }
+  updateDevLauncher();
+  if(state.dev.allowed && !state.dev.statusLoaded){
+    scheduleWork(()=>fetchDevStatus(),{priority:'low',timeout:1200});
+  }
 }
 
 function renderNav(){
   const nav = document.getElementById('nav');
   if(!nav) return;
+  if(!state.auth.authed){
+    nav.innerHTML = '';
+    updateDevLauncher();
+    return;
+  }
   const links = [['request','Request'],['all','All Requests'],['catalog','Catalog']];
   const fragment = document.createDocumentFragment();
   links.forEach(([r,label])=>{
@@ -294,6 +544,16 @@ function renderNav(){
     btn.setAttribute('aria-current', state.route === r ? 'page' : 'false');
     fragment.appendChild(btn);
   });
+  const signOut = document.createElement('button');
+  signOut.type = 'button';
+  signOut.textContent = 'Sign out';
+  signOut.classList.add('ghost');
+  signOut.onclick = handleSignOut;
+  signOut.disabled = !!state.auth.loading;
+  const signedInEmail = state.session.email ? state.session.email.toLowerCase() : '';
+  signOut.title = signedInEmail ? `Signed in as ${signedInEmail}` : 'Sign out';
+  signOut.setAttribute('aria-label', signedInEmail ? `Sign out ${signedInEmail}` : 'Sign out');
+  fragment.appendChild(signOut);
   nav.replaceChildren(fragment);
   updateDevLauncher();
 }
@@ -320,7 +580,7 @@ function updateDevLauncher(){
   const launcher = document.getElementById('devLauncher');
   const trigger = document.getElementById('devLauncherButton');
   if(!launcher || !trigger) return;
-  launcher.classList.remove('hidden');
+  launcher.classList.toggle('hidden', !state.auth.authed);
   const devState = state.dev || {};
   const allowed = !!devState.allowed;
   const disabled = !allowed;
@@ -328,7 +588,9 @@ function updateDevLauncher(){
   trigger.textContent = 'Developer';
   trigger.setAttribute('aria-disabled', disabled ? 'true' : 'false');
   let title = 'Developer tools restricted to authorized users';
-  if(allowed){
+  if(!state.auth.authed){
+    title = 'Sign in to access developer tools';
+  }else if(allowed){
     const email = state.session.email ? state.session.email.toLowerCase() : '';
     title = email ? `Open developer tools (${email})` : 'Open developer tools';
   }
@@ -336,6 +598,9 @@ function updateDevLauncher(){
 }
 
 function route(r){
+  if(!state.auth.authed){
+    return;
+  }
   state.route = r;
   proofPanelCtx = null;
   thumbPanelCtx = null;
@@ -668,7 +933,7 @@ function renderAll(app){
                 <th scope="col">Status</th>
                 <th scope="col">Approver</th>
                 <th scope="col">ETA</th>
-                ${CAN_DECIDE_REQUESTS ? '<th scope="col">Actions</th>' : ''}
+                ${canDecideRequests() ? '<th scope="col">Actions</th>' : ''}
                 <th scope="col">Order proof</th>
               </tr>
             </thead>
@@ -677,7 +942,7 @@ function renderAll(app){
         </div>
         <div id="empty" class="empty hidden">No requests match your filters. <button id="reset" class="ghost" type="button">Reset filters</button></div>
       </section>
-      ${CAN_MANAGE_PROOF ? `
+      ${canManageProof() ? `
       <section class="panel stack hidden" id="proofPanel">
         <h2 class="panel-title">Order fulfillment evidence</h2>
         <p class="field-note" id="proofOrderLabel">Select “Manage proof” on a request to attach details.</p>
@@ -740,7 +1005,7 @@ function renderAll(app){
     loadOrders();
   };
   app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
-  if(CAN_MANAGE_PROOF){
+  if(canManageProof()){
     setupProofPanel(app);
   }
   loadOrders();
@@ -758,7 +1023,7 @@ function renderCatalog(app){
         </div>
         <div id="catalogFull"><p class="footnote">Loading catalog...</p></div>
       </section>
-      ${CAN_MANAGE_THUMBS ? `
+      ${canManageThumbs() ? `
       <section class="panel stack" id="thumbPanel">
         <h2 class="panel-title">Manage thumbnails</h2>
         <p class="field-note">Paste or drop an image to update catalog visuals.</p>
@@ -792,13 +1057,13 @@ function renderCatalog(app){
     </section>
   `;
   app.querySelector('[data-route="request"]').onclick = ()=>route('request');
-  if(CAN_MANAGE_THUMBS){
+  if(canManageThumbs()){
     setupThumbPanel(app);
   }
   const scheduleCatalogLoad = () => {
     loadCatalog().then(()=>{
       renderCatalogList('catalogFull');
-      if(CAN_MANAGE_THUMBS){
+      if(canManageThumbs()){
         populateThumbOptions();
       }
     });
@@ -881,7 +1146,7 @@ function renderCatalogList(targetId,{limit}={}){
 function loadCatalog(force=false){
   if(!force && state.catalog.length) return Promise.resolve();
   return new Promise(res=>{
-    google.script.run.withSuccessHandler(rows=>{state.catalog = rows;res();}).router({action:'listCatalog'});
+    google.script.run.withSuccessHandler(rows=>{state.catalog = rows;res();}).router({action:'listCatalog',siteToken:state.auth.token,csrf:state.session.csrf});
   });
 }
 
@@ -914,7 +1179,7 @@ function submitOrder(){
     route('all');
     loadOrders();
   }).withFailureHandler(err=>toast(err.message))
-    .router({action:'createOrder',payload,csrf:state.session.csrf});
+    .router({action:'createOrder',payload,csrf:state.session.csrf,siteToken:state.auth.token});
 }
 
 function updateFilters(){
@@ -935,7 +1200,7 @@ function loadOrders(){
       }
     }
   })
-    .router({action:'listOrders',filter:state.filters});
+    .router({action:'listOrders',filter:state.filters,csrf:state.session.csrf,siteToken:state.auth.token});
 }
 
 function renderRows(){
@@ -972,7 +1237,7 @@ function renderRows(){
     const eta = document.createElement('td');
     eta.textContent = r.eta_details || '—';
     let actionsCell = null;
-    if(CAN_DECIDE_REQUESTS){
+    if(canDecideRequests()){
       actionsCell = document.createElement('td');
       const actionsWrap = document.createElement('div');
       actionsWrap.className = 'actions start';
@@ -1006,7 +1271,7 @@ function renderRows(){
       proofBtn.appendChild(img);
       proofBtn.onclick = () => window.open(r.proof_image, '_blank');
       proof.appendChild(proofBtn);
-    }else if(CAN_MANAGE_PROOF){
+    }else if(canManageProof()){
       const note = document.createElement('span');
       note.className = 'field-note';
       note.textContent = 'No proof yet';
@@ -1014,7 +1279,7 @@ function renderRows(){
     }else{
       proof.textContent = '—';
     }
-    if(CAN_MANAGE_PROOF){
+    if(canManageProof()){
       const manage = document.createElement('button');
       manage.type = 'button';
       manage.className = 'link';
@@ -1080,7 +1345,7 @@ function handleOrderDecision(orderId, decision, trigger){
       setRowDecisionState(orderId, false);
       toast(err && err.message ? err.message : 'Unable to update request.');
     })
-    .router({ action: 'setOrderStatus', id: orderId, decision, csrf: state.session.csrf });
+    .router({ action: 'setOrderStatus', id: orderId, decision, csrf: state.session.csrf, siteToken: state.auth.token });
 }
 
 function setupProofPanel(app){
@@ -1098,7 +1363,7 @@ function setupProofPanel(app){
   const etaInput = panel.querySelector('#etaInput');
   const orderLabel = panel.querySelector('#proofOrderLabel');
   if(uploadButton){
-    uploadButton.classList.toggle('hidden', !CAN_UPLOAD_IMAGES);
+    uploadButton.classList.toggle('hidden', !canUploadImages());
   }
   proofPanelCtx = {
     panel,
@@ -1114,7 +1379,7 @@ function setupProofPanel(app){
       browseButton,
       uploadButton,
       fileInput,
-      canUpload: CAN_UPLOAD_IMAGES,
+      canUpload: canUploadImages(),
       getName: () => {
         if(proofPanelCtx && proofPanelCtx.orderId){
           const label = proofPanelCtx.orderName || 'order-proof';
@@ -1173,7 +1438,8 @@ function saveProof(){
     id: proofPanelCtx.orderId,
     eta: proofPanelCtx.etaInput.value.trim(),
     image: proofPanelCtx.imageField.getValue(),
-    csrf: state.session.csrf
+    csrf: state.session.csrf,
+    siteToken: state.auth.token
   };
   proofPanelCtx.saveButton.disabled = true;
   google.script.run.withSuccessHandler(()=>{
@@ -1200,7 +1466,7 @@ function setupThumbPanel(app){
   const saveButton = panel.querySelector('#thumbSave');
   const select = panel.querySelector('#thumbSku');
   if(uploadButton){
-    uploadButton.classList.toggle('hidden', !CAN_UPLOAD_IMAGES);
+    uploadButton.classList.toggle('hidden', !canUploadImages());
   }
   thumbPanelCtx = {
     panel,
@@ -1216,7 +1482,7 @@ function setupThumbPanel(app){
       browseButton,
       uploadButton,
       fileInput,
-      canUpload: CAN_UPLOAD_IMAGES,
+      canUpload: canUploadImages(),
       getName: () => {
         if(thumbPanelCtx && thumbPanelCtx.select){
           const sku = thumbPanelCtx.select.value || '';
@@ -1284,7 +1550,7 @@ function saveThumbnail(){
   }).withFailureHandler(err=>{
     toast(err.message);
     updateThumbSaveState();
-  }).router({ action: 'updateCatalogImage', sku, image, csrf: state.session.csrf });
+  }).router({ action: 'updateCatalogImage', sku, image, csrf: state.session.csrf, siteToken: state.auth.token });
 }
 
 function refreshCatalogViews(){
@@ -1441,7 +1707,8 @@ function createImageField({ dropZone, preview, hiddenInput, urlInput, clearButto
           name: typeof getName === 'function' ? getName() : 'image',
           filename: lastSource.fileName || '',
           contentType: lastSource.contentType || '',
-          csrf: state.session.csrf
+          csrf: state.session.csrf,
+          siteToken: state.auth.token
         };
         const originalText = uploadLabel || uploadButton.textContent;
         uploadButton.disabled = true;
@@ -1587,6 +1854,11 @@ function renderDevModal(){
             <option value="super_admin">Super Admin</option>
           </select>
         </label>
+        <label class="field">
+          <span>Temporary password (optional)</span>
+          <input type="password" id="devUserPassword" autocomplete="new-password" minlength="12" ${disabledAttr}>
+          <p class="field-note">Provide at least 12 characters. Share it securely with the user.</p>
+        </label>
         <div class="actions">
           <button class="primary" type="submit" ${disabledAttr}>Save access</button>
         </div>
@@ -1731,7 +2003,7 @@ function fetchDevStatus(){
     state.dev.error = err.message;
     updateDevLauncher();
     if(state.dev.show) renderDevModal();
-  }).router({action:'devStatus',csrf:state.session.csrf});
+  }).router({action:'devStatus',csrf:state.session.csrf,siteToken:state.auth.token});
 }
 
 function handleDevLogin(e){
@@ -1762,7 +2034,7 @@ function handleDevLogin(e){
     state.dev.loading = false;
     state.dev.error = err.message;
     renderDevModal();
-  }).router({action:'devLogin',password,csrf:state.session.csrf});
+  }).router({action:'devLogin',password,csrf:state.session.csrf,siteToken:state.auth.token});
 }
 
 function handleDevSetPassword(e){
@@ -1799,7 +2071,7 @@ function handleDevSetPassword(e){
     state.dev.loading = false;
     state.dev.error = err.message;
     renderDevModal();
-  }).router({action:'devSetPassword',token:state.dev.token,currentPassword:current,newPassword:next,csrf:state.session.csrf});
+  }).router({action:'devSetPassword',token:state.dev.token,currentPassword:current,newPassword:next,csrf:state.session.csrf,siteToken:state.auth.token});
 }
 
 function handleDevAddUser(e){
@@ -1808,10 +2080,17 @@ function handleDevAddUser(e){
   const form = e.target;
   const emailInput = form.querySelector('#devUserEmail');
   const roleSelect = form.querySelector('#devUserRole');
+  const passwordInput = form.querySelector('#devUserPassword');
   const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
   const role = roleSelect ? roleSelect.value : '';
+  const password = passwordInput ? passwordInput.value.trim() : '';
   if(!email || email.indexOf('@') === -1){
     state.dev.error = 'Enter a valid email address.';
+    renderDevModal();
+    return;
+  }
+  if(password && password.length < 12){
+    state.dev.error = 'Passwords must be at least 12 characters.';
     renderDevModal();
     return;
   }
@@ -1825,13 +2104,14 @@ function handleDevAddUser(e){
     state.dev.loadedUsers = false;
     if(emailInput) emailInput.value = '';
     if(roleSelect) roleSelect.value = 'requester';
+    if(passwordInput) passwordInput.value = '';
     loadDevUsers();
     renderDevModal();
   }).withFailureHandler(err => {
     state.dev.loading = false;
     state.dev.error = err.message;
     renderDevModal();
-  }).router({action:'devAddUser',token:state.dev.token,payload:{email,role},csrf:state.session.csrf});
+  }).router({action:'devAddUser',token:state.dev.token,payload:{email,role,password},csrf:state.session.csrf,siteToken:state.auth.token});
 }
 
 function handleDevLogout(){
@@ -1853,7 +2133,7 @@ function handleDevLogout(){
     state.dev.loading = false;
     state.dev.error = err.message;
     renderDevModal();
-  }).router({action:'devLogout',token:state.dev.token,csrf:state.session.csrf});
+  }).router({action:'devLogout',token:state.dev.token,csrf:state.session.csrf,siteToken:state.auth.token});
 }
 
 function loadDevUsers(){
@@ -1869,7 +2149,7 @@ function loadDevUsers(){
     state.dev.loadedUsers = true;
     state.dev.error = err.message;
     if(state.dev.show) renderDevModal();
-  }).router({action:'devListRoles',token:state.dev.token,csrf:state.session.csrf});
+  }).router({action:'devListRoles',token:state.dev.token,csrf:state.session.csrf,siteToken:state.auth.token});
 }
 
 function toast(msg){
