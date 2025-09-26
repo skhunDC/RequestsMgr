@@ -21,6 +21,18 @@ let CURRENT_SESSION_EMAIL = '';
 const ORDER_HEADERS = ['id', 'ts', 'requester', 'item', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification', 'eta_details', 'proof_image'];
 const CATALOG_HEADERS = ['sku', 'description', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active', 'image_url'];
 
+function buildCapabilities_(role) {
+  const normalized = String(role || '').trim().toLowerCase();
+  const canDecide = ['approver', 'developer', 'super_admin'].indexOf(normalized) !== -1;
+  const canManageThumbs = ['developer', 'super_admin'].indexOf(normalized) !== -1;
+  return {
+    canDecide,
+    canManageProof: canDecide,
+    canManageThumbs,
+    canUploadImages: canManageThumbs
+  };
+}
+
 // Seed catalog items grouped by category
 const STOCK_LIST = {
   Office: [
@@ -584,13 +596,14 @@ function getSession_() {
   const email = getActiveUserNormalizedEmail_();
 
   const role = getUserRole_(email);
+  const capabilities = buildCapabilities_(role);
   const cache = CacheService.getUserCache();
   let csrf = cache.get('csrf');
   if (!csrf) {
     csrf = uuid_();
     cache.put('csrf', csrf, 21600);
   }
-  return { email, role, csrf, devEmails: DEV_EMAILS };
+  return { email, role, csrf, devEmails: DEV_EMAILS, capabilities };
 }
 
 function checkCsrf_(token) {
@@ -937,12 +950,13 @@ function apiSiteStatus_(req) {
   }
   const email = normalizeEmail_(session.email);
   const role = getUserRole_(email);
+  const capabilities = buildCapabilities_(role);
   if (!role || role === 'viewer') {
     clearSiteSession_(token);
     return { authed: false };
   }
   storeSiteSession_(token, { email, ts: Date.now() });
-  return { authed: true, email, role, token };
+  return { authed: true, email, role, token, capabilities };
 }
 
 function apiSiteLogin_(req) {
@@ -970,8 +984,9 @@ function apiSiteLogin_(req) {
   }
   if (!valid) throw new Error('Invalid email or password');
   const token = createSiteSessionToken_(email);
+  const capabilities = buildCapabilities_(role);
   appendAudit_('Auth', email, 'LOGIN', '{}');
-  return { token, email, role };
+  return { token, email, role, capabilities };
 }
 
 function apiSiteLogout_(req) {
