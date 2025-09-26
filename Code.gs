@@ -474,6 +474,25 @@ function checkCsrf_(token) {
 }
 
 // ---------- APIs ----------
+const ROUTER_HANDLERS = {
+  getsession: () => getSession_(),
+  listcatalog: () => readAll_(getOrCreateSheet_(SHEETS.CATALOG, CATALOG_HEADERS))
+    .filter(r => String(r.active) !== 'false'),
+  listorders: req => apiListOrders_(req.filter || {}),
+  createorder: req => apiCreateOrder_(req.payload || {}),
+  bulkdecision: req => apiBulkDecision_(req.ids || [], req.decision, req.comment || ''),
+  updateorderproof: req => apiUpdateOrderProof_(req.id, req.eta || '', req.image || ''),
+  listbudgets: () => readAll_(getOrCreateSheet_(SHEETS.BUDGETS, ['cost_center', 'month', 'budget', 'spent_to_date'])),
+  updatecatalogimage: req => apiUpdateCatalogImage_(req.sku, req.image || ''),
+  uploadimage: req => apiUploadImage_(req || {}),
+  devstatus: req => apiDevStatus_(req || {}),
+  devlogin: req => apiDevLogin_(req.password || ''),
+  devsetpassword: req => apiDevSetPassword_(req || {}),
+  devadduser: req => apiDevAddUser_(req || {}),
+  devlistroles: req => apiDevListRoles_(req || {}),
+  devlogout: req => apiDevLogout_(req.token || '')
+};
+
 function router(req) {
   if (typeof req === 'string') {
     req = { action: req };
@@ -486,41 +505,13 @@ function router(req) {
   if (['getsession', 'listcatalog', 'listorders', 'listbudgets'].indexOf(normalized) === -1) {
     checkCsrf_(req.csrf);
   }
-  switch (normalized) {
-    case 'getsession':
-      return getSession_();
-    case 'listcatalog':
-      return readAll_(getOrCreateSheet_(SHEETS.CATALOG, CATALOG_HEADERS))
-        .filter(r => String(r.active) !== 'false');
-    case 'listorders':
-      return apiListOrders_(req.filter || {});
-    case 'createorder':
-      return apiCreateOrder_(req.payload || {});
-    case 'bulkdecision':
-      return apiBulkDecision_(req.ids || [], req.decision, req.comment || '');
-    case 'updateorderproof':
-      return apiUpdateOrderProof_(req.id, req.eta || '', req.image || '');
-    case 'listbudgets':
-      return readAll_(getOrCreateSheet_(SHEETS.BUDGETS, ['cost_center', 'month', 'budget', 'spent_to_date']));
-    case 'updatecatalogimage':
-      return apiUpdateCatalogImage_(req.sku, req.image || '');
-    case 'uploadimage':
-      return apiUploadImage_(req || {});
-    case 'devstatus':
-      return apiDevStatus_();
-    case 'devlogin':
-      return apiDevLogin_(req.password || '');
-    case 'devsetpassword':
-      return apiDevSetPassword_(req || {});
-    case 'devadduser':
-      return apiDevAddUser_(req || {});
-    case 'devlistroles':
-      return apiDevListRoles_(req || {});
-    case 'devlogout':
-      return apiDevLogout_(req.token || '');
-    default:
-      throw new Error('Unknown action: ' + action);
+  const handler = ROUTER_HANDLERS[normalized];
+  if (!handler) {
+    const keys = Object.keys(req).sort();
+    appendAudit_('Router', '-', 'UNKNOWN_ACTION', JSON.stringify({ action, normalized, keys }));
+    throw new Error('Unknown action: ' + action);
   }
+  return handler(req);
 }
 
 function apiListOrders_(filter) {
