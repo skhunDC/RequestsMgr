@@ -90,7 +90,7 @@ table{width:100%;border-collapse:collapse;font-size:.95rem;}
 thead{background:#f1f5f9;color:#475569;}
 th,td{padding:.65rem;border-bottom:1px solid #e2e8f0;text-align:left;}
 tr:nth-child(even){background:#f8fafc;}
-.status-cell{display:flex;flex-direction:column;gap:.5rem;align-items:flex-start;}
+.status-cell{display:flex;flex-direction:column;gap:.5rem;align-items:flex-start;width:100%;}
 .status-label{font-weight:600;color:#1f2933;}
 .status-actions{display:flex;flex-wrap:wrap;gap:.5rem;width:100%;}
 .status-actions button{flex:1 1 auto;min-width:110px;}
@@ -1303,11 +1303,12 @@ function renderRows(){
     const requester = document.createElement('td');
     requester.textContent = r.requester;
     const status = document.createElement('td');
-    status.className = 'status-cell';
+    const statusWrap = document.createElement('div');
+    statusWrap.className = 'status-cell';
     const statusLabel = document.createElement('span');
     statusLabel.className = 'status-label';
     statusLabel.textContent = r.statusChip || '—';
-    status.appendChild(statusLabel);
+    statusWrap.appendChild(statusLabel);
     const approver = document.createElement('td');
     approver.textContent = r.approver || '';
     const decision = document.createElement('td');
@@ -1331,8 +1332,9 @@ function renderRows(){
         btn.addEventListener('click',()=>handleOrderDecision(r.id, decision, btn));
         actionsWrap.appendChild(btn);
       });
-      status.appendChild(actionsWrap);
+      statusWrap.appendChild(actionsWrap);
     }
+    status.appendChild(statusWrap);
     const proof = document.createElement('td');
     if(r.proof_image){
       const proofBtn = document.createElement('button');
