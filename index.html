@@ -234,16 +234,23 @@ function currentRole(){
 }
 
 function sessionCapabilities(){
-  if(!state.session || !state.session.capabilities){
-    return { ...DEFAULT_CAPABILITIES };
-  }
-  const caps = state.session.capabilities;
-  return {
+  const caps = state.session && state.session.capabilities ? state.session.capabilities : DEFAULT_CAPABILITIES;
+  const normalized = {
     canDecide: !!caps.canDecide,
     canManageProof: !!caps.canManageProof,
     canManageThumbs: !!caps.canManageThumbs,
     canUploadImages: !!caps.canUploadImages
   };
+  const role = currentRole();
+  if(['approver','developer','super_admin'].includes(role)){
+    normalized.canDecide = true;
+    normalized.canManageProof = true;
+  }
+  if(['developer','super_admin'].includes(role)){
+    normalized.canManageThumbs = true;
+    normalized.canUploadImages = true;
+  }
+  return normalized;
 }
 
 function canDecideRequests(){
