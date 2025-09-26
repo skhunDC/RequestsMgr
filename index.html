@@ -181,8 +181,27 @@ const DEV_ALLOWED_SET = new Set(DEV_ALLOWED_EMAILS);
 const DEV_ACCESS_DENIED_MESSAGE = 'Your account is not authorized for developer tools.';
 const AUTH_TOKEN_KEY = 'suppliesTrackerAuthToken';
 
+const DEFAULT_CAPABILITIES = Object.freeze({
+  canDecide: false,
+  canManageProof: false,
+  canManageThumbs: false,
+  canUploadImages: false
+});
+
+function normalizeCapabilities(caps){
+  if(!caps || typeof caps !== 'object'){
+    return { ...DEFAULT_CAPABILITIES };
+  }
+  return {
+    canDecide: !!caps.canDecide,
+    canManageProof: !!caps.canManageProof,
+    canManageThumbs: !!caps.canManageThumbs,
+    canUploadImages: !!caps.canUploadImages
+  };
+}
+
 const state = {
-  session: { ...SESSION, email: INITIAL_EMAIL, role: INITIAL_ROLE },
+  session: { ...SESSION, email: INITIAL_EMAIL, role: INITIAL_ROLE, capabilities: normalizeCapabilities(SESSION && SESSION.capabilities) },
   auth: { token: '', authed: false, loading: false, error: '', checking: true },
   route: 'request',
   filters: { mineOnly: false, status: [], search: '' },
@@ -208,17 +227,35 @@ const state = {
 function currentRole(){
   return String(state.session.role || '').trim().toLowerCase();
 }
+
+function sessionCapabilities(){
+  if(!state.session || !state.session.capabilities){
+    return { ...DEFAULT_CAPABILITIES };
+  }
+  const caps = state.session.capabilities;
+  return {
+    canDecide: !!caps.canDecide,
+    canManageProof: !!caps.canManageProof,
+    canManageThumbs: !!caps.canManageThumbs,
+    canUploadImages: !!caps.canUploadImages
+  };
+}
+
 function canDecideRequests(){
-  return ['approver','developer','super_admin'].includes(currentRole());
+  const caps = sessionCapabilities();
+  return typeof caps.canDecide === 'boolean' ? caps.canDecide : ['approver','developer','super_admin'].includes(currentRole());
 }
 function canManageProof(){
-  return ['approver','developer','super_admin'].includes(currentRole());
+  const caps = sessionCapabilities();
+  return typeof caps.canManageProof === 'boolean' ? caps.canManageProof : ['approver','developer','super_admin'].includes(currentRole());
 }
 function canManageThumbs(){
-  return ['developer','super_admin'].includes(currentRole());
+  const caps = sessionCapabilities();
+  return typeof caps.canManageThumbs === 'boolean' ? caps.canManageThumbs : ['developer','super_admin'].includes(currentRole());
 }
 function canUploadImages(){
-  return ['developer','super_admin'].includes(currentRole());
+  const caps = sessionCapabilities();
+  return typeof caps.canUploadImages === 'boolean' ? caps.canUploadImages : ['developer','super_admin'].includes(currentRole());
 }
 const DECISION_COPY = {
   APPROVED: { label: 'Approve', progress: 'Approving…', success: 'Request approved.' },
@@ -471,6 +508,7 @@ function handleAuthStatus(res){
     setStoredAuthToken(state.auth.token);
     state.session.email = res && res.email ? String(res.email).trim().toLowerCase() : '';
     state.session.role = res && res.role ? String(res.role).trim().toLowerCase() : '';
+    state.session.capabilities = normalizeCapabilities(res && res.capabilities);
     renderAuthModal();
     syncPermissions();
     startApp();
@@ -480,6 +518,7 @@ function handleAuthStatus(res){
     state.auth.checking = false;
     state.session.email = '';
     state.session.role = '';
+    state.session.capabilities = { ...DEFAULT_CAPABILITIES };
     setStoredAuthToken('');
     resetDevState();
     renderAuthModal();
@@ -897,6 +936,8 @@ function renderRequest(app){
 }
 
 function renderAll(app){
+  const canDecide = canDecideRequests();
+  const canProof = canManageProof();
   app.innerHTML = `
     <section class="view">
       ${viewHeader('Requests','Track submissions and make decisions in one place.')}
@@ -932,8 +973,9 @@ function renderAll(app){
                 <th scope="col">Requester</th>
                 <th scope="col">Status</th>
                 <th scope="col">Approver</th>
+                <th scope="col">Decided</th>
                 <th scope="col">ETA</th>
-                ${canDecideRequests() ? '<th scope="col">Actions</th>' : ''}
+                ${canDecide ? '<th scope="col">Actions</th>' : ''}
                 <th scope="col">Order proof</th>
               </tr>
             </thead>
@@ -942,7 +984,7 @@ function renderAll(app){
         </div>
         <div id="empty" class="empty hidden">No requests match your filters. <button id="reset" class="ghost" type="button">Reset filters</button></div>
       </section>
-      ${canManageProof() ? `
+      ${canProof ? `
       <section class="panel stack hidden" id="proofPanel">
         <h2 class="panel-title">Order fulfillment evidence</h2>
         <p class="field-note" id="proofOrderLabel">Select “Manage proof” on a request to attach details.</p>
@@ -1005,7 +1047,7 @@ function renderAll(app){
     loadOrders();
   };
   app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
-  if(canManageProof()){
+  if(canProof){
     setupProofPanel(app);
   }
   loadOrders();
@@ -1208,6 +1250,9 @@ function renderRows(){
   if(!tbody) return;
   tbody.innerHTML = '';
   const fragment = document.createDocumentFragment();
+  const caps = sessionCapabilities();
+  const canDecide = !!caps.canDecide;
+  const canProof = !!caps.canManageProof;
   state.rows.forEach(r=>{
     const tr = document.createElement('tr');
     tr.dataset.orderId = r.id;
@@ -1234,10 +1279,12 @@ function renderRows(){
     status.textContent = r.statusChip;
     const approver = document.createElement('td');
     approver.textContent = r.approver || '';
+    const decision = document.createElement('td');
+    decision.textContent = formatDecisionTimestamp(r.decision_ts);
     const eta = document.createElement('td');
     eta.textContent = r.eta_details || '—';
     let actionsCell = null;
-    if(canDecideRequests()){
+    if(canDecide){
       actionsCell = document.createElement('td');
       const actionsWrap = document.createElement('div');
       actionsWrap.className = 'actions start';
@@ -1271,7 +1318,7 @@ function renderRows(){
       proofBtn.appendChild(img);
       proofBtn.onclick = () => window.open(r.proof_image, '_blank');
       proof.appendChild(proofBtn);
-    }else if(canManageProof()){
+    }else if(canProof){
       const note = document.createElement('span');
       note.className = 'field-note';
       note.textContent = 'No proof yet';
@@ -1279,7 +1326,7 @@ function renderRows(){
     }else{
       proof.textContent = '—';
     }
-    if(canManageProof()){
+    if(canProof){
       const manage = document.createElement('button');
       manage.type = 'button';
       manage.className = 'link';
@@ -1288,9 +1335,9 @@ function renderRows(){
       proof.appendChild(manage);
     }
     if(actionsCell){
-      tr.append(requested,itemCell,qty,cost,requester,status,approver,eta,actionsCell,proof);
+      tr.append(requested,itemCell,qty,cost,requester,status,approver,decision,eta,actionsCell,proof);
     }else{
-      tr.append(requested,itemCell,qty,cost,requester,status,approver,eta,proof);
+      tr.append(requested,itemCell,qty,cost,requester,status,approver,decision,eta,proof);
     }
     fragment.appendChild(tr);
   });
@@ -1299,6 +1346,22 @@ function renderRows(){
   if(empty){
     if(!state.rows.length) empty.classList.remove('hidden');
     else empty.classList.add('hidden');
+  }
+}
+
+function formatDecisionTimestamp(ts){
+  if(!ts) return '—';
+  const date = new Date(ts);
+  if(Number.isNaN(date.getTime())) return '—';
+  const options = { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' };
+  const now = new Date();
+  if(date.getFullYear() !== now.getFullYear()){
+    options.year = 'numeric';
+  }
+  try{
+    return date.toLocaleString(undefined, options);
+  }catch(err){
+    return date.toISOString().replace('T',' ').slice(0,16);
   }
 }
 
