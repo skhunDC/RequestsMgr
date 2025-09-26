@@ -7,13 +7,16 @@ const SHEETS = {
   BUDGETS: 'Budgets',
   AUDIT: 'Audit',
   ROLES: 'Roles',
-  LT_DEVS: 'LT_Devs'
+  LT_DEVS: 'LT_Devs',
+  LT_AUTH: 'LT_Auth'
 };
 const SS_ID_PROP = 'SS_ID';
 const DEV_EMAILS = ['skhun@dublincleaners.com', 'ss.sku@protonmail.com'];
 const DEV_EMAILS_LOWER = DEV_EMAILS.map(email => normalizeEmail_(email));
 const UPLOAD_FOLDER_PROP = 'UPLOAD_FOLDER_ID';
 const DRIVE_VIEW_PREFIX = 'https://drive.google.com/uc?export=view&id=';
+
+let CURRENT_SESSION_EMAIL = '';
 
 const ORDER_HEADERS = ['id', 'ts', 'requester', 'item', 'qty', 'est_cost', 'status', 'approver', 'decision_ts', 'override?', 'justification', 'eta_details', 'proof_image'];
 const CATALOG_HEADERS = ['sku', 'description', 'category', 'vendor', 'price', 'override_required', 'threshold', 'gl_code', 'cost_center', 'active', 'image_url'];
@@ -107,11 +110,13 @@ function init_() {
 
   const email = getActiveUserNormalizedEmail_();
 
-  const existing = readAll_(roles).map(r => normalizeEmail_(r.email));
+  const roleRows = readAll_(roles);
+  const existing = roleRows.map(r => normalizeEmail_(r.email));
   if (email && existing.indexOf(email) === -1) roles.appendRow([email, 'requester']);
   DEV_EMAILS.forEach(dev => {
     if (existing.indexOf(normalizeEmail_(dev)) === -1) roles.appendRow([normalizeEmail_(dev), 'developer']);
   });
+  readAll_(roles).forEach(row => ensureAuthRow_(row.email));
   // LT_Devs
   const lt = getOrCreateSheet_(SHEETS.LT_DEVS, ['email', 'salt', 'hash']);
   const ltRows = readAll_(lt);
@@ -121,6 +126,7 @@ function init_() {
       writeRow_(lt, { email: normalized, salt: '', hash: '' });
     }
   });
+  DEV_EMAILS.forEach(dev => ensureAuthRow_(dev));
 }
 
 function seedCatalogIfEmpty_() {
@@ -267,13 +273,84 @@ function upsertDevRow_(email, updates) {
   }
 }
 
+function authSheet_() {
+  return getOrCreateSheet_(SHEETS.LT_AUTH, ['email', 'salt', 'hash', 'updated_ts']);
+}
+
+function ensureAuthRow_(email) {
+  const sheet = authSheet_();
+  const normalized = normalizeEmail_(email);
+  if (!normalized) return;
+  const rows = readAll_(sheet);
+  if (!rows.some(r => normalizeEmail_(r.email) === normalized)) {
+    writeRow_(sheet, { email: normalized, salt: '', hash: '', updated_ts: '' });
+  }
+}
+
+function getAuthRow_(email) {
+  const sheet = authSheet_();
+  const normalized = normalizeEmail_(email);
+  if (!normalized) return null;
+  return readAll_(sheet).find(r => normalizeEmail_(r.email) === normalized) || null;
+}
+
+function upsertAuthRow_(email, updates) {
+  const sheet = authSheet_();
+  const headers = indexHeaders_(sheet);
+  const values = sheet.getDataRange().getValues();
+  const rows = values.slice(1);
+  const normalized = normalizeEmail_(email);
+  if (!normalized) return;
+  const rowIdx = rows.findIndex(r => normalizeEmail_(r[headers.email]) === normalized);
+  if (rowIdx === -1) {
+    const headerRow = Object.keys(headers).sort((a, b) => headers[a] - headers[b]);
+    const row = headerRow.map(key => {
+      if (key === 'email') return normalized;
+      if (Object.prototype.hasOwnProperty.call(updates, key)) return updates[key];
+      return '';
+    });
+    sheet.appendRow(row);
+  } else {
+    const rowNumber = rowIdx + 2;
+    Object.keys(updates).forEach(key => {
+      if (typeof headers[key] === 'undefined') return;
+      sheet.getRange(rowNumber, headers[key] + 1).setValue(updates[key]);
+    });
+  }
+}
+
 function normalizeEmail_(email) {
   return String(email || '').trim().toLowerCase();
+}
+
+function setUserPassword_(email, password) {
+  const normalized = normalizeEmail_(email);
+  if (!normalized) throw new Error('Valid email required');
+  const pwd = String(password || '').trim();
+  if (!pwd || pwd.length < 12) throw new Error('Password must be at least 12 characters');
+  const salt = generateSalt_();
+  const hash = computeSaltedHash_(pwd, salt);
+  withLock_(() => {
+    upsertAuthRow_(normalized, { salt, hash, updated_ts: nowIso_() });
+  });
+  appendAudit_('Auth', normalized, 'SET_PASSWORD', '{}');
+}
+
+function verifyUserPassword_(email, password) {
+  const normalized = normalizeEmail_(email);
+  if (!normalized) return false;
+  const row = getAuthRow_(normalized);
+  if (!row || !row.salt || !row.hash) return false;
+  const hashed = computeSaltedHash_(password, row.salt);
+  return hashed === row.hash;
 }
 
 
 function getActiveUserEmail_() {
   let email = '';
+  if (CURRENT_SESSION_EMAIL) {
+    return CURRENT_SESSION_EMAIL;
+  }
   try {
     const user = Session.getActiveUser ? Session.getActiveUser() : null;
     if (user) {
@@ -357,6 +434,55 @@ function verifyDevPassword_(row, password) {
   if (!row || !row.salt || !row.hash) return false;
   const hashed = computeSaltedHash_(password, row.salt);
   return hashed === row.hash;
+}
+
+function siteSessionCache_() {
+  return CacheService.getScriptCache();
+}
+
+function siteSessionKey_(token) {
+  return 'siteSession:' + token;
+}
+
+function getSiteSession_(token) {
+  const key = siteSessionKey_(token);
+  const raw = token ? siteSessionCache_().get(key) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    return null;
+  }
+}
+
+function storeSiteSession_(token, data) {
+  if (!token || !data) return;
+  siteSessionCache_().put(siteSessionKey_(token), JSON.stringify(data), 1800);
+}
+
+function createSiteSessionToken_(email) {
+  const token = Utilities.getUuid();
+  storeSiteSession_(token, { email: normalizeEmail_(email), ts: Date.now() });
+  return token;
+}
+
+function refreshSiteSession_(token) {
+  const session = getSiteSession_(token);
+  if (!session) return null;
+  storeSiteSession_(token, session);
+  return session;
+}
+
+function clearSiteSession_(token) {
+  if (!token) return;
+  siteSessionCache_().remove(siteSessionKey_(token));
+}
+
+function requireSiteSession_(token) {
+  if (!token) throw new Error('Login required');
+  const session = refreshSiteSession_(token);
+  if (!session || !session.email) throw new Error('Login expired');
+  return session;
 }
 
 function parseDataUrl_(dataUrl) {
@@ -490,7 +616,10 @@ const ROUTER_HANDLERS = {
   devsetpassword: req => apiDevSetPassword_(req || {}),
   devadduser: req => apiDevAddUser_(req || {}),
   devlistroles: req => apiDevListRoles_(req || {}),
-  devlogout: req => apiDevLogout_(req.token || '')
+  devlogout: req => apiDevLogout_(req.token || ''),
+  sitestatus: req => apiSiteStatus_(req || {}),
+  sitelogin: req => apiSiteLogin_(req || {}),
+  sitelogout: req => apiSiteLogout_(req || {})
 };
 
 function router(req) {
@@ -502,7 +631,8 @@ function router(req) {
   const action = rawAction.trim();
   if (!action) throw new Error('Unknown action');
   const normalized = action.toLowerCase();
-  if (['getsession', 'listcatalog', 'listorders', 'listbudgets'].indexOf(normalized) === -1) {
+  const skipCsrf = ['getsession', 'sitelogin', 'sitestatus'].indexOf(normalized) !== -1;
+  if (!skipCsrf) {
     checkCsrf_(req.csrf);
   }
   const handler = ROUTER_HANDLERS[normalized];
@@ -511,7 +641,16 @@ function router(req) {
     appendAudit_('Router', '-', 'UNKNOWN_ACTION', JSON.stringify({ action, normalized, keys }));
     throw new Error('Unknown action: ' + action);
   }
-  return handler(req);
+  let sessionContext = null;
+  if (['getsession', 'sitelogin', 'sitestatus'].indexOf(normalized) === -1) {
+    sessionContext = requireSiteSession_(String(req.siteToken || ''));
+    CURRENT_SESSION_EMAIL = sessionContext && sessionContext.email ? sessionContext.email : '';
+  }
+  try {
+    return handler(req);
+  } finally {
+    CURRENT_SESSION_EMAIL = '';
+  }
 }
 
 function apiListOrders_(filter) {
@@ -742,6 +881,7 @@ function apiDevAddUser_(req) {
   const payload = req.payload || {};
   const targetEmail = normalizeEmail_(payload.email);
   const role = String(payload.role || '').trim();
+  const password = String(payload.password || '').trim();
   if (!targetEmail || targetEmail.indexOf('@') === -1) throw new Error('Valid email required');
   const allowedRoles = ['requester', 'approver', 'developer', 'super_admin'];
   if (allowedRoles.indexOf(role) === -1) throw new Error('Invalid role');
@@ -766,6 +906,10 @@ function apiDevAddUser_(req) {
     }
   });
   appendAudit_('Roles', targetEmail, 'UPSERT', JSON.stringify({ role }));
+  ensureAuthRow_(targetEmail);
+  if (password) {
+    setUserPassword_(targetEmail, password);
+  }
   return { email: targetEmail, role };
 }
 
@@ -779,6 +923,63 @@ function apiDevLogout_(token) {
   requireDevEmail_();
   requireDevSession_(token);
   clearDevSessionToken_();
+  return { success: true };
+}
+
+function apiSiteStatus_(req) {
+  const token = String(req.token || '').trim();
+  if (!token) {
+    return { authed: false };
+  }
+  const session = refreshSiteSession_(token);
+  if (!session || !session.email) {
+    return { authed: false };
+  }
+  const email = normalizeEmail_(session.email);
+  const role = getUserRole_(email);
+  if (!role || role === 'viewer') {
+    clearSiteSession_(token);
+    return { authed: false };
+  }
+  storeSiteSession_(token, { email, ts: Date.now() });
+  return { authed: true, email, role, token };
+}
+
+function apiSiteLogin_(req) {
+  const email = normalizeEmail_(req.email);
+  const password = String(req.password || '').trim();
+  if (!email || email.indexOf('@') === -1) throw new Error('Enter a valid email address');
+  if (!password) throw new Error('Password required');
+  ensureAuthRow_(email);
+  const role = getUserRole_(email);
+  if (!role || role === 'viewer') throw new Error('Account not authorized');
+  let valid = verifyUserPassword_(email, password);
+  if (!valid) {
+    const authRow = getAuthRow_(email);
+    const missingPassword = !authRow || !authRow.hash;
+    if (missingPassword && DEV_EMAILS_LOWER.indexOf(email) !== -1) {
+      setUserPassword_(email, password);
+      valid = true;
+    } else if (!valid) {
+      const devRow = getDevRow_(email);
+      if (devRow && verifyDevPassword_(devRow, password)) {
+        setUserPassword_(email, password);
+        valid = true;
+      }
+    }
+  }
+  if (!valid) throw new Error('Invalid email or password');
+  const token = createSiteSessionToken_(email);
+  appendAudit_('Auth', email, 'LOGIN', '{}');
+  return { token, email, role };
+}
+
+function apiSiteLogout_(req) {
+  const token = String(req.token || '').trim();
+  if (!token) throw new Error('Login required');
+  const session = requireSiteSession_(token);
+  clearSiteSession_(token);
+  appendAudit_('Auth', session.email, 'LOGOUT', '{}');
   return { success: true };
 }
 
