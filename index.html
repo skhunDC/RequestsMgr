@@ -176,7 +176,6 @@ const state = {
   route: 'request',
   filters: { mineOnly: false, status: [], search: '' },
   rows: [],
-  selection: new Set(),
   catalog: [],
   dev: {
     allowed: INITIAL_DEV_ALLOWED,
@@ -199,13 +198,17 @@ const CAN_DECIDE_REQUESTS = ['approver','developer','super_admin'].includes(SESS
 const CAN_MANAGE_PROOF = ['approver','developer','super_admin'].includes(SESSION_ROLE);
 const CAN_MANAGE_THUMBS = ['developer','super_admin'].includes(SESSION_ROLE);
 const CAN_UPLOAD_IMAGES = ['developer','super_admin'].includes(SESSION_ROLE);
-const BULK_ACTION_LABELS = {
-  APPROVED: { progress: 'Approving…', past: 'approved' },
-  DENIED: { progress: 'Denying…', past: 'denied' },
-  'ON-HOLD': { progress: 'Placing on hold…', past: 'placed on hold' }
+const DECISION_COPY = {
+  APPROVED: { label: 'Approve', progress: 'Approving…', success: 'Request approved.' },
+  DENIED: { label: 'Deny', progress: 'Denying…', success: 'Request denied.' },
+  'ON-HOLD': { label: 'On-Hold', progress: 'Placing on hold…', success: 'Request placed on hold.' }
 };
+const DECISION_BUTTONS = [
+  { decision: 'APPROVED', className: 'primary' },
+  { decision: 'DENIED', className: 'ghost' },
+  { decision: 'ON-HOLD', className: 'ghost' }
+];
 let proofPanelCtx = null;
-let bulkBarCtx = null;
 let thumbPanelCtx = null;
 let devModalReady = false;
 let initialRouteRendered = false;
@@ -653,22 +656,10 @@ function renderAll(app){
         </div>
       </section>
       <section class="panel stack">
-        <div id="bulkBar" class="hidden">
-          <label class="field">
-            <span>Decision comment</span>
-            <textarea id="comment" placeholder="Optional note"></textarea>
-          </label>
-          <div class="actions">
-            <button id="ap" class="primary" type="button" data-decision="APPROVED">Approve</button>
-            <button id="dn" class="ghost" type="button" data-decision="DENIED">Deny</button>
-            <button id="oh" class="ghost" type="button" data-decision="ON-HOLD">On-Hold</button>
-          </div>
-        </div>
         <div class="table-wrapper">
           <table id="list">
             <thead>
               <tr>
-                <th scope="col"><input type="checkbox" id="selAll"></th>
                 <th scope="col">Requested</th>
                 <th scope="col">Item</th>
                 <th scope="col">Qty</th>
@@ -677,6 +668,7 @@ function renderAll(app){
                 <th scope="col">Status</th>
                 <th scope="col">Approver</th>
                 <th scope="col">ETA</th>
+                ${CAN_DECIDE_REQUESTS ? '<th scope="col">Actions</th>' : ''}
                 <th scope="col">Order proof</th>
               </tr>
             </thead>
@@ -747,23 +739,7 @@ function renderAll(app){
     route('all');
     loadOrders();
   };
-  app.querySelector('#selAll').onchange = e=>{
-    const c = e.target.checked;
-    state.selection = new Set();
-    const tbody = document.querySelector('#list tbody');
-    if(tbody){
-      tbody.querySelectorAll('input[type=checkbox]').forEach(cb=>{
-        cb.checked = c;
-        if(c) state.selection.add(cb.value);
-      });
-    }
-    toggleBulk();
-  };
   app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
-  bulkBarCtx = null;
-  if(CAN_DECIDE_REQUESTS){
-    setupBulkBar(app);
-  }
   if(CAN_MANAGE_PROOF){
     setupProofPanel(app);
   }
@@ -966,13 +942,11 @@ function renderRows(){
   const tbody = document.querySelector('#list tbody');
   if(!tbody) return;
   tbody.innerHTML = '';
-  state.selection = new Set();
-  const selAll = document.getElementById('selAll');
-  if(selAll) selAll.checked = false;
   const fragment = document.createDocumentFragment();
   state.rows.forEach(r=>{
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td><input type="checkbox" value="${r.id}"></td>`;
+    tr.dataset.orderId = r.id;
+    tr.dataset.status = (r.statusChip || '').toUpperCase();
     const requested = document.createElement('td');
     requested.textContent = r.ts;
     const itemCell = document.createElement('td');
@@ -997,6 +971,27 @@ function renderRows(){
     approver.textContent = r.approver || '';
     const eta = document.createElement('td');
     eta.textContent = r.eta_details || '—';
+    let actionsCell = null;
+    if(CAN_DECIDE_REQUESTS){
+      actionsCell = document.createElement('td');
+      const actionsWrap = document.createElement('div');
+      actionsWrap.className = 'actions start';
+      const currentStatus = (r.statusChip || '').toUpperCase();
+      DECISION_BUTTONS.forEach(({decision,className})=>{
+        const meta = DECISION_COPY[decision] || {};
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = className;
+        btn.dataset.decision = decision;
+        btn.textContent = meta.label || decision;
+        if(currentStatus === decision){
+          btn.disabled = true;
+        }
+        btn.addEventListener('click',()=>handleOrderDecision(r.id, decision, btn));
+        actionsWrap.appendChild(btn);
+      });
+      actionsCell.appendChild(actionsWrap);
+    }
     const proof = document.createElement('td');
     if(r.proof_image){
       const proofBtn = document.createElement('button');
@@ -1027,19 +1022,14 @@ function renderRows(){
       manage.onclick = () => openProofPanel(r);
       proof.appendChild(manage);
     }
-    tr.append(requested,itemCell,qty,cost,requester,status,approver,eta,proof);
+    if(actionsCell){
+      tr.append(requested,itemCell,qty,cost,requester,status,approver,eta,actionsCell,proof);
+    }else{
+      tr.append(requested,itemCell,qty,cost,requester,status,approver,eta,proof);
+    }
     fragment.appendChild(tr);
   });
   tbody.appendChild(fragment);
-  toggleBulk();
-  tbody.onchange = e => {
-    const target = e.target;
-    if(target && target.matches('input[type=checkbox]')){
-      if(target.checked) state.selection.add(target.value);
-      else state.selection.delete(target.value);
-      toggleBulk();
-    }
-  };
   const empty = document.getElementById('empty');
   if(empty){
     if(!state.rows.length) empty.classList.remove('hidden');
@@ -1047,23 +1037,50 @@ function renderRows(){
   }
 }
 
-function setupBulkBar(app){
-  const bulkBar = app.querySelector('#bulkBar');
-  if(!bulkBar) return;
-  const buttons = Array.from(bulkBar.querySelectorAll('[data-decision]'));
-  if(!buttons.length) return;
+function setRowDecisionState(orderId, disabled, decision, trigger){
+  if(!orderId) return;
+  const row = document.querySelector(`tr[data-order-id="${orderId}"]`);
+  if(!row) return;
+  const buttons = row.querySelectorAll('button[data-decision]');
   buttons.forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.preventDefault();
-      if(btn.disabled) return;
-      const decision = btn.dataset.decision;
-      if(!decision) return;
-      bulk(decision, btn);
-    });
+    if(disabled){
+      if(trigger && btn === trigger){
+        if(!btn.dataset.originalText){
+          btn.dataset.originalText = btn.textContent;
+        }
+        const copy = DECISION_COPY[decision] || {};
+        btn.textContent = copy.progress || 'Working…';
+      }
+      btn.disabled = true;
+    }else{
+      if(btn.dataset.originalText){
+        btn.textContent = btn.dataset.originalText;
+        delete btn.dataset.originalText;
+      }
+      const rowStatus = (row.dataset.status || '').toUpperCase();
+      btn.disabled = rowStatus === btn.dataset.decision;
+    }
   });
-  bulkBarCtx = { bar: bulkBar, buttons, processing: false };
-  bulkBar.classList.remove('hidden');
-  toggleBulk();
+}
+
+function handleOrderDecision(orderId, decision, trigger){
+  if(!orderId || !decision) return;
+  if(typeof google === 'undefined' || !google || !google.script || !google.script.run){
+    toast('Unable to reach the server. Please refresh and try again.');
+    return;
+  }
+  setRowDecisionState(orderId, true, decision, trigger);
+  google.script.run
+    .withSuccessHandler(()=>{
+      const copy = DECISION_COPY[decision] || {};
+      toast(copy.success || 'Request updated.');
+      loadOrders();
+    })
+    .withFailureHandler(err => {
+      setRowDecisionState(orderId, false);
+      toast(err && err.message ? err.message : 'Unable to update request.');
+    })
+    .router({ action: 'setOrderStatus', id: orderId, decision, csrf: state.session.csrf });
 }
 
 function setupProofPanel(app){
@@ -1474,102 +1491,6 @@ function createImageField({ dropZone, preview, hiddenInput, urlInput, clearButto
       return hidden || url;
     }
   };
-}
-
-function toggleBulk(){
-  if(!bulkBarCtx || !bulkBarCtx.bar) return;
-  const hasSelection = state.selection && state.selection.size > 0;
-  bulkBarCtx.bar.classList.toggle('hidden', !hasSelection);
-  if(!bulkBarCtx.processing){
-    bulkBarCtx.buttons.forEach(btn => {
-      btn.disabled = !hasSelection;
-    });
-  }
-}
-
-function getBulkButtons(){
-  return bulkBarCtx && Array.isArray(bulkBarCtx.buttons) ? bulkBarCtx.buttons : [];
-}
-
-function setBulkButtonsDisabled(disabled, trigger, decision){
-  const labels = BULK_ACTION_LABELS[decision] || {};
-  if(bulkBarCtx) bulkBarCtx.processing = !!disabled;
-  getBulkButtons().forEach(btn => {
-    if(!btn) return;
-    if(disabled){
-      if(!btn.dataset.originalText){
-        btn.dataset.originalText = btn.textContent;
-      }
-      btn.disabled = true;
-      if(trigger && btn === trigger){
-        btn.textContent = labels.progress || 'Processing…';
-      }
-    }else{
-      btn.disabled = !(state.selection && state.selection.size > 0);
-      if(btn.dataset.originalText){
-        btn.textContent = btn.dataset.originalText;
-        delete btn.dataset.originalText;
-      }
-    }
-  });
-}
-
-function collectDecisionIds(){
-  const selected = state.selection && typeof state.selection[Symbol.iterator] === 'function'
-    ? [...state.selection]
-    : [];
-  if(selected.length === 0 && proofPanelCtx && proofPanelCtx.orderId){
-    selected.push(proofPanelCtx.orderId);
-  }
-  return [...new Set(selected.filter(Boolean))];
-}
-
-function buildBulkToast(decision, okCount, warnCount){
-  if(okCount > 0){
-    const past = (BULK_ACTION_LABELS[decision] || {}).past || 'updated';
-    let msg = `${okCount} request${okCount === 1 ? '' : 's'} ${past}.`;
-    if(warnCount > 0){
-      msg += ` ${warnCount} budget warning${warnCount === 1 ? '' : 's'} flagged.`;
-    }
-    return msg;
-  }
-  if(warnCount > 0){
-    return `${warnCount} budget warning${warnCount === 1 ? '' : 's'} flagged.`;
-  }
-  return 'No requests updated.';
-}
-
-function bulk(decision, trigger){
-  const ids = collectDecisionIds();
-  if(!ids.length){
-    toast('Select a request before making a decision.');
-    return;
-  }
-  const commentField = document.getElementById('comment');
-  const comment = commentField ? commentField.value : '';
-  if(typeof google === 'undefined' || !google || !google.script || !google.script.run){
-    toast('Unable to reach the server. Please refresh and try again.');
-    return;
-  }
-  setBulkButtonsDisabled(true, trigger, decision);
-  google.script.run.withSuccessHandler(res => {
-    setBulkButtonsDisabled(false);
-    const updates = res && Array.isArray(res.updates) ? res.updates : [];
-    const okCount = updates.filter(u => u && u.type === 'ok').length;
-    const warnCount = updates.filter(u => u && u.type === 'warn').length;
-    state.selection = new Set();
-    toggleBulk();
-    if(commentField){
-      commentField.value = '';
-    }
-    toast(buildBulkToast(decision, okCount, warnCount));
-    loadOrders();
-  })
-    .withFailureHandler(err => {
-      setBulkButtonsDisabled(false);
-      toast(err && err.message ? err.message : 'Unable to update requests.');
-    })
-    .router({action:'bulkDecision',ids,decision,comment,csrf:state.session.csrf});
 }
 
 function escapeHtml(str){

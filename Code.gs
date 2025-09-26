@@ -480,7 +480,7 @@ const ROUTER_HANDLERS = {
     .filter(r => String(r.active) !== 'false'),
   listorders: req => apiListOrders_(req.filter || {}),
   createorder: req => apiCreateOrder_(req.payload || {}),
-  bulkdecision: req => apiBulkDecision_(req.ids || [], req.decision, req.comment || ''),
+  setorderstatus: req => apiSetOrderStatus_(req.id, req.decision),
   updateorderproof: req => apiUpdateOrderProof_(req.id, req.eta || '', req.image || ''),
   listbudgets: () => readAll_(getOrCreateSheet_(SHEETS.BUDGETS, ['cost_center', 'month', 'budget', 'spent_to_date'])),
   updatecatalogimage: req => apiUpdateCatalogImage_(req.sku, req.image || ''),
@@ -578,58 +578,36 @@ function apiCreateOrder_(payload) {
   return order;
 }
 
-function apiBulkDecision_(ids, decision, comment) {
+function apiSetOrderStatus_(id, decision) {
+  if (!id) throw new Error('Missing id');
   const normalizedDecision = String(decision || '').trim().toUpperCase();
-  if (!normalizedDecision) throw new Error('Missing decision');
+  const allowed = ['APPROVED', 'DENIED', 'ON-HOLD'];
+  if (allowed.indexOf(normalizedDecision) === -1) throw new Error('Invalid decision');
   requireRole_(['approver', 'developer', 'super_admin']);
   const email = getActiveUserEmail_();
+  const stamp = nowIso_();
   const sheet = getOrCreateSheet_(SHEETS.ORDERS, ORDER_HEADERS);
   const headers = indexHeaders_(sheet);
-  const data = sheet.getDataRange().getValues();
-  const header = data.shift();
   const idIdx = headers.id;
-  const updates = [];
+  const statusIdx = headers.status;
+  const approverIdx = headers.approver;
+  const decisionIdx = headers.decision_ts;
+  if ([idIdx, statusIdx, approverIdx, decisionIdx].some(idx => typeof idx === 'undefined')) {
+    throw new Error('Orders sheet missing columns');
+  }
   withLock_(() => {
-    ids.forEach(id => {
-      const rowIdx = data.findIndex(r => r[idIdx] === id);
-      if (rowIdx === -1) return;
-      const row = data[rowIdx];
-      const statusIdx = headers.status;
-      const current = String(row[statusIdx] || '').trim().toUpperCase();
-      const isPending = current === 'PENDING';
-      const isOnHold = current === 'ON-HOLD' || current === 'ON HOLD';
-      if (isPending && ['APPROVED', 'DENIED', 'ON-HOLD'].indexOf(normalizedDecision) === -1) return;
-      if (isOnHold && ['APPROVED', 'DENIED'].indexOf(normalizedDecision) === -1) return;
-      if (!isPending && !isOnHold) return;
-      const est = Number(row[headers.est_cost]) || 0;
-      const month = String(row[headers.ts]).slice(0, 7);
-      const hasCostCenter = typeof headers.cost_center !== 'undefined';
-      const cc = hasCostCenter ? row[headers.cost_center] : '';
-      if (normalizedDecision === 'APPROVED' && hasCostCenter && cc) {
-        const { warns, blocks } = willExceedBudget_(cc, month, est);
-        if (blocks && !(['developer', 'super_admin'].indexOf(getUserRole_(email)) !== -1 && comment)) {
-          throw new Error('Budget exceeded');
-        }
-        if (warns) updates.push({ type: 'warn', id });
-        const budgetSheet = getOrCreateSheet_(SHEETS.BUDGETS, ['cost_center', 'month', 'budget', 'spent_to_date']);
-        const rows = readAll_(budgetSheet);
-        const bRow = rows.find(r => r.cost_center === cc && r.month === month);
-        if (bRow) {
-          const spent = Number(bRow.spent_to_date) + est;
-          const rIdx = rows.indexOf(bRow) + 2;
-          budgetSheet.getRange(rIdx, 4).setValue(spent);
-        }
-      }
-      const r = rowIdx + 2;
-      sheet.getRange(r, headers.status + 1).setValue(normalizedDecision);
-      sheet.getRange(r, headers.approver + 1).setValue(email);
-      sheet.getRange(r, headers.decision_ts + 1).setValue(nowIso_());
-      appendAudit_('Orders', id, 'DECISION', JSON.stringify({ decision: normalizedDecision, comment }));
-      updates.push({ type: 'ok', id });
-    });
+    const data = sheet.getDataRange().getValues();
+    data.shift();
+    const rowIdx = data.findIndex(row => row[idIdx] === id);
+    if (rowIdx === -1) throw new Error('Order not found');
+    const rowNumber = rowIdx + 2;
+    sheet.getRange(rowNumber, statusIdx + 1).setValue(normalizedDecision);
+    sheet.getRange(rowNumber, approverIdx + 1).setValue(email);
+    sheet.getRange(rowNumber, decisionIdx + 1).setValue(stamp);
   });
-  if (updates.length) postToChatWebhook_('Bulk decision: ' + normalizedDecision);
-  return { updates };
+  appendAudit_('Orders', id, 'DECISION', JSON.stringify({ decision: normalizedDecision }));
+  postToChatWebhook_('Order ' + id + ' marked ' + normalizedDecision);
+  return { id, status: normalizedDecision, approver: email, decision_ts: stamp };
 }
 
 function apiUpdateOrderProof_(id, eta, image) {
