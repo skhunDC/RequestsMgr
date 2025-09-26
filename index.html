@@ -198,6 +198,11 @@ const state = {
 const CAN_MANAGE_PROOF = ['approver','developer','super_admin'].includes(SESSION_ROLE);
 const CAN_MANAGE_THUMBS = ['developer','super_admin'].includes(SESSION_ROLE);
 const CAN_UPLOAD_IMAGES = ['developer','super_admin'].includes(SESSION_ROLE);
+const BULK_ACTION_LABELS = {
+  APPROVED: { progress: 'Approving…', past: 'approved' },
+  DENIED: { progress: 'Denying…', past: 'denied' },
+  'ON-HOLD': { progress: 'Placing on hold…', past: 'placed on hold' }
+};
 let proofPanelCtx = null;
 let thumbPanelCtx = null;
 let devModalReady = false;
@@ -759,9 +764,9 @@ function renderAll(app){
     const ap = app.querySelector('#ap');
     const dn = app.querySelector('#dn');
     const oh = app.querySelector('#oh');
-    if(ap) ap.onclick = ()=>bulk('APPROVED');
-    if(dn) dn.onclick = ()=>bulk('DENIED');
-    if(oh) oh.onclick = ()=>bulk('ON-HOLD');
+    if(ap) ap.onclick = ()=>bulk('APPROVED', ap);
+    if(dn) dn.onclick = ()=>bulk('DENIED', dn);
+    if(oh) oh.onclick = ()=>bulk('ON-HOLD', oh);
     setupProofPanel(app);
   }
   loadOrders();
@@ -1460,14 +1465,83 @@ function toggleBulk(){
   bar.classList.toggle('hidden', state.selection.size === 0);
 }
 
-function bulk(decision){
-  const ids = [...state.selection];
-  const comment = document.getElementById('comment').value;
-  google.script.run.withSuccessHandler(()=>{
-    toast('Done');
+function getBulkButtons(){
+  return ['ap','dn','oh'].map(id => document.getElementById(id)).filter(Boolean);
+}
+
+function setBulkButtonsDisabled(disabled, trigger, decision){
+  const labels = BULK_ACTION_LABELS[decision] || {};
+  getBulkButtons().forEach(btn => {
+    if(!btn) return;
+    if(disabled){
+      if(!btn.dataset.originalText){
+        btn.dataset.originalText = btn.textContent;
+      }
+      btn.disabled = true;
+      if(trigger && btn === trigger){
+        btn.textContent = labels.progress || 'Processing…';
+      }
+    }else{
+      btn.disabled = false;
+      if(btn.dataset.originalText){
+        btn.textContent = btn.dataset.originalText;
+        delete btn.dataset.originalText;
+      }
+    }
+  });
+}
+
+function collectDecisionIds(){
+  const selected = state.selection && typeof state.selection[Symbol.iterator] === 'function'
+    ? [...state.selection]
+    : [];
+  if(selected.length === 0 && proofPanelCtx && proofPanelCtx.orderId){
+    selected.push(proofPanelCtx.orderId);
+  }
+  return [...new Set(selected.filter(Boolean))];
+}
+
+function buildBulkToast(decision, okCount, warnCount){
+  if(okCount > 0){
+    const past = (BULK_ACTION_LABELS[decision] || {}).past || 'updated';
+    let msg = `${okCount} request${okCount === 1 ? '' : 's'} ${past}.`;
+    if(warnCount > 0){
+      msg += ` ${warnCount} budget warning${warnCount === 1 ? '' : 's'} flagged.`;
+    }
+    return msg;
+  }
+  if(warnCount > 0){
+    return `${warnCount} budget warning${warnCount === 1 ? '' : 's'} flagged.`;
+  }
+  return 'No requests updated.';
+}
+
+function bulk(decision, trigger){
+  const ids = collectDecisionIds();
+  if(!ids.length){
+    toast('Select a request before making a decision.');
+    return;
+  }
+  const commentField = document.getElementById('comment');
+  const comment = commentField ? commentField.value : '';
+  setBulkButtonsDisabled(true, trigger, decision);
+  google.script.run.withSuccessHandler(res => {
+    setBulkButtonsDisabled(false);
+    const updates = res && Array.isArray(res.updates) ? res.updates : [];
+    const okCount = updates.filter(u => u && u.type === 'ok').length;
+    const warnCount = updates.filter(u => u && u.type === 'warn').length;
+    state.selection = new Set();
+    toggleBulk();
+    if(commentField){
+      commentField.value = '';
+    }
+    toast(buildBulkToast(decision, okCount, warnCount));
     loadOrders();
   })
-    .withFailureHandler(e=>toast(e.message))
+    .withFailureHandler(err => {
+      setBulkButtonsDisabled(false);
+      toast(err && err.message ? err.message : 'Unable to update requests.');
+    })
     .router({action:'bulkDecision',ids,decision,comment,csrf:state.session.csrf});
 }
 
