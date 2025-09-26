@@ -90,6 +90,10 @@ table{width:100%;border-collapse:collapse;font-size:.95rem;}
 thead{background:#f1f5f9;color:#475569;}
 th,td{padding:.65rem;border-bottom:1px solid #e2e8f0;text-align:left;}
 tr:nth-child(even){background:#f8fafc;}
+.status-cell{display:flex;flex-direction:column;gap:.5rem;align-items:flex-start;width:100%;}
+.status-label{font-weight:600;color:#1f2933;}
+.status-actions{display:flex;flex-wrap:wrap;gap:.5rem;width:100%;}
+.status-actions button{flex:1 1 auto;min-width:110px;}
 .chip-row{display:flex;flex-wrap:wrap;margin:.25rem -.25rem 0;}
 .chip{display:inline-flex;align-items:center;padding:.25rem .65rem;margin:.25rem;border-radius:999px;background:#e2e8f0;color:#475569;font-size:.75rem;font-weight:600;cursor:pointer;transition:background .2s,color .2s;}
 .chip.active{background:#1a73e8;color:#fff;}
@@ -271,13 +275,11 @@ function canUploadImages(){
 }
 const DECISION_COPY = {
   APPROVED: { label: 'Approve', progress: 'Approving…', success: 'Request approved.' },
-  DENIED: { label: 'Deny', progress: 'Denying…', success: 'Request denied.' },
-  'ON-HOLD': { label: 'On-Hold', progress: 'Placing on hold…', success: 'Request placed on hold.' }
+  DENIED: { label: 'Deny', progress: 'Denying…', success: 'Request denied.' }
 };
 const DECISION_BUTTONS = [
   { decision: 'APPROVED', className: 'primary' },
-  { decision: 'DENIED', className: 'ghost' },
-  { decision: 'ON-HOLD', className: 'ghost' }
+  { decision: 'DENIED', className: 'ghost' }
 ];
 let proofPanelCtx = null;
 let thumbPanelCtx = null;
@@ -1001,7 +1003,6 @@ function renderAll(app){
                 <th scope="col">Approver</th>
                 <th scope="col">Decided</th>
                 <th scope="col">ETA</th>
-                ${canDecide ? '<th scope="col">Actions</th>' : ''}
                 <th scope="col">Order proof</th>
               </tr>
             </thead>
@@ -1302,18 +1303,21 @@ function renderRows(){
     const requester = document.createElement('td');
     requester.textContent = r.requester;
     const status = document.createElement('td');
-    status.textContent = r.statusChip;
+    const statusWrap = document.createElement('div');
+    statusWrap.className = 'status-cell';
+    const statusLabel = document.createElement('span');
+    statusLabel.className = 'status-label';
+    statusLabel.textContent = r.statusChip || '—';
+    statusWrap.appendChild(statusLabel);
     const approver = document.createElement('td');
     approver.textContent = r.approver || '';
     const decision = document.createElement('td');
     decision.textContent = formatDecisionTimestamp(r.decision_ts);
     const eta = document.createElement('td');
     eta.textContent = r.eta_details || '—';
-    let actionsCell = null;
     if(canDecide){
-      actionsCell = document.createElement('td');
       const actionsWrap = document.createElement('div');
-      actionsWrap.className = 'actions start';
+      actionsWrap.className = 'status-actions';
       const currentStatus = (r.statusChip || '').toUpperCase();
       DECISION_BUTTONS.forEach(({decision,className})=>{
         const meta = DECISION_COPY[decision] || {};
@@ -1328,8 +1332,9 @@ function renderRows(){
         btn.addEventListener('click',()=>handleOrderDecision(r.id, decision, btn));
         actionsWrap.appendChild(btn);
       });
-      actionsCell.appendChild(actionsWrap);
+      statusWrap.appendChild(actionsWrap);
     }
+    status.appendChild(statusWrap);
     const proof = document.createElement('td');
     if(r.proof_image){
       const proofBtn = document.createElement('button');
@@ -1360,11 +1365,7 @@ function renderRows(){
       manage.onclick = () => openProofPanel(r);
       proof.appendChild(manage);
     }
-    if(actionsCell){
-      tr.append(requested,itemCell,qty,cost,requester,status,approver,decision,eta,actionsCell,proof);
-    }else{
-      tr.append(requested,itemCell,qty,cost,requester,status,approver,decision,eta,proof);
-    }
+    tr.append(requested,itemCell,qty,cost,requester,status,approver,decision,eta,proof);
     fragment.appendChild(tr);
   });
   tbody.appendChild(fragment);
