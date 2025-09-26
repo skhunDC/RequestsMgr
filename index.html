@@ -45,11 +45,15 @@ nav button.dev-trigger:hover{background:#0b1120;color:#fff;}
 .dev-trigger:hover{background:#0b1120;color:#fff;}
 .dev-trigger[disabled]{opacity:.6;cursor:not-allowed;box-shadow:none;}
 .dev-trigger[disabled]:hover{background:#0f172a;color:#fff;}
-.dev-launcher{position:fixed;top:1rem;right:1rem;z-index:80;}
+.dev-launcher{position:fixed;top:1rem;right:1rem;z-index:80;display:flex;flex-direction:column;gap:.5rem;align-items:flex-end;}
 .dev-launcher button{flex:0 0 auto;padding:.55rem 1.25rem;}
 @media (max-width:640px){
 .dev-launcher{top:.75rem;right:.75rem;}
 }
+.signout-trigger{background:#fff;color:#dc2626;box-shadow:0 12px 24px -18px rgba(220,38,38,.45);border:1px solid rgba(248,113,113,.35);font-weight:600;}
+.signout-trigger:hover{background:#fee2e2;color:#b91c1c;box-shadow:0 18px 36px -24px rgba(220,38,38,.5);}
+.signout-trigger[disabled]{opacity:.6;cursor:not-allowed;box-shadow:none;}
+.signout-trigger[disabled]:hover{background:#fff;color:#dc2626;}
 main{padding:1.5rem 1rem;}
 .view{display:flex;flex-direction:column;gap:1rem;margin:0 auto;width:100%;max-width:960px;}
 .view-header h1{margin:0;font-size:1.5rem;}
@@ -161,6 +165,7 @@ tr:nth-child(even){background:#f8fafc;}
 <nav id="nav" role="navigation"></nav>
 <div id="devLauncher" class="dev-launcher">
   <button id="devLauncherButton" type="button" class="dev-trigger">Developer</button>
+  <button id="signOutButton" type="button" class="signout-trigger hidden">Sign out</button>
 </div>
 <main id="app"></main>
 <div id="devModalOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="devModalTitle">
@@ -333,6 +338,7 @@ function markLoaderComplete(){
 
 function init(){
   setupAuthModal();
+  setupSignOutButton();
   scheduleWork(bootstrapAuth,{priority:'high'});
 }
 
@@ -583,16 +589,6 @@ function renderNav(){
     btn.setAttribute('aria-current', state.route === r ? 'page' : 'false');
     fragment.appendChild(btn);
   });
-  const signOut = document.createElement('button');
-  signOut.type = 'button';
-  signOut.textContent = 'Sign out';
-  signOut.classList.add('ghost');
-  signOut.onclick = handleSignOut;
-  signOut.disabled = !!state.auth.loading;
-  const signedInEmail = state.session.email ? state.session.email.toLowerCase() : '';
-  signOut.title = signedInEmail ? `Signed in as ${signedInEmail}` : 'Sign out';
-  signOut.setAttribute('aria-label', signedInEmail ? `Sign out ${signedInEmail}` : 'Sign out');
-  fragment.appendChild(signOut);
   nav.replaceChildren(fragment);
   updateDevLauncher();
 }
@@ -615,6 +611,28 @@ function setupDevLauncher(){
   updateDevLauncher();
 }
 
+function setupSignOutButton(){
+  const signOut = document.getElementById('signOutButton');
+  if(!signOut) return;
+  signOut.addEventListener('click', () => {
+    if(signOut.disabled) return;
+    handleSignOut();
+  });
+  updateSignOutButton();
+}
+
+function updateSignOutButton(){
+  const signOut = document.getElementById('signOutButton');
+  if(!signOut) return;
+  const authed = !!state.auth.authed;
+  signOut.classList.toggle('hidden', !authed);
+  signOut.disabled = !!state.auth.loading;
+  const signedInEmail = authed && state.session.email ? state.session.email.toLowerCase() : '';
+  const title = authed && signedInEmail ? `Signed in as ${signedInEmail}` : 'Sign out';
+  signOut.title = title;
+  signOut.setAttribute('aria-label', signedInEmail ? `Sign out ${signedInEmail}` : 'Sign out');
+}
+
 function updateDevLauncher(){
   const launcher = document.getElementById('devLauncher');
   const trigger = document.getElementById('devLauncherButton');
@@ -634,6 +652,7 @@ function updateDevLauncher(){
     title = email ? `Open developer tools (${email})` : 'Open developer tools';
   }
   trigger.title = title;
+  updateSignOutButton();
 }
 
 function route(r){
