@@ -1,2256 +1,787 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Supplies Tracker</title>
-<style>
-:root{--brand-primary:#1a73e8;--brand-accent:#39bdf8;--brand-secondary:#0b1120;--brand-light:#f1f5f9;--loader-logo:url('https://www.dublincleaners.com/wp-content/uploads/2025/06/LogosHQ.png');}
-*,*::before,*::after{box-sizing:border-box;}
-body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#1f2933;min-height:100vh;}
-body.is-loading{overflow:hidden;}
-body.app-ready{overflow:auto;}
-body.auth-locked{overflow:hidden;}
-body.auth-locked main,body.auth-locked nav,body.auth-locked header,body.auth-locked .dev-launcher{filter:blur(2px);pointer-events:none;user-select:none;}
-.loading-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;color:#64748b;z-index:120;transition:background .6s ease,color .4s ease,opacity .45s ease,visibility .45s ease;pointer-events:auto;}
-.loading-overlay .loading-inner{display:flex;flex-direction:column;align-items:center;gap:1.25rem;padding:2rem;text-align:center;}
-.glitch-logo{position:relative;display:block;width:min(320px,70vw);filter:drop-shadow(0 20px 40px rgba(15,23,42,.25));}
-.glitch-logo img{display:block;width:100%;height:auto;object-fit:contain;}
-.glitch-logo::before,.glitch-logo::after{content:"";position:absolute;inset:0;background:var(--loader-logo) center/contain no-repeat;opacity:.78;mix-blend-mode:screen;}
-.glitch-logo::before{transform:translate(-2px,-2px);clip-path:polygon(0 3%,100% 0,100% 52%,0 56%);animation:glitch-shift 2.1s infinite ease-in-out alternate;}
-.glitch-logo::after{transform:translate(2px,2px);clip-path:polygon(0 50%,100% 48%,100% 100%,0 97%);animation:glitch-shift-alt 1.8s infinite ease-in-out alternate-reverse;}
-.glitch-logo::before{background-image:var(--loader-logo);}
-.glitch-logo::after{background-image:var(--loader-logo);}
-.loading-subtitle{margin:0;font-size:1rem;color:inherit;letter-spacing:.08em;text-transform:uppercase;}
-.loading-bar{width:min(320px,80vw);height:8px;border-radius:999px;background:rgba(148,163,184,.4);overflow:hidden;box-shadow:0 12px 30px -20px rgba(15,23,42,.45);}
-.loading-progress{display:block;height:100%;width:100%;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,var(--brand-primary),var(--brand-accent));transition:transform .8s cubic-bezier(.4,0,.2,1);}
-.loading-overlay.loading-complete{background:radial-gradient(circle at top,var(--brand-light) 0%,rgba(241,245,249,0) 55%),var(--brand-secondary);color:#e0f2fe;}
-.loading-overlay.loading-complete .glitch-logo::before{mix-blend-mode:normal;opacity:.95;}
-.loading-overlay.loading-complete .glitch-logo::after{mix-blend-mode:normal;opacity:.8;}
-.loading-overlay.loading-complete .loading-subtitle{color:#f8fafc;}
-.loading-overlay.loading-complete .loading-progress{transform:scaleX(1);}
-body.app-ready .loading-overlay{opacity:0;visibility:hidden;pointer-events:none;}
-@keyframes glitch-shift{0%{transform:translate(-1px,-1px);}20%{transform:translate(1px,1px);}40%{transform:translate(-3px,2px);}60%{transform:translate(2px,-2px);}80%{transform:translate(-1px,1px);}100%{transform:translate(1px,-1px);}}
-@keyframes glitch-shift-alt{0%{transform:translate(1px,1px);}20%{transform:translate(-1px,-1px);}40%{transform:translate(3px,-2px);}60%{transform:translate(-2px,2px);}80%{transform:translate(1px,-1px);}100%{transform:translate(-1px,1px);}}
-@media (prefers-reduced-motion:reduce){.glitch-logo::before,.glitch-logo::after{animation:none;}.loading-progress{transition-duration:.01ms;}}
-.app-header{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem 1rem .75rem;background:#fff;box-shadow:0 1px 0 rgba(15,23,42,.08);gap:.5rem;text-align:center;}
-.app-logo{height:80px;object-fit:contain;}
-@media (min-width:640px){.app-logo{height:96px;}}
-nav{display:flex;gap:.5rem;padding:.75rem 1rem;background:#fff;position:sticky;top:0;z-index:10;border-bottom:1px solid #e2e8f0;}
-nav button{flex:1;appearance:none;border:none;background:transparent;padding:.65rem .75rem;border-radius:999px;font-weight:600;color:#475569;transition:background .2s,color .2s;}
-nav button.active{background:#1a73e8;color:#fff;box-shadow:0 0 0 1px rgba(26,115,232,.2);}
-nav button:hover{background:rgba(26,115,232,.12);color:#1a73e8;}
-nav button.dev-trigger{flex:0 0 auto;margin-left:auto;}
-nav button.dev-trigger:hover{background:#0b1120;color:#fff;}
-.dev-trigger{background:#0f172a;color:#fff;box-shadow:0 12px 24px -18px rgba(15,23,42,.7);}
-.dev-trigger:hover{background:#0b1120;color:#fff;}
-.dev-trigger[disabled]{opacity:.6;cursor:not-allowed;box-shadow:none;}
-.dev-trigger[disabled]:hover{background:#0f172a;color:#fff;}
-.dev-launcher{position:fixed;top:1rem;right:1rem;z-index:80;display:flex;flex-direction:column;gap:.5rem;align-items:flex-end;}
-.dev-launcher button{flex:0 0 auto;padding:.55rem 1.25rem;}
-@media (max-width:640px){
-.dev-launcher{top:.75rem;right:.75rem;}
-}
-.signout-trigger{background:#fff;color:#dc2626;box-shadow:0 12px 24px -18px rgba(220,38,38,.45);border:1px solid rgba(248,113,113,.35);font-weight:600;}
-.signout-trigger:hover{background:#fee2e2;color:#b91c1c;box-shadow:0 18px 36px -24px rgba(220,38,38,.5);}
-.signout-trigger[disabled]{opacity:.6;cursor:not-allowed;box-shadow:none;}
-.signout-trigger[disabled]:hover{background:#fff;color:#dc2626;}
-main{padding:1.5rem 1rem;}
-.view{display:flex;flex-direction:column;gap:1rem;margin:0 auto;width:100%;max-width:960px;}
-.view-header h1{margin:0;font-size:1.5rem;}
-.view-header p{margin:.25rem 0 0;color:#64748b;}
-.panel{background:#fff;border-radius:12px;padding:1rem;box-shadow:0 8px 16px -12px rgba(15,23,42,.45);}
-.panel-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;}
-.panel-title{margin:0;font-size:1rem;}
-.stack>*+*{margin-top:.75rem;}
-.form-grid{display:grid;gap:.75rem;}
-@media (min-width:640px){
-.form-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));}
-.form-grid textarea{grid-column:1 / -1;}
-}
-.field{display:flex;flex-direction:column;gap:.25rem;font-size:.875rem;color:#475569;}
-.field span{font-weight:600;}
-input,textarea{font:inherit;padding:.5rem .6rem;border-radius:8px;border:1px solid #cbd5f5;background:#f8fafc;}
-input:focus,textarea:focus{outline:2px solid #1a73e8;outline-offset:2px;}
-textarea{min-height:5rem;resize:vertical;}
-.checkbox-field{flex-direction:row;align-items:center;gap:.5rem;}
-.checkbox-field span{font-weight:500;}
-.actions{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;}
-.actions.start{justify-content:flex-start;}
-.actions.start button{flex:0 0 auto;}
-button{font:inherit;border-radius:999px;border:none;padding:.55rem 1.1rem;cursor:pointer;transition:background .2s,box-shadow .2s,color .2s;background:#e2e8f0;color:#1f2933;}
-button:hover{background:#cbd5f5;}
-button.primary{background:#1a73e8;color:#fff;}
-button.primary:hover{background:#1666cf;}
-button.ghost{background:transparent;color:#1a73e8;box-shadow:0 0 0 1px rgba(26,115,232,.3);}
-button.ghost:hover{background:rgba(26,115,232,.12);}
-button.link{background:transparent;color:#1a73e8;padding:0;border-radius:0;font-weight:600;}
-button.link:hover{text-decoration:underline;}
-.table-wrapper{overflow-x:auto;}
-table{width:100%;border-collapse:collapse;font-size:.95rem;}
-thead{background:#f1f5f9;color:#475569;}
-th,td{padding:.65rem;border-bottom:1px solid #e2e8f0;text-align:left;}
-tr:nth-child(even){background:#f8fafc;}
-.status-cell{display:flex;flex-direction:column;gap:.5rem;align-items:flex-start;width:100%;}
-.status-label{font-weight:600;color:#1f2933;}
-.status-actions{display:flex;flex-wrap:wrap;gap:.5rem;width:100%;}
-.status-actions button{flex:1 1 auto;min-width:110px;}
-.chip-row{display:flex;flex-wrap:wrap;margin:.25rem -.25rem 0;}
-.chip{display:inline-flex;align-items:center;padding:.25rem .65rem;margin:.25rem;border-radius:999px;background:#e2e8f0;color:#475569;font-size:.75rem;font-weight:600;cursor:pointer;transition:background .2s,color .2s;}
-.chip.active{background:#1a73e8;color:#fff;}
-#itemPreview{display:flex;align-items:center;gap:.75rem;margin-top:.5rem;padding:.5rem;border-radius:8px;background:#eef2ff;color:#312e81;}
-#itemPreview.hidden{display:none;}
-#itemPreview img{width:72px;height:72px;object-fit:cover;border-radius:8px;box-shadow:0 0 0 1px rgba(49,46,129,.15);}
-#itemPreview button{align-self:flex-start;}
-#itemPreview button.link{padding:0;}
-#bulkBar{display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;}
-#bulkBar .field{flex:1 1 240px;}
-#bulkBar .actions{flex:1 1 200px;justify-content:flex-end;}
-#bulkBar textarea{min-height:3rem;}
-.empty{padding:.75rem 0;color:#64748b;text-align:center;}
-#toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:#1f2933;color:#fff;padding:.65rem 1rem;border-radius:999px;display:none;box-shadow:0 10px 25px -12px rgba(15,23,42,.6);}
-.hidden{display:none;}
-.footnote{margin:.5rem 0 0;font-size:.8rem;color:#64748b;}
-.item-note{margin-top:.25rem;font-size:.8rem;color:#64748b;white-space:pre-wrap;}
-.field-note{margin:.25rem 0 0;font-size:.8rem;color:#64748b;}
-.thumb{width:60px;height:60px;object-fit:cover;border-radius:8px;box-shadow:0 0 0 1px rgba(148,163,184,.4);transition:transform .2s,box-shadow .2s;cursor:pointer;background:#fff;}
-.thumb:hover{transform:translateY(-2px);box-shadow:0 8px 12px -10px rgba(30,64,175,.45);}
-.catalog-item{display:flex;align-items:center;gap:.75rem;}
-.catalog-item-text{display:flex;flex-direction:column;gap:.25rem;}
-.thumb-button{padding:0;border:none;background:transparent;cursor:pointer;}
-.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:1.25rem;z-index:50;}
-.modal-overlay.hidden{display:none;}
-.modal-card{background:#fff;border-radius:16px;width:100%;max-width:420px;padding:1.25rem;box-shadow:0 24px 48px -24px rgba(15,23,42,.55);display:flex;flex-direction:column;gap:1rem;}
-.auth-card{max-width:420px;text-align:left;}
-.modal-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;}
-.modal-head h2{margin:0;font-size:1.25rem;}
-.modal-close{appearance:none;border:none;background:transparent;color:#475569;font-size:1.5rem;line-height:1;cursor:pointer;padding:.25rem;}
-.modal-close:hover{color:#1f2933;}
-.modal-body{display:flex;flex-direction:column;gap:1rem;}
-.notice{padding:.65rem .75rem;border-radius:10px;font-size:.9rem;}
-.notice.ok{background:#ecfdf5;color:#047857;}
-.notice.error{background:#fef2f2;color:#b91c1c;}
-.dev-form .actions{justify-content:flex-end;}
-.dev-users{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.35rem;font-size:.9rem;}
-.dev-users li{display:flex;justify-content:space-between;gap:.5rem;padding:.35rem .5rem;border-radius:8px;background:#f8fafc;color:#1f2933;}
-.dev-users li span{font-weight:600;word-break:break-all;}
-.modal-actions{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;}
-.modal-actions.spread{justify-content:space-between;}
-.modal-actions button{flex:0 0 auto;}
-#authModalOverlay{z-index:200;}
-.auth-info{margin:0;font-size:.85rem;color:#64748b;}
-.auth-meta{font-size:.8rem;color:#94a3b8;margin-top:-.35rem;}
-.auth-meta strong{color:#1f2933;}
-.auth-help{font-size:.8rem;color:#475569;margin:0;}
-.auth-actions{display:flex;gap:.5rem;justify-content:flex-end;}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Supplies Tracker</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --surface: #ffffff;
+      --surface-alt: #f5f6f8;
+      --border: #d7dce1;
+      --text: #202731;
+      --muted: #5c6774;
+      --accent: #0b57d0;
+      --accent-strong: #0a47ac;
+      --success: #0f9d58;
+      --danger: #d93025;
+    }
 
-.dropzone{border:1px dashed #94a3b8;border-radius:10px;padding:1rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;text-align:center;background:#f8fafc;color:#475569;transition:border-color .2s,background .2s;min-height:120px;justify-content:center;}
-.dropzone.drag{border-color:#1a73e8;background:rgba(26,115,232,.08);}
-.dropzone.has-image{border-style:solid;background:#fff;}
-.dropzone strong{color:#1a73e8;}
-.dropzone .field-note{margin:0;font-size:.75rem;color:#64748b;}
-.field-note + .link{margin-top:.35rem;display:inline-block;}
-.preview{max-width:220px;border-radius:12px;margin-top:.5rem;box-shadow:0 10px 18px -12px rgba(15,23,42,.45);display:block;}
-.preview.hidden{display:none;}
-</style>
-</head>
-<body class="is-loading">
-<div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite">
-  <div class="loading-inner">
-    <div class="glitch-logo" role="img" aria-label="Dublin Cleaners logo">
-      <img src="https://www.dublincleaners.com/wp-content/uploads/2025/06/LogosHQ.png" alt="">
-    </div>
-    <p class="loading-subtitle">Booting up supplies tracker…</p>
-    <div class="loading-bar" aria-hidden="true"><span class="loading-progress"></span></div>
-  </div>
-</div>
-<header class="app-header">
-<img src="https://www.dublincleaners.com/wp-content/uploads/2025/06/LogosHQ.png" alt="Dublin Cleaners logo" class="app-logo">
-</header>
-<nav id="nav" role="navigation"></nav>
-<div id="devLauncher" class="dev-launcher">
-  <button id="devLauncherButton" type="button" class="dev-trigger">Developer</button>
-  <button id="signOutButton" type="button" class="signout-trigger hidden">Sign out</button>
-</div>
-<main id="app"></main>
-<div id="devModalOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="devModalTitle">
-  <section id="devModalCard" class="modal-card"></section>
-</div>
-<div id="authModalOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
-  <section id="authModalCard" class="modal-card auth-card"></section>
-</div>
-<div id="toast" aria-live="polite"></div>
-<script>
-const SESSION = <?!= JSON.stringify(session) ?>;
-</script>
-<script type="module">
-const INITIAL_EMAIL = typeof SESSION.email === 'string' ? SESSION.email.trim().toLowerCase() : '';
-const INITIAL_ROLE = typeof SESSION.role === 'string' ? SESSION.role.trim().toLowerCase() : '';
-const DEV_ALLOWED_EMAILS = Array.isArray(SESSION.devEmails) ? SESSION.devEmails.map(e => String(e || '').trim().toLowerCase()) : [];
-const DEV_ALLOWED_SET = new Set(DEV_ALLOWED_EMAILS);
-const DEV_ACCESS_DENIED_MESSAGE = 'Your account is not authorized for developer tools.';
-const AUTH_TOKEN_KEY = 'suppliesTrackerAuthToken';
+    * {
+      box-sizing: border-box;
+    }
 
-const DEFAULT_CAPABILITIES = Object.freeze({
-  canDecide: false,
-  canManageProof: false,
-  canManageThumbs: false,
-  canUploadImages: false
-});
+    body {
+      margin: 0;
+      background: var(--surface-alt);
+      color: var(--text);
+    }
 
-function normalizeCapabilities(caps){
-  if(!caps || typeof caps !== 'object'){
-    return { ...DEFAULT_CAPABILITIES };
-  }
-  return {
-    canDecide: !!caps.canDecide,
-    canManageProof: !!caps.canManageProof,
-    canManageThumbs: !!caps.canManageThumbs,
-    canUploadImages: !!caps.canUploadImages
-  };
-}
+    header {
+      padding: 1.5rem 1rem 0.75rem;
+      text-align: center;
+    }
 
-const state = {
-  session: { ...SESSION, email: INITIAL_EMAIL, role: INITIAL_ROLE, capabilities: normalizeCapabilities(SESSION && SESSION.capabilities) },
-  auth: { token: '', authed: false, loading: false, error: '', checking: true },
-  route: 'request',
-  filters: { mineOnly: false, status: [], search: '' },
-  rows: [],
-  catalog: [],
-  dev: {
-    allowed: false,
-    show: false,
-    statusLoaded: false,
-    hasPassword: false,
-    authed: false,
-    token: '',
-    loading: false,
-    error: '',
-    message: '',
-    view: 'login',
-    users: [],
-    loadingUsers: false,
-    loadedUsers: false
-  }
-};
+    header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
 
-function currentRole(){
-  return String(state.session.role || '').trim().toLowerCase();
-}
+    header p {
+      margin: 0.25rem 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
 
-function sessionCapabilities(){
-  const caps = state.session && state.session.capabilities ? state.session.capabilities : DEFAULT_CAPABILITIES;
-  const normalized = {
-    canDecide: !!caps.canDecide,
-    canManageProof: !!caps.canManageProof,
-    canManageThumbs: !!caps.canManageThumbs,
-    canUploadImages: !!caps.canUploadImages
-  };
-  const role = currentRole();
-  if(['approver','developer','super_admin'].includes(role)){
-    normalized.canDecide = true;
-    normalized.canManageProof = true;
-  }
-  if(['developer','super_admin'].includes(role)){
-    normalized.canManageThumbs = true;
-    normalized.canUploadImages = true;
-  }
-  return normalized;
-}
+    main {
+      padding: 0 1rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      max-width: 720px;
+      margin: 0 auto;
+    }
 
-function canDecideRequests(){
-  const caps = sessionCapabilities();
-  return typeof caps.canDecide === 'boolean' ? caps.canDecide : ['approver','developer','super_admin'].includes(currentRole());
-}
-function canManageProof(){
-  const caps = sessionCapabilities();
-  return typeof caps.canManageProof === 'boolean' ? caps.canManageProof : ['approver','developer','super_admin'].includes(currentRole());
-}
-function canManageThumbs(){
-  const caps = sessionCapabilities();
-  return typeof caps.canManageThumbs === 'boolean' ? caps.canManageThumbs : ['developer','super_admin'].includes(currentRole());
-}
-function canUploadImages(){
-  const caps = sessionCapabilities();
-  return typeof caps.canUploadImages === 'boolean' ? caps.canUploadImages : ['developer','super_admin'].includes(currentRole());
-}
-const DECISION_COPY = {
-  APPROVED: { label: 'Approve', progress: 'Approving…', success: 'Request approved.' },
-  DENIED: { label: 'Deny', progress: 'Denying…', success: 'Request denied.' }
-};
-const DECISION_BUTTONS = [
-  { decision: 'APPROVED', className: 'primary' },
-  { decision: 'DENIED', className: 'ghost' }
-];
-let proofPanelCtx = null;
-let thumbPanelCtx = null;
-let devModalReady = false;
-let initialRouteRendered = false;
-let loaderFinalized = false;
-let appInitialized = false;
-const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const LOADER_COLOR_DELAY = prefersReducedMotion ? 120 : 820;
-const LOADER_FADE_DELAY = prefersReducedMotion ? 160 : 520;
+    section.card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 1.25rem;
+      box-shadow: 0 12px 24px -18px rgba(23, 32, 42, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
 
-function scheduleWork(fn,{priority='normal',timeout=600}={}){
-  if(typeof fn !== 'function') return;
-  if(priority === 'high'){
-    requestAnimationFrame(()=>fn());
-    return;
-  }
-  if('requestIdleCallback' in window){
-    requestIdleCallback(()=>fn(),{timeout});
-  }else{
-    const delay = priority === 'low' ? 140 : 40;
-    setTimeout(fn,delay);
-  }
-}
+    h2 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
 
-function markLoaderComplete(){
-  if(loaderFinalized){
-    return;
-  }
-  loaderFinalized = true;
-  const overlay = document.getElementById('loadingOverlay');
-  const cleanup = ()=>{
-    document.body.classList.remove('is-loading');
-    document.body.classList.add('app-ready');
-    if(overlay){
-      const removeOverlay = ()=>{
-        if(overlay.parentNode){
-          overlay.parentNode.removeChild(overlay);
-        }
-      };
-      overlay.addEventListener('transitionend',function handler(e){
-        if(e.propertyName === 'opacity'){
-          overlay.removeEventListener('transitionend',handler);
-          removeOverlay();
-        }
-      });
-      if(prefersReducedMotion){
-        removeOverlay();
-      }else{
-        setTimeout(removeOverlay,LOADER_FADE_DELAY);
+    .form-grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    @media (min-width: 560px) {
+      .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: end;
+      }
+      .form-grid textarea {
+        grid-column: 1 / -1;
       }
     }
-  };
-  if(overlay){
-    overlay.classList.add('loading-complete');
-    if(prefersReducedMotion){
-      cleanup();
-    }else{
-      setTimeout(cleanup,LOADER_COLOR_DELAY);
+
+    label span {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
     }
-  }else{
-    cleanup();
-  }
-}
 
-function init(){
-  setupAuthModal();
-  setupSignOutButton();
-  scheduleWork(bootstrapAuth,{priority:'high'});
-}
-
-function startApp(){
-  if(!state.auth.authed){
-    return;
-  }
-  if(!appInitialized){
-    appInitialized = true;
-    setupDevLauncher();
-    scheduleWork(setupDevModal,{priority:'normal',timeout:420});
-  }
-  renderNav();
-  route(state.route || 'request');
-  if(state.dev.allowed && !state.dev.statusLoaded){
-    scheduleWork(()=>fetchDevStatus(),{priority:'low',timeout:1200});
-  }
-}
-
-function setupAuthModal(){
-  renderAuthModal();
-}
-
-function bootstrapAuth(){
-  const saved = getStoredAuthToken();
-  if(saved){
-    state.auth.token = saved;
-    state.auth.authed = false;
-    state.auth.checking = true;
-    state.auth.error = '';
-    renderAuthModal();
-    google.script.run.withSuccessHandler(res => {
-      handleAuthStatus(res || {});
-    }).withFailureHandler(() => {
-      handleAuthStatus({ authed: false });
-    }).router({ action:'siteStatus', token:saved, csrf: state.session.csrf });
-  }else{
-    state.auth.token = '';
-    state.auth.authed = false;
-    state.auth.checking = false;
-    state.auth.error = '';
-    renderAuthModal();
-  }
-}
-
-function getStoredAuthToken(){
-  try{
-    return window.localStorage ? window.localStorage.getItem(AUTH_TOKEN_KEY) || '' : '';
-  }catch(err){
-    return '';
-  }
-}
-
-function setStoredAuthToken(token){
-  try{
-    if(!window.localStorage) return;
-    if(token){
-      window.localStorage.setItem(AUTH_TOKEN_KEY, token);
-    }else{
-      window.localStorage.removeItem(AUTH_TOKEN_KEY);
+    input[type="number"],
+    textarea,
+    select,
+    button {
+      font: inherit;
     }
-  }catch(err){/* ignore */}
-}
 
-function renderAuthModal(){
-  const overlay = document.getElementById('authModalOverlay');
-  const card = document.getElementById('authModalCard');
-  if(!overlay || !card) return;
-  if(state.auth.authed){
-    overlay.classList.add('hidden');
-    overlay.setAttribute('aria-hidden','true');
-    card.innerHTML = '';
-    document.body.classList.remove('auth-locked');
-    return;
-  }
-  document.body.classList.add('auth-locked');
-  overlay.classList.remove('hidden');
-  overlay.setAttribute('aria-hidden','false');
-  if(state.auth.checking){
-    card.innerHTML = '<div class="modal-body"><p class="auth-info">Verifying access…</p></div>';
-    return;
-  }
-  const disabledAttr = state.auth.loading ? 'disabled' : '';
-  const errorBlock = state.auth.error ? `<div class="notice error" role="alert">${escapeHtml(state.auth.error)}</div>` : '';
-  const emailValue = state.session.email ? escapeHtml(state.session.email) : '';
-  card.innerHTML = `
-    <header class="modal-head">
-      <h2 id="authModalTitle">Sign in</h2>
-    </header>
-    <div class="modal-body">
-      <p class="auth-info">Only users approved by a developer can access the supplies tracker.</p>
-      <p class="auth-meta">Use the email and password provided by your administrator.</p>
-      <form id="authLoginForm" class="stack">
-        <label class="field">
-          <span>Email address</span>
-          <input type="email" id="authEmail" autocomplete="email" required ${disabledAttr} value="${emailValue}" data-autofocus>
+    textarea,
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-alt);
+      color: inherit;
+      min-height: 44px;
+    }
+
+    textarea:focus,
+    input[type="number"]:focus,
+    select:focus,
+    button:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 96px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 999px;
+      padding: 0.75rem 1.25rem;
+      font-weight: 600;
+      background: var(--accent);
+      color: #fff;
+      min-height: 44px;
+      transition: background 0.2s ease;
+    }
+
+    button[disabled] {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    button:not([disabled]):hover {
+      background: var(--accent-strong);
+    }
+
+    button.secondary {
+      background: var(--surface-alt);
+      color: var(--accent);
+      border: 1px solid var(--border);
+    }
+
+    button.secondary:hover:not([disabled]) {
+      background: #e9eef7;
+    }
+
+    .inline-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .skeleton {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(90deg, #e4e8ee 25%, #f2f4f8 37%, #e4e8ee 63%);
+      background-size: 400% 100%;
+      animation: shimmer 1.4s ease infinite;
+      border-radius: 12px;
+      min-height: 44px;
+    }
+
+    .skeleton.sm {
+      height: 18px;
+      border-radius: 6px;
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: 100% 0;
+      }
+      100% {
+        background-position: -100% 0;
+      }
+    }
+
+    .order-item,
+    .catalog-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding: 0.85rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+    }
+
+    .order-item strong,
+    .catalog-item strong {
+      font-size: 1rem;
+    }
+
+    .meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .status[data-state="approved"] {
+      border-color: rgba(15, 157, 88, 0.35);
+      color: var(--success);
+    }
+
+    .status[data-state="declined"] {
+      border-color: rgba(217, 48, 37, 0.35);
+      color: var(--danger);
+    }
+
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 0.75rem 0;
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .load-more {
+      align-self: center;
+    }
+
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: 1.25rem;
+      transform: translateX(-50%);
+      background: rgba(32, 39, 49, 0.94);
+      color: #fff;
+      padding: 0.75rem 1.25rem;
+      border-radius: 999px;
+      box-shadow: 0 20px 35px -25px rgba(23, 32, 42, 0.8);
+      display: none;
+      z-index: 20;
+      min-width: 200px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Supplies Tracker</h1>
+    <p>Request, review, and manage supply orders quickly.</p>
+  </header>
+  <main>
+    <section class="card" id="orderFormCard">
+      <div>
+        <h2>New request</h2>
+        <p class="meta">Use the catalog to fill details fast, then submit your order.</p>
+      </div>
+      <form id="orderForm" class="form-grid">
+        <label>
+          <span>Description</span>
+          <textarea id="descriptionInput" name="description" autocomplete="off" required></textarea>
         </label>
-        <label class="field">
-          <span>Password</span>
-          <input type="password" id="authPassword" autocomplete="current-password" required ${disabledAttr}>
+        <label>
+          <span>Quantity</span>
+          <input id="qtyInput" name="qty" type="number" min="1" step="1" required>
         </label>
-        <div class="auth-actions">
-          <button class="primary" type="submit" ${disabledAttr}>Sign in</button>
+        <label>
+          <span>Suggested item</span>
+          <select id="catalogSelect"></select>
+        </label>
+        <div class="inline-buttons">
+          <button type="submit" id="submitOrderButton">Submit request</button>
+          <button type="button" id="resetFormButton" class="secondary">Reset</button>
         </div>
       </form>
-    </div>
-    ${errorBlock}
-  `;
-  const form = card.querySelector('#authLoginForm');
-  if(form){
-    form.onsubmit = handleAuthLogin;
-  }
-  const focusTarget = card.querySelector('[data-autofocus]');
-  if(focusTarget && typeof focusTarget.focus === 'function'){
-    requestAnimationFrame(()=>focusTarget.focus());
-  }
-}
-
-function handleAuthLogin(e){
-  e.preventDefault();
-  if(state.auth.loading) return;
-  const form = e.target;
-  const emailInput = form.querySelector('#authEmail');
-  const passwordInput = form.querySelector('#authPassword');
-  const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
-  const password = passwordInput ? passwordInput.value : '';
-  if(!email || email.indexOf('@') === -1){
-    state.auth.error = 'Enter a valid email address.';
-    renderAuthModal();
-    return;
-  }
-  if(!password){
-    state.auth.error = 'Enter your password.';
-    renderAuthModal();
-    return;
-  }
-  state.auth.loading = true;
-  state.auth.error = '';
-  renderAuthModal();
-  google.script.run.withSuccessHandler(res => {
-    state.auth.loading = false;
-    const payload = Object.assign({}, res || {}, { authed: true });
-    handleAuthStatus(payload);
-  }).withFailureHandler(err => {
-    state.auth.loading = false;
-    state.auth.error = err && err.message ? err.message : 'Sign in failed';
-    renderAuthModal();
-  }).router({ action:'siteLogin', email, password, csrf: state.session.csrf });
-}
-
-function handleSignOut(){
-  if(!state.auth.authed || state.auth.loading) return;
-  state.auth.loading = true;
-  renderNav();
-  google.script.run.withSuccessHandler(() => {
-    state.auth.loading = false;
-    setStoredAuthToken('');
-    handleAuthStatus({ authed: false });
-  }).withFailureHandler(err => {
-    state.auth.loading = false;
-    toast(err && err.message ? err.message : 'Sign out failed');
-    renderNav();
-  }).router({ action:'siteLogout', token: state.auth.token, csrf: state.session.csrf, siteToken: state.auth.token });
-}
-
-function handleAuthStatus(res){
-  const authed = !!(res && res.authed);
-  if(authed){
-    state.auth.authed = true;
-    state.auth.checking = false;
-    state.auth.error = '';
-    state.auth.token = res && res.token ? res.token : state.auth.token;
-    setStoredAuthToken(state.auth.token);
-    state.session.email = res && res.email ? String(res.email).trim().toLowerCase() : '';
-    state.session.role = res && res.role ? String(res.role).trim().toLowerCase() : '';
-    state.session.capabilities = normalizeCapabilities(res && res.capabilities);
-    renderAuthModal();
-    syncPermissions();
-    startApp();
-  }else{
-    state.auth.authed = false;
-    state.auth.token = '';
-    state.auth.checking = false;
-    state.session.email = '';
-    state.session.role = '';
-    state.session.capabilities = { ...DEFAULT_CAPABILITIES };
-    setStoredAuthToken('');
-    resetDevState();
-    renderAuthModal();
-    updateDevLauncher();
-    renderNav();
-  }
-}
-
-function resetDevState(){
-  state.dev.allowed = false;
-  state.dev.show = false;
-  state.dev.statusLoaded = false;
-  state.dev.hasPassword = false;
-  state.dev.authed = false;
-  state.dev.token = '';
-  state.dev.loading = false;
-  state.dev.error = '';
-  state.dev.message = '';
-  state.dev.view = 'login';
-  state.dev.users = [];
-  state.dev.loadingUsers = false;
-  state.dev.loadedUsers = false;
-  closeDevModal();
-}
-
-function syncPermissions(){
-  const normalizedEmail = state.session.email ? state.session.email.toLowerCase() : '';
-  const roleAllowed = ['developer','super_admin'].includes(currentRole());
-  state.dev.allowed = state.auth.authed && (roleAllowed || DEV_ALLOWED_SET.has(normalizedEmail));
-  if(!state.dev.allowed){
-    state.dev.authed = false;
-    state.dev.token = '';
-    state.dev.statusLoaded = false;
-    state.dev.loadedUsers = false;
-    state.dev.loadingUsers = false;
-    state.dev.users = [];
-    if(state.dev.view !== 'login') state.dev.view = 'login';
-    closeDevModal();
-  }
-  updateDevLauncher();
-  if(state.dev.allowed && !state.dev.statusLoaded){
-    scheduleWork(()=>fetchDevStatus(),{priority:'low',timeout:1200});
-  }
-}
-
-function renderNav(){
-  const nav = document.getElementById('nav');
-  if(!nav) return;
-  if(!state.auth.authed){
-    nav.innerHTML = '';
-    updateDevLauncher();
-    return;
-  }
-  const links = [['request','Request'],['all','All Requests'],['catalog','Catalog']];
-  const fragment = document.createDocumentFragment();
-  links.forEach(([r,label])=>{
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = label;
-    btn.onclick = () => route(r);
-    btn.classList.toggle('active', state.route === r);
-    btn.setAttribute('aria-current', state.route === r ? 'page' : 'false');
-    fragment.appendChild(btn);
-  });
-  nav.replaceChildren(fragment);
-  updateDevLauncher();
-}
-
-function setupDevLauncher(){
-  const trigger = document.getElementById('devLauncherButton');
-  if(trigger){
-    trigger.onclick = () => {
-      if(trigger.disabled) return;
-      if(state.dev && state.dev.allowed){
-        if(!state.dev.statusLoaded){
-          fetchDevStatus();
-        }
-        openDevModal();
-        return;
-      }
-      toast(DEV_ACCESS_DENIED_MESSAGE);
-    };
-  }
-  updateDevLauncher();
-}
-
-function setupSignOutButton(){
-  const signOut = document.getElementById('signOutButton');
-  if(!signOut) return;
-  signOut.addEventListener('click', () => {
-    if(signOut.disabled) return;
-    handleSignOut();
-  });
-  updateSignOutButton();
-}
-
-function updateSignOutButton(){
-  const signOut = document.getElementById('signOutButton');
-  if(!signOut) return;
-  const authed = !!state.auth.authed;
-  signOut.classList.toggle('hidden', !authed);
-  signOut.disabled = !!state.auth.loading;
-  const signedInEmail = authed && state.session.email ? state.session.email.toLowerCase() : '';
-  const title = authed && signedInEmail ? `Signed in as ${signedInEmail}` : 'Sign out';
-  signOut.title = title;
-  signOut.setAttribute('aria-label', signedInEmail ? `Sign out ${signedInEmail}` : 'Sign out');
-}
-
-function updateDevLauncher(){
-  const launcher = document.getElementById('devLauncher');
-  const trigger = document.getElementById('devLauncherButton');
-  if(!launcher || !trigger) return;
-  launcher.classList.toggle('hidden', !state.auth.authed);
-  const devState = state.dev || {};
-  const allowed = !!devState.allowed;
-  const disabled = !allowed;
-  trigger.disabled = disabled;
-  trigger.textContent = 'Developer';
-  trigger.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-  let title = 'Developer tools restricted to authorized users';
-  if(!state.auth.authed){
-    title = 'Sign in to access developer tools';
-  }else if(allowed){
-    const email = state.session.email ? state.session.email.toLowerCase() : '';
-    title = email ? `Open developer tools (${email})` : 'Open developer tools';
-  }
-  trigger.title = title;
-  updateSignOutButton();
-}
-
-function route(r){
-  if(!state.auth.authed){
-    return;
-  }
-  state.route = r;
-  proofPanelCtx = null;
-  thumbPanelCtx = null;
-  renderNav();
-  const app = document.getElementById('app');
-  if(!app) return;
-  app.innerHTML = '';
-  if(r === 'request') renderRequest(app);
-  else if(r === 'all') renderAll(app);
-  else if(r === 'catalog') renderCatalog(app);
-  if(!initialRouteRendered){
-    initialRouteRendered = true;
-    requestAnimationFrame(()=>requestAnimationFrame(markLoaderComplete));
-  }
-}
-
-function viewHeader(title, subtitle=''){
-  return `<header class="view-header"><h1>${title}</h1>${subtitle ? `<p>${subtitle}</p>` : ''}</header>`;
-}
-
-function renderRequest(app){
-  app.innerHTML = `
-    <section class="view">
-      ${viewHeader('New request','Choose an item from the catalog and share any required details.')}
-      <section class="panel stack">
-        <h2 class="panel-title">Request details</h2>
-        <div id="catalogFields" class="form-grid">
-          <label class="field">
-            <span>Item</span>
-            <input id="item" placeholder="Start typing to search the catalog" list="catList">
-            <p class="field-note">Choose an item to reveal its catalog thumbnail.</p>
-            <div id="itemPreview" class="hidden">
-              <img id="itemPreviewImg" alt="Selected item thumbnail">
-              <div class="catalog-item-text">
-                <strong id="itemPreviewLabel"></strong>
-                <button id="itemPreviewOpen" type="button" class="link">Open full image</button>
-                <button id="itemPreviewChange" type="button" class="link">Choose another item</button>
-              </div>
-            </div>
-          </label>
-          <label class="field">
-            <span>Quantity</span>
-            <input id="qty" type="number" min="1" value="1">
-          </label>
-          <label class="field">
-            <span>Estimated cost</span>
-            <input id="est" type="number" min="0" placeholder="0.00">
-          </label>
-        </div>
-        <label class="field checkbox-field">
-          <input type="checkbox" id="nonCat">
-          <span>Request item not in the catalog</span>
-        </label>
-        <div id="nonCatalogFields" class="form-grid hidden">
-          <label class="field">
-            <span>Item name</span>
-            <input id="nonCatItem" placeholder="What do you need?">
-          </label>
-          <label class="field">
-            <span>Description</span>
-            <textarea id="nonCatDesc" placeholder="Share details so we can source the item."></textarea>
-          </label>
-          <label class="field">
-            <span>Quantity</span>
-            <input id="nonCatQty" type="number" min="1" value="1">
-          </label>
-          <label class="field">
-            <span>Estimated cost</span>
-            <input id="nonCatEst" type="number" min="0" placeholder="0.00">
-          </label>
-        </div>
-        <div class="actions">
-          <button id="sub" class="primary" type="button">Submit request</button>
-        </div>
-      </section>
-      <section class="panel stack">
-        <div class="panel-head">
-          <h2 class="panel-title">Catalog snapshot</h2>
-          <button class="link" type="button" data-route="catalog">View full catalog</button>
-        </div>
-        <div id="catalogPreview"><p class="footnote">Loading catalog...</p></div>
-      </section>
-      <datalist id="catList"></datalist>
     </section>
-  `;
-  app.querySelector('#sub').onclick = submitOrder;
-  const itemInput = app.querySelector('#item');
-  const nonCatToggle = app.querySelector('#nonCat');
-  const catalogFields = app.querySelector('#catalogFields');
-  const nonCatalogFields = app.querySelector('#nonCatalogFields');
-  const preview = app.querySelector('#itemPreview');
-  const previewImg = app.querySelector('#itemPreviewImg');
-  if(previewImg){
-    previewImg.loading = 'lazy';
-    previewImg.decoding = 'async';
-  }
-  const previewLabel = app.querySelector('#itemPreviewLabel');
-  const previewOpen = app.querySelector('#itemPreviewOpen');
-  const previewChange = app.querySelector('#itemPreviewChange');
-  let previewSrc = '';
-  let itemBrowseRestore = null;
-  function hideItemPreview(){
-    if(preview){
-      preview.classList.add('hidden');
-    }
-    previewSrc = '';
-  }
-  function showItemPreview(row){
-    if(!preview || !row || !row.image_url){
-      hideItemPreview();
-      return;
-    }
-    previewImg.src = row.image_url;
-    previewImg.alt = `${row.description} thumbnail`;
-    previewLabel.textContent = row.description;
-    preview.classList.remove('hidden');
-    previewSrc = row.image_url;
-  }
-  function updateItemPreview(){
-    if(!itemInput) return;
-    const raw = itemInput.value || '';
-    const value = raw.toLowerCase().trim();
-    if(!raw.trim()){
-      if(itemBrowseRestore && itemBrowseRestore.match){
-        showItemPreview(itemBrowseRestore.match);
-      }else{
-        hideItemPreview();
-      }
-      return;
-    }
-    const match = state.catalog.find(row => (row.description || '').toLowerCase() === value);
-    if(match){
-      showItemPreview(match);
-    }else{
-      hideItemPreview();
-    }
-    itemBrowseRestore = null;
-  }
-  function beginItemReselection(evt){
-    if(!itemInput) return;
-    if(evt){
-      const pointerType = typeof evt.pointerType === 'string' ? evt.pointerType : '';
-      const isTouchLike = pointerType === 'touch' || pointerType === 'pen';
-      if(!isTouchLike){
-        if(typeof evt.button === 'number' && evt.button !== 0) return;
-        if(evt.ctrlKey) return;
-      }
-    }
-    const currentValue = itemInput.value || '';
-    if(!currentValue.trim() || itemBrowseRestore) return;
-    const currentMatch = state.catalog.find(row => (row.description || '').toLowerCase() === currentValue.toLowerCase().trim());
-    itemBrowseRestore = { value: currentValue, match: currentMatch };
-    const pointerId = evt && typeof evt.pointerId === 'number' ? evt.pointerId : null;
 
-    function cleanup(){
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handleCancel);
-      window.removeEventListener('blur', handleCancel);
-    }
+    <section class="card" id="ordersCard">
+      <div>
+        <h2>Recent orders</h2>
+        <p class="meta">Statuses update in real time. Tap to change when you review an order.</p>
+      </div>
+      <div id="ordersList" class="list" role="list"></div>
+      <button type="button" id="ordersMoreButton" class="load-more secondary">Load more</button>
+    </section>
 
-    function handleCancel(){
-      cleanup();
-      if(itemBrowseRestore && itemBrowseRestore.value === currentValue){
-        itemBrowseRestore = null;
-      }
-    }
+    <section class="card" id="catalogCard">
+      <div>
+        <h2>Catalog</h2>
+        <p class="meta">Tap an item to autofill the request form.</p>
+      </div>
+      <div id="catalogList" class="list" role="list"></div>
+      <button type="button" id="catalogMoreButton" class="load-more secondary">Load more</button>
+    </section>
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
 
-    function handlePointerUp(upEvt){
-      if(pointerId !== null && typeof upEvt.pointerId === 'number' && upEvt.pointerId !== pointerId){
-        return;
-      }
-      cleanup();
-      if(upEvt.target !== itemInput){
-        if(itemBrowseRestore && itemBrowseRestore.value === currentValue){
-          itemBrowseRestore = null;
-        }
-        return;
-      }
-      if(!itemBrowseRestore || itemInput.value !== currentValue){
-        return;
-      }
-      itemInput.value = '';
-      itemInput.dispatchEvent(new Event('input'));
-    }
+  <script>
+    const SESSION = <?!= JSON.stringify(session) ?>;
+  </script>
+  <script>
+    (function () {
+      const state = {
+        form: { description: '', qty: 1 },
+        catalog: [],
+        catalogNextToken: '',
+        catalogLoading: false,
+        orders: [],
+        ordersNextToken: '',
+        ordersLoading: false
+      };
 
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handleCancel);
-    window.addEventListener('blur', handleCancel);
-  }
-  let itemPickerUnavailable = false;
-  let itemPickerWarned = false;
-  function openItemPicker(){
-    if(!itemInput) return;
-    if(!itemPickerUnavailable && typeof itemInput.showPicker === 'function'){
-      try{
-        itemInput.showPicker();
-        return;
-      }catch(err){
-        itemPickerUnavailable = true;
-        if(!itemPickerWarned){
-          itemPickerWarned = true;
-          console.warn('showPicker failed', err);
-        }
-      }
-    }
-    if(document.activeElement !== itemInput){
-      itemInput.focus();
-    }
-    if(itemInput.value){
-      itemInput.select();
-    }
-  }
-  if(itemInput){
-    itemInput.addEventListener('input', updateItemPreview);
-    itemInput.addEventListener('change', updateItemPreview);
-    itemInput.addEventListener('click', openItemPicker);
-    itemInput.addEventListener('focus', openItemPicker);
-    itemInput.addEventListener('pointerdown', beginItemReselection);
-    itemInput.addEventListener('blur', ()=>{
-      if(itemBrowseRestore && !itemInput.value){
-        itemInput.value = itemBrowseRestore.value;
-        itemInput.dispatchEvent(new Event('input'));
-      }
-      itemBrowseRestore = null;
-    });
-    itemInput.addEventListener('keydown', evt=>{
-      if(evt.key === 'ArrowDown') openItemPicker();
-    });
-  }
-  function toggleGroupVisibility(group, hidden){
-    if(!group) return;
-    group.classList.toggle('hidden', hidden);
-    group.setAttribute('aria-hidden', hidden ? 'true' : 'false');
-    group.querySelectorAll('input,textarea').forEach(el=>{
-      el.disabled = hidden;
-      if(hidden){
-        el.setAttribute('aria-disabled','true');
-      }else{
-        el.removeAttribute('aria-disabled');
-      }
-    });
-  }
-  function applyRequestMode(){
-    const useNonCatalog = nonCatToggle && nonCatToggle.checked;
-    toggleGroupVisibility(catalogFields, !!useNonCatalog);
-    toggleGroupVisibility(nonCatalogFields, !useNonCatalog);
-    if(itemInput){
-      if(useNonCatalog){
-        hideItemPreview();
-      }else{
-        updateItemPreview();
-      }
-    }
-  }
-  if(nonCatToggle){
-    nonCatToggle.addEventListener('change', applyRequestMode);
-    applyRequestMode();
-  }
-  if(previewOpen){
-    previewOpen.onclick = () => { if(previewSrc) window.open(previewSrc, '_blank'); };
-  }
-  if(previewChange){
-    previewChange.onclick = () => {
-      hideItemPreview();
-      if(itemInput){
-        itemInput.value = '';
-        itemInput.focus();
-        itemInput.dispatchEvent(new Event('input'));
-        openItemPicker();
-      }
-    };
-  }
-  app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
-  const schedulePreviewLoad = () => {
-    loadCatalog().then(()=>{
-      const dl = document.getElementById('catList');
-      if(dl){
-        dl.innerHTML = '';
-        state.catalog.forEach(c=>{
-          const o = document.createElement('option');
-          o.value = c.description;
-          dl.appendChild(o);
+      const LOCAL_KEY = 'supplies-tracker-form';
+
+      const orderForm = document.getElementById('orderForm');
+      const descriptionInput = document.getElementById('descriptionInput');
+      const qtyInput = document.getElementById('qtyInput');
+      const catalogSelect = document.getElementById('catalogSelect');
+      const submitOrderButton = document.getElementById('submitOrderButton');
+      const resetFormButton = document.getElementById('resetFormButton');
+      const ordersList = document.getElementById('ordersList');
+      const ordersMoreButton = document.getElementById('ordersMoreButton');
+      const catalogList = document.getElementById('catalogList');
+      const catalogMoreButton = document.getElementById('catalogMoreButton');
+      const toast = document.getElementById('toast');
+
+      const initialSessionEmail = SESSION && SESSION.email ? String(SESSION.email) : '';
+
+      attachHandlers();
+      hydrateFormFromCache();
+      setDefaultCatalogOption();
+      loadInitialData();
+
+      function attachHandlers() {
+        orderForm.addEventListener('submit', handleSubmitOrder);
+        resetFormButton.addEventListener('click', () => {
+          setFormState({ description: '', qty: 1 });
+          persistForm();
+          renderForm();
+        });
+        catalogSelect.addEventListener('change', () => {
+          const option = catalogSelect.options[catalogSelect.selectedIndex];
+          if (option && option.value) {
+            setFormState({ description: option.textContent });
+            renderForm();
+            persistForm();
+          }
+        });
+        descriptionInput.addEventListener('input', () => {
+          setFormState({ description: descriptionInput.value });
+          persistForm();
+        });
+        qtyInput.addEventListener('input', () => {
+          const qty = Number(qtyInput.value) > 0 ? Number(qtyInput.value) : 1;
+          setFormState({ qty });
+          qtyInput.value = qty;
+          persistForm();
+        });
+        ordersMoreButton.addEventListener('click', () => {
+          if (!state.ordersLoading && state.ordersNextToken) {
+            loadOrders({ append: true });
+          }
+        });
+        catalogMoreButton.addEventListener('click', () => {
+          if (!state.catalogLoading && state.catalogNextToken) {
+            loadCatalog({ append: true });
+          }
         });
       }
-      renderCatalogList('catalogPreview',{limit:6});
-      updateItemPreview();
-    });
-  };
-  if('requestIdleCallback' in window){
-    requestIdleCallback(()=>schedulePreviewLoad());
-  }else{
-    setTimeout(schedulePreviewLoad,120);
-  }
-}
 
-function renderAll(app){
-  const canDecide = canDecideRequests();
-  const canProof = canManageProof();
-  app.innerHTML = `
-    <section class="view">
-      ${viewHeader('Requests','Track submissions and make decisions in one place.')}
-      <section class="panel stack" id="filters">
-        <h2 class="panel-title">Filters</h2>
-        <div class="form-grid">
-          <label class="field checkbox-field">
-            <input type="checkbox" id="mine">
-            <span>Show only my requests</span>
-          </label>
-          <label class="field">
-            <span>Search</span>
-            <input id="search" placeholder="Search by item, requester or status">
-          </label>
-          <div class="field">
-            <span>Status</span>
-            <div id="statusChips" class="chip-row"></div>
-          </div>
-        </div>
-        <div class="actions">
-          <button id="clear" class="ghost" type="button">Clear filters</button>
-        </div>
-      </section>
-      <section class="panel stack">
-        <div class="table-wrapper">
-          <table id="list">
-            <thead>
-              <tr>
-                <th scope="col">Requested</th>
-                <th scope="col">Item</th>
-                <th scope="col">Qty</th>
-                <th scope="col">Est Cost</th>
-                <th scope="col">Requester</th>
-                <th scope="col">Status</th>
-                <th scope="col">Approver</th>
-                <th scope="col">Decided</th>
-                <th scope="col">ETA</th>
-                <th scope="col">Order proof</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <div id="empty" class="empty hidden">No requests match your filters. <button id="reset" class="ghost" type="button">Reset filters</button></div>
-      </section>
-      ${canProof ? `
-      <section class="panel stack hidden" id="proofPanel">
-        <h2 class="panel-title">Order fulfillment evidence</h2>
-        <p class="field-note" id="proofOrderLabel">Select “Manage proof” on a request to attach details.</p>
-        <div class="field">
-          <span>ETA details</span>
-          <textarea id="etaInput" placeholder="Example: Expected delivery 3/15 via UPS"></textarea>
-        </div>
-        <div class="field">
-          <span>Order screenshot</span>
-          <div id="proofDrop" class="dropzone" tabindex="0">
-            <strong>Paste</strong> (Ctrl+V) an image or drop a file
-            <span class="field-note">Or provide a hosted image URL below.</span>
-          </div>
-          <div class="actions start">
-            <button id="proofBrowse" class="ghost" type="button">Select image</button>
-            <button id="proofUpload" class="primary hidden" type="button">Upload to Drive</button>
-          </div>
-          <input id="proofFile" type="file" accept="image/*" class="hidden">
-          <input id="proofUrl" placeholder="https://example.com/order-proof.png">
-          <img id="proofPreview" class="preview hidden" alt="Order proof preview">
-          <div class="actions">
-            <button id="clearProof" class="ghost" type="button">Clear image</button>
-          </div>
-          <input type="hidden" id="proofData">
-        </div>
-        <div class="actions">
-          <button id="cancelProof" class="ghost" type="button">Close</button>
-          <button id="saveProof" class="primary" type="button" disabled>Save proof</button>
-        </div>
-      </section>
-      ` : ''}
-      <section class="panel stack">
-        <div class="panel-head">
-          <h2 class="panel-title">Catalog snapshot</h2>
-          <button class="link" type="button" data-route="catalog">View full catalog</button>
-        </div>
-        <div id="catalogInline"><p class="footnote">Loading catalog...</p></div>
-      </section>
-    </section>
-  `;
-  const st = ['PENDING','APPROVED','DENIED','ON-HOLD'];
-  const chipsDiv = app.querySelector('#statusChips');
-  st.forEach(s=>{
-    const sp = document.createElement('span');
-    sp.textContent = s;
-    sp.className = 'chip';
-    sp.onclick = ()=>{sp.classList.toggle('active');updateFilters();};
-    chipsDiv.appendChild(sp);
-  });
-  app.querySelector('#mine').onchange = updateFilters;
-  app.querySelector('#search').oninput = debounce(updateFilters,300);
-  app.querySelector('#clear').onclick = ()=>{
-    state.filters = {mineOnly:false,status:[],search:''};
-    route('all');
-    loadOrders();
-  };
-  app.querySelector('#reset').onclick = ()=>{
-    state.filters = {mineOnly:false,status:[],search:''};
-    route('all');
-    loadOrders();
-  };
-  app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
-  if(canProof){
-    setupProofPanel(app);
-  }
-  loadOrders();
-  loadCatalog().then(()=>renderCatalogList('catalogInline',{limit:6}));
-}
-
-function renderCatalog(app){
-  app.innerHTML = `
-    <section class="view">
-      ${viewHeader('Catalog','Browse approved items for quick ordering.')}
-      <section class="panel stack">
-        <div class="panel-head">
-          <h2 class="panel-title">All items</h2>
-          <button class="link" type="button" data-route="request">Submit a request</button>
-        </div>
-        <div id="catalogFull"><p class="footnote">Loading catalog...</p></div>
-      </section>
-      ${canManageThumbs() ? `
-      <section class="panel stack" id="thumbPanel">
-        <h2 class="panel-title">Manage thumbnails</h2>
-        <p class="field-note">Paste or drop an image to update catalog visuals.</p>
-        <label class="field">
-          <span>Catalog item</span>
-          <select id="thumbSku">
-            <option value="">Select an item</option>
-          </select>
-        </label>
-        <div class="field">
-          <span>Thumbnail</span>
-          <div id="thumbDrop" class="dropzone" tabindex="0">
-            <strong>Paste</strong> (Ctrl+V) an image or drop a file
-            <span class="field-note">Or provide a hosted image URL below.</span>
-          </div>
-          <div class="actions start">
-            <button id="thumbBrowse" class="ghost" type="button">Select image</button>
-            <button id="thumbUpload" class="primary hidden" type="button">Upload to Drive</button>
-          </div>
-          <input id="thumbFile" type="file" accept="image/*" class="hidden">
-          <input id="thumbUrl" placeholder="https://example.com/catalog-item.png">
-          <img id="thumbPreview" class="preview hidden" alt="Catalog thumbnail preview">
-          <div class="actions">
-            <button id="thumbClear" class="ghost" type="button">Clear image</button>
-            <button id="thumbSave" class="primary" type="button" disabled>Save thumbnail</button>
-          </div>
-          <input type="hidden" id="thumbData">
-        </div>
-      </section>
-      ` : ''}
-    </section>
-  `;
-  app.querySelector('[data-route="request"]').onclick = ()=>route('request');
-  if(canManageThumbs()){
-    setupThumbPanel(app);
-  }
-  const scheduleCatalogLoad = () => {
-    loadCatalog().then(()=>{
-      renderCatalogList('catalogFull');
-      if(canManageThumbs()){
-        populateThumbOptions();
+      function setDefaultCatalogOption() {
+        catalogSelect.textContent = '';
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'Select an item (optional)';
+        catalogSelect.appendChild(option);
       }
-    });
-  };
-  if('requestIdleCallback' in window){
-    requestIdleCallback(()=>scheduleCatalogLoad());
-  }else{
-    setTimeout(scheduleCatalogLoad,120);
-  }
-}
 
-function renderCatalogList(targetId,{limit}={}){
-  const target = document.getElementById(targetId);
-  if(!target) return;
-  target.innerHTML = '';
-  const rows = typeof limit === 'number' ? state.catalog.slice(0,limit) : state.catalog;
-  if(!rows.length){
-    const p = document.createElement('p');
-    p.className = 'empty';
-    p.textContent = 'No catalog items available yet.';
-    target.appendChild(p);
-    return;
-  }
-  const wrapper = document.createElement('div');
-  wrapper.className = 'table-wrapper';
-  const table = document.createElement('table');
-  const thead = document.createElement('thead');
-  thead.innerHTML = '<tr><th scope="col">Item</th><th scope="col">Category</th></tr>';
-  const tbody = document.createElement('tbody');
-  const fragment = document.createDocumentFragment();
-  rows.forEach(row=>{
-    const tr = document.createElement('tr');
-    const item = document.createElement('td');
-    const itemWrapper = document.createElement('div');
-    itemWrapper.className = 'catalog-item';
-    if(row.image_url){
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'thumb-button';
-      const img = document.createElement('img');
-      img.className = 'thumb';
-      img.loading = 'lazy';
-      img.decoding = 'async';
-      img.alt = `${row.description} thumbnail`;
-      img.src = row.image_url;
-      btn.appendChild(img);
-      btn.onclick = () => window.open(row.image_url, '_blank');
-      itemWrapper.appendChild(btn);
-    }
-    const text = document.createElement('div');
-    text.className = 'catalog-item-text';
-    const name = document.createElement('span');
-    name.textContent = row.description;
-    text.appendChild(name);
-    if(!row.image_url){
-      const note = document.createElement('span');
-      note.className = 'field-note';
-      note.textContent = 'Thumbnail not added yet';
-      text.appendChild(note);
-    }
-    itemWrapper.appendChild(text);
-    item.appendChild(itemWrapper);
-    const cat = document.createElement('td');
-    cat.textContent = row.category;
-    tr.append(item,cat);
-    fragment.appendChild(tr);
-  });
-  tbody.appendChild(fragment);
-  table.append(thead,tbody);
-  wrapper.appendChild(table);
-  target.appendChild(wrapper);
-  if(limit && state.catalog.length > limit){
-    const foot = document.createElement('p');
-    foot.className = 'footnote';
-    foot.textContent = `Showing ${rows.length} of ${state.catalog.length} items.`;
-    target.appendChild(foot);
-  }
-}
-
-function loadCatalog(force=false){
-  if(!force && state.catalog.length) return Promise.resolve();
-  return new Promise(res=>{
-    google.script.run.withSuccessHandler(rows=>{state.catalog = rows;res();}).router({action:'listCatalog',siteToken:state.auth.token,csrf:state.session.csrf});
-  });
-}
-
-function submitOrder(){
-  const nonCatInput = document.getElementById('nonCat');
-  const nonCat = !!(nonCatInput && nonCatInput.checked);
-  const payload = {
-    non_catalog: nonCat,
-    item: '',
-    qty: 0,
-    est_cost: 0,
-    description: ''
-  };
-  if(nonCat){
-    payload.item = (document.getElementById('nonCatItem').value || '').trim();
-    payload.description = (document.getElementById('nonCatDesc').value || '').trim();
-    if(!payload.item && payload.description){
-      payload.item = payload.description;
-    }
-    payload.qty = Number(document.getElementById('nonCatQty').value||1);
-    payload.est_cost = Number(document.getElementById('nonCatEst').value||0);
-  }else{
-    payload.item = (document.getElementById('item').value || '').trim();
-    payload.qty = Number(document.getElementById('qty').value||1);
-    payload.est_cost = Number(document.getElementById('est').value||0);
-  }
-  google.script.run.withSuccessHandler(o=>{
-    toast('Submitted');
-    state.filters = {mineOnly:true,status:['PENDING'],search:''};
-    route('all');
-    loadOrders();
-  }).withFailureHandler(err=>toast(err.message))
-    .router({action:'createOrder',payload,csrf:state.session.csrf,siteToken:state.auth.token});
-}
-
-function updateFilters(){
-  state.filters.mineOnly = document.getElementById('mine').checked;
-  state.filters.search = document.getElementById('search').value;
-  state.filters.status = [...document.querySelectorAll('#statusChips .chip.active')].map(c=>c.textContent);
-  loadOrders();
-}
-
-function loadOrders(){
-  google.script.run.withSuccessHandler(rows=>{
-    state.rows=rows;
-    renderRows();
-    if(proofPanelCtx && proofPanelCtx.orderId){
-      const current = state.rows.find(r => r.id === proofPanelCtx.orderId);
-      if(current){
-        proofPanelCtx.orderLabel.textContent = `${current.item} • ${current.ts}`;
+      function loadInitialData() {
+        loadCatalog({ append: false });
+        loadOrders({ append: false });
       }
-    }
-  })
-    .router({action:'listOrders',filter:state.filters,csrf:state.session.csrf,siteToken:state.auth.token});
-}
 
-function renderRows(){
-  const tbody = document.querySelector('#list tbody');
-  if(!tbody) return;
-  tbody.innerHTML = '';
-  const fragment = document.createDocumentFragment();
-  const caps = sessionCapabilities();
-  const canDecide = !!caps.canDecide;
-  const canProof = !!caps.canManageProof;
-  state.rows.forEach(r=>{
-    const tr = document.createElement('tr');
-    tr.dataset.orderId = r.id;
-    tr.dataset.status = (r.statusChip || '').toUpperCase();
-    const requested = document.createElement('td');
-    requested.textContent = r.ts;
-    const itemCell = document.createElement('td');
-    const itemLabel = document.createElement('div');
-    itemLabel.textContent = r.item;
-    itemCell.appendChild(itemLabel);
-    if(r.details){
-      const itemNote = document.createElement('div');
-      itemNote.className = 'item-note';
-      itemNote.textContent = r.details;
-      itemCell.appendChild(itemNote);
-    }
-    const qty = document.createElement('td');
-    qty.textContent = r.qty;
-    const cost = document.createElement('td');
-    cost.textContent = r.est_cost;
-    const requester = document.createElement('td');
-    requester.textContent = r.requester;
-    const status = document.createElement('td');
-    const statusWrap = document.createElement('div');
-    statusWrap.className = 'status-cell';
-    const statusLabel = document.createElement('span');
-    statusLabel.className = 'status-label';
-    statusLabel.textContent = r.statusChip || '—';
-    statusWrap.appendChild(statusLabel);
-    const approver = document.createElement('td');
-    approver.textContent = r.approver || '';
-    const decision = document.createElement('td');
-    decision.textContent = formatDecisionTimestamp(r.decision_ts);
-    const eta = document.createElement('td');
-    eta.textContent = r.eta_details || '—';
-    if(canDecide){
-      const actionsWrap = document.createElement('div');
-      actionsWrap.className = 'status-actions';
-      const currentStatus = (r.statusChip || '').toUpperCase();
-      DECISION_BUTTONS.forEach(({decision,className})=>{
-        const meta = DECISION_COPY[decision] || {};
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = className;
-        btn.dataset.decision = decision;
-        btn.textContent = meta.label || decision;
-        if(currentStatus === decision){
-          btn.disabled = true;
-        }
-        btn.addEventListener('click',()=>handleOrderDecision(r.id, decision, btn));
-        actionsWrap.appendChild(btn);
-      });
-      statusWrap.appendChild(actionsWrap);
-    }
-    status.appendChild(statusWrap);
-    const proof = document.createElement('td');
-    if(r.proof_image){
-      const proofBtn = document.createElement('button');
-      proofBtn.type = 'button';
-      proofBtn.className = 'thumb-button';
-      const img = document.createElement('img');
-      img.className = 'thumb';
-      img.loading = 'lazy';
-      img.decoding = 'async';
-      img.alt = `Order proof for ${r.item}`;
-      img.src = r.proof_image;
-      proofBtn.appendChild(img);
-      proofBtn.onclick = () => window.open(r.proof_image, '_blank');
-      proof.appendChild(proofBtn);
-    }else if(canProof){
-      const note = document.createElement('span');
-      note.className = 'field-note';
-      note.textContent = 'No proof yet';
-      proof.appendChild(note);
-    }else{
-      proof.textContent = '—';
-    }
-    if(canProof){
-      const manage = document.createElement('button');
-      manage.type = 'button';
-      manage.className = 'link';
-      manage.textContent = r.proof_image ? 'Update proof' : 'Manage proof';
-      manage.onclick = () => openProofPanel(r);
-      proof.appendChild(manage);
-    }
-    tr.append(requested,itemCell,qty,cost,requester,status,approver,decision,eta,proof);
-    fragment.appendChild(tr);
-  });
-  tbody.appendChild(fragment);
-  const empty = document.getElementById('empty');
-  if(empty){
-    if(!state.rows.length) empty.classList.remove('hidden');
-    else empty.classList.add('hidden');
-  }
-}
+      function loadCatalog({ append }) {
+        if (state.catalogLoading) return;
+        state.catalogLoading = true;
+        catalogMoreButton.disabled = true;
+        toggleCatalogSkeleton(true);
+        const payload = {
+          cid: makeCid(),
+          pageSize: 20,
+          nextToken: append ? state.catalogNextToken : ''
+        };
+        google.script.run
+          .withSuccessHandler(handleResponse)
+          .withFailureHandler(err => handleError(err, 'listCatalog', payload))
+          .listCatalog(payload);
 
-function formatDecisionTimestamp(ts){
-  if(!ts) return '—';
-  const date = new Date(ts);
-  if(Number.isNaN(date.getTime())) return '—';
-  const options = { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' };
-  const now = new Date();
-  if(date.getFullYear() !== now.getFullYear()){
-    options.year = 'numeric';
-  }
-  try{
-    return date.toLocaleString(undefined, options);
-  }catch(err){
-    return date.toISOString().replace('T',' ').slice(0,16);
-  }
-}
-
-function setRowDecisionState(orderId, disabled, decision, trigger){
-  if(!orderId) return;
-  const row = document.querySelector(`tr[data-order-id="${orderId}"]`);
-  if(!row) return;
-  const buttons = row.querySelectorAll('button[data-decision]');
-  buttons.forEach(btn => {
-    if(disabled){
-      if(trigger && btn === trigger){
-        if(!btn.dataset.originalText){
-          btn.dataset.originalText = btn.textContent;
-        }
-        const copy = DECISION_COPY[decision] || {};
-        btn.textContent = copy.progress || 'Working…';
-      }
-      btn.disabled = true;
-    }else{
-      if(btn.dataset.originalText){
-        btn.textContent = btn.dataset.originalText;
-        delete btn.dataset.originalText;
-      }
-      const rowStatus = (row.dataset.status || '').toUpperCase();
-      btn.disabled = rowStatus === btn.dataset.decision;
-    }
-  });
-}
-
-function handleOrderDecision(orderId, decision, trigger){
-  if(!orderId || !decision) return;
-  if(typeof google === 'undefined' || !google || !google.script || !google.script.run){
-    toast('Unable to reach the server. Please refresh and try again.');
-    return;
-  }
-  setRowDecisionState(orderId, true, decision, trigger);
-  google.script.run
-    .withSuccessHandler(()=>{
-      const copy = DECISION_COPY[decision] || {};
-      toast(copy.success || 'Request updated.');
-      loadOrders();
-    })
-    .withFailureHandler(err => {
-      setRowDecisionState(orderId, false);
-      toast(err && err.message ? err.message : 'Unable to update request.');
-    })
-    .router({ action: 'setOrderStatus', id: orderId, decision, csrf: state.session.csrf, siteToken: state.auth.token });
-}
-
-function setupProofPanel(app){
-  const panel = app.querySelector('#proofPanel');
-  if(!panel) return;
-  const dropZone = panel.querySelector('#proofDrop');
-  const preview = panel.querySelector('#proofPreview');
-  const hiddenInput = panel.querySelector('#proofData');
-  const urlInput = panel.querySelector('#proofUrl');
-  const clearButton = panel.querySelector('#clearProof');
-  const browseButton = panel.querySelector('#proofBrowse');
-  const uploadButton = panel.querySelector('#proofUpload');
-  const fileInput = panel.querySelector('#proofFile');
-  const saveButton = panel.querySelector('#saveProof');
-  const etaInput = panel.querySelector('#etaInput');
-  const orderLabel = panel.querySelector('#proofOrderLabel');
-  if(uploadButton){
-    uploadButton.classList.toggle('hidden', !canUploadImages());
-  }
-  proofPanelCtx = {
-    panel,
-    etaInput,
-    orderLabel,
-    saveButton,
-    imageField: createImageField({
-      dropZone,
-      preview,
-      hiddenInput,
-      urlInput,
-      clearButton,
-      browseButton,
-      uploadButton,
-      fileInput,
-      canUpload: canUploadImages(),
-      getName: () => {
-        if(proofPanelCtx && proofPanelCtx.orderId){
-          const label = proofPanelCtx.orderName || 'order-proof';
-          return `order-${proofPanelCtx.orderId}-${label}`;
-        }
-        return 'order-proof';
-      },
-      onChange: updateProofSaveState
-    }),
-    orderId: null,
-    orderName: ''
-  };
-  const cancel = panel.querySelector('#cancelProof');
-  if(cancel) cancel.onclick = closeProofPanel;
-  if(saveButton) saveButton.onclick = saveProof;
-  updateProofSaveState();
-}
-
-function openProofPanel(order){
-  if(!proofPanelCtx) return;
-  proofPanelCtx.orderId = order.id;
-  proofPanelCtx.orderName = order.item || '';
-  proofPanelCtx.panel.classList.remove('hidden');
-  proofPanelCtx.orderLabel.textContent = `${order.item} • ${order.ts}`;
-  proofPanelCtx.etaInput.value = order.eta_details || '';
-  proofPanelCtx.imageField.setExisting(order.proof_image || '');
-  updateProofSaveState();
-  proofPanelCtx.panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  const dropZone = proofPanelCtx.panel.querySelector('#proofDrop');
-  if(dropZone) dropZone.focus();
-}
-
-function closeProofPanel(){
-  if(!proofPanelCtx) return;
-  proofPanelCtx.orderId = null;
-  proofPanelCtx.orderName = '';
-  proofPanelCtx.etaInput.value = '';
-  proofPanelCtx.imageField.clear();
-  proofPanelCtx.orderLabel.textContent = 'Select “Manage proof” on a request to attach details.';
-  proofPanelCtx.panel.classList.add('hidden');
-  updateProofSaveState();
-}
-
-function updateProofSaveState(){
-  if(!proofPanelCtx) return;
-  const imageValue = proofPanelCtx.imageField.getValue();
-  const eta = proofPanelCtx.etaInput.value.trim();
-  const disabled = !proofPanelCtx.orderId || (!imageValue && !eta);
-  proofPanelCtx.saveButton.disabled = disabled;
-}
-
-function saveProof(){
-  if(!proofPanelCtx || !proofPanelCtx.orderId) return;
-  const payload = {
-    action: 'updateOrderProof',
-    id: proofPanelCtx.orderId,
-    eta: proofPanelCtx.etaInput.value.trim(),
-    image: proofPanelCtx.imageField.getValue(),
-    csrf: state.session.csrf,
-    siteToken: state.auth.token
-  };
-  proofPanelCtx.saveButton.disabled = true;
-  google.script.run.withSuccessHandler(()=>{
-    toast('Proof saved');
-    closeProofPanel();
-    loadOrders();
-  }).withFailureHandler(err=>{
-    toast(err.message);
-    updateProofSaveState();
-  }).router(payload);
-}
-
-function setupThumbPanel(app){
-  const panel = app.querySelector('#thumbPanel');
-  if(!panel) return;
-  const dropZone = panel.querySelector('#thumbDrop');
-  const preview = panel.querySelector('#thumbPreview');
-  const hiddenInput = panel.querySelector('#thumbData');
-  const urlInput = panel.querySelector('#thumbUrl');
-  const clearButton = panel.querySelector('#thumbClear');
-  const browseButton = panel.querySelector('#thumbBrowse');
-  const uploadButton = panel.querySelector('#thumbUpload');
-  const fileInput = panel.querySelector('#thumbFile');
-  const saveButton = panel.querySelector('#thumbSave');
-  const select = panel.querySelector('#thumbSku');
-  if(uploadButton){
-    uploadButton.classList.toggle('hidden', !canUploadImages());
-  }
-  thumbPanelCtx = {
-    panel,
-    select,
-    saveButton,
-    originalImage: '',
-    imageField: createImageField({
-      dropZone,
-      preview,
-      hiddenInput,
-      urlInput,
-      clearButton,
-      browseButton,
-      uploadButton,
-      fileInput,
-      canUpload: canUploadImages(),
-      getName: () => {
-        if(thumbPanelCtx && thumbPanelCtx.select){
-          const sku = thumbPanelCtx.select.value || '';
-          if(sku) return `catalog-${sku}`;
-        }
-        return 'catalog-image';
-      },
-      onChange: updateThumbSaveState
-    })
-  };
-  if(select){
-    select.onchange = () => {
-      const row = state.catalog.find(r => r.sku === select.value);
-      thumbPanelCtx.originalImage = row ? row.image_url || '' : '';
-      thumbPanelCtx.imageField.setExisting(thumbPanelCtx.originalImage);
-      updateThumbSaveState();
-    };
-  }
-  if(saveButton) saveButton.onclick = saveThumbnail;
-  updateThumbSaveState();
-}
-
-function populateThumbOptions(){
-  if(!thumbPanelCtx || !thumbPanelCtx.select) return;
-  const select = thumbPanelCtx.select;
-  const current = select.value;
-  select.innerHTML = '<option value="">Select an item</option>';
-  state.catalog.forEach(row=>{
-    const opt = document.createElement('option');
-    opt.value = row.sku;
-    opt.textContent = `${row.description} (${row.category})`;
-    select.appendChild(opt);
-  });
-  if(current){
-    select.value = current;
-    const row = state.catalog.find(r => r.sku === current);
-    thumbPanelCtx.originalImage = row ? row.image_url || '' : '';
-    thumbPanelCtx.imageField.setExisting(thumbPanelCtx.originalImage);
-  }
-  updateThumbSaveState();
-}
-
-function updateThumbSaveState(){
-  if(!thumbPanelCtx) return;
-  const sku = thumbPanelCtx.select ? thumbPanelCtx.select.value : '';
-  const value = thumbPanelCtx.imageField.getValue();
-  const canSave = !!sku && (value || thumbPanelCtx.originalImage);
-  if(thumbPanelCtx.saveButton) thumbPanelCtx.saveButton.disabled = !canSave;
-}
-
-function saveThumbnail(){
-  if(!thumbPanelCtx || !thumbPanelCtx.select) return;
-  const sku = thumbPanelCtx.select.value;
-  if(!sku){
-    updateThumbSaveState();
-    return;
-  }
-  const image = thumbPanelCtx.imageField.getValue();
-  if(thumbPanelCtx.saveButton) thumbPanelCtx.saveButton.disabled = true;
-  google.script.run.withSuccessHandler(()=>{
-    toast('Thumbnail updated');
-    loadCatalog(true).then(()=>{
-      refreshCatalogViews();
-    });
-  }).withFailureHandler(err=>{
-    toast(err.message);
-    updateThumbSaveState();
-  }).router({ action: 'updateCatalogImage', sku, image, csrf: state.session.csrf, siteToken: state.auth.token });
-}
-
-function refreshCatalogViews(){
-  if(document.getElementById('catalogPreview')) renderCatalogList('catalogPreview',{limit:6});
-  if(document.getElementById('catalogInline')) renderCatalogList('catalogInline',{limit:6});
-  if(document.getElementById('catalogFull')) renderCatalogList('catalogFull');
-  const itemInput = document.getElementById('item');
-  if(itemInput){
-    itemInput.dispatchEvent(new Event('change'));
-  }
-  if(thumbPanelCtx && thumbPanelCtx.select){
-    const row = state.catalog.find(r => r.sku === thumbPanelCtx.select.value);
-    thumbPanelCtx.originalImage = row ? row.image_url || '' : '';
-    thumbPanelCtx.imageField.setExisting(thumbPanelCtx.originalImage);
-    updateThumbSaveState();
-  }
-}
-
-function createImageField({ dropZone, preview, hiddenInput, urlInput, clearButton, browseButton, uploadButton, fileInput, canUpload, getName, onChange }){
-  if(!dropZone) return { setExisting: ()=>{}, clear: ()=>{}, getValue: ()=>'' };
-  const trigger = () => { if(typeof onChange === 'function') onChange(); };
-  let lastSource = { dataUrl: '', fileName: '', contentType: '' };
-  const uploadLabel = uploadButton ? uploadButton.textContent : '';
-  const updateUploadButton = () => {
-    if(uploadButton){
-      uploadButton.disabled = !(canUpload && lastSource.dataUrl);
-    }
-  };
-  const showPreview = (src, triggerChange = true) => {
-    if(preview){
-      preview.src = src;
-      preview.classList.remove('hidden');
-    }
-    dropZone.classList.add('has-image');
-    if(triggerChange) trigger();
-  };
-  const hidePreview = (triggerChange = true) => {
-    if(preview){
-      preview.src = '';
-      preview.classList.add('hidden');
-    }
-    dropZone.classList.remove('has-image');
-    if(triggerChange) trigger();
-  };
-  const clearValues = (triggerChange = true) => {
-    if(hiddenInput) hiddenInput.value = '';
-    if(urlInput) urlInput.value = '';
-    lastSource = { dataUrl: '', fileName: '', contentType: '' };
-    hidePreview(triggerChange);
-    updateUploadButton();
-  };
-  const setFromDataUrl = (dataUrl, fileName, contentType, triggerChange = true) => {
-    lastSource = {
-      dataUrl: dataUrl || '',
-      fileName: fileName || '',
-      contentType: contentType || ''
-    };
-    if(hiddenInput) hiddenInput.value = dataUrl || '';
-    if(urlInput) urlInput.value = '';
-    showPreview(dataUrl || '', triggerChange);
-    updateUploadButton();
-  };
-  const handleFile = file => {
-    if(!file) return;
-    const reader = new FileReader();
-    const type = file.type || '';
-    reader.onload = e => {
-      setFromDataUrl(e.target.result, file.name || '', type);
-    };
-    reader.readAsDataURL(file);
-  };
-  dropZone.addEventListener('paste', e => {
-    const items = e.clipboardData && e.clipboardData.items ? e.clipboardData.items : [];
-    for(let i=0;i<items.length;i+=1){
-      const item = items[i];
-      if(item.type && item.type.indexOf('image') === 0){
-        const file = item.getAsFile();
-        if(file){
-          e.preventDefault();
-          handleFile(file);
-          break;
+        function handleResponse(response) {
+          state.catalogLoading = false;
+          toggleCatalogSkeleton(false);
+          if (!response || !response.ok) {
+            handleError(response, 'listCatalog', payload);
+            return;
+          }
+          state.catalogNextToken = response.nextToken || '';
+          const items = Array.isArray(response.items) ? response.items : [];
+          state.catalog = append ? state.catalog.concat(items) : items;
+          renderCatalog();
         }
       }
-    }
-  });
-  dropZone.addEventListener('dragover', e => {
-    e.preventDefault();
-    dropZone.classList.add('drag');
-  });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('drag');
-    if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
-      handleFile(e.dataTransfer.files[0]);
-    }
-  });
-  dropZone.addEventListener('click', () => {
-    if(fileInput){
-      fileInput.click();
-    }else{
-      dropZone.focus();
-    }
-  });
-  dropZone.addEventListener('keydown', e => {
-    if((e.key === 'Enter' || e.key === ' ') && fileInput){
-      e.preventDefault();
-      fileInput.click();
-    }
-  });
-  if(fileInput){
-    fileInput.addEventListener('change', e => {
-      const file = e.target.files && e.target.files[0];
-      handleFile(file);
-      e.target.value = '';
-    });
-  }
-  if(browseButton){
-    browseButton.onclick = () => {
-      if(fileInput){
-        fileInput.click();
+
+      function loadOrders({ append }) {
+        if (state.ordersLoading) return;
+        state.ordersLoading = true;
+        ordersMoreButton.disabled = true;
+        toggleOrdersSkeleton(true);
+        const payload = {
+          cid: makeCid(),
+          pageSize: 10,
+          nextToken: append ? state.ordersNextToken : ''
+        };
+        google.script.run
+          .withSuccessHandler(handleResponse)
+          .withFailureHandler(err => handleError(err, 'listOrders', payload))
+          .listOrders(payload);
+
+        function handleResponse(response) {
+          state.ordersLoading = false;
+          toggleOrdersSkeleton(false);
+          if (!response || !response.ok) {
+            handleError(response, 'listOrders', payload);
+            return;
+          }
+          state.ordersNextToken = response.nextToken || '';
+          const items = Array.isArray(response.orders) ? response.orders : [];
+          state.orders = append ? state.orders.concat(items) : items;
+          renderOrders();
+        }
       }
-    };
-  }
-  if(urlInput){
-    urlInput.addEventListener('input', () => {
-      if(hiddenInput) hiddenInput.value = '';
-      lastSource = { dataUrl: '', fileName: '', contentType: '' };
-      const url = urlInput.value.trim();
-      if(url){
-        showPreview(url);
-      }else{
-        hidePreview();
-      }
-      updateUploadButton();
-    });
-  }
-  if(clearButton){
-    clearButton.onclick = () => clearValues();
-  }
-  if(uploadButton){
-    if(!canUpload){
-      uploadButton.disabled = true;
-    }else{
-      uploadButton.disabled = true;
-      uploadButton.onclick = () => {
-        if(!lastSource.dataUrl){
-          toast('Select an image before uploading.');
+
+      function handleSubmitOrder(event) {
+        event.preventDefault();
+        const description = descriptionInput.value.trim();
+        const qty = qtyInput.value;
+        if (!description) {
+          handleError({ message: 'Description is required.' }, 'validation:description');
           return;
         }
+        disableOrderForm(true);
         const payload = {
-          action: 'uploadImage',
-          data: lastSource.dataUrl,
-          name: typeof getName === 'function' ? getName() : 'image',
-          filename: lastSource.fileName || '',
-          contentType: lastSource.contentType || '',
-          csrf: state.session.csrf,
-          siteToken: state.auth.token
+          cid: makeCid(),
+          clientRequestId: makeClientRequestId(),
+          description,
+          qty
         };
-        const originalText = uploadLabel || uploadButton.textContent;
-        uploadButton.disabled = true;
-        uploadButton.textContent = 'Uploading…';
-        google.script.run.withSuccessHandler(res => {
-          const url = res && res.url ? res.url : '';
-          if(url){
-            if(hiddenInput) hiddenInput.value = url;
-            if(urlInput) urlInput.value = url;
-            showPreview(url);
-            lastSource = { dataUrl: '', fileName: '', contentType: '' };
-            toast('Image uploaded to Drive');
+        google.script.run
+          .withSuccessHandler(handleResponse)
+          .withFailureHandler(err => {
+            disableOrderForm(false);
+            handleError(err, 'createOrder', payload);
+          })
+          .createOrder(payload);
+
+        function handleResponse(response) {
+          disableOrderForm(false);
+          if (!response || !response.ok || !response.order) {
+            handleError(response, 'createOrder', payload);
+            return;
           }
-          uploadButton.textContent = originalText;
-          updateUploadButton();
-        }).withFailureHandler(err => {
-          toast(err.message);
-          uploadButton.textContent = originalText;
-          updateUploadButton();
-        }).router(payload);
-      };
-    }
-  }
-  updateUploadButton();
-  return {
-    setExisting(value){
-      clearValues(false);
-      if(value){
-        if(value.startsWith('data:')){
-          setFromDataUrl(value, '', '', false);
-        }else{
-          if(urlInput) urlInput.value = value;
-          showPreview(value,false);
+          showToast('Request submitted');
+          setFormState({ description: '', qty: 1 });
+          persistForm();
+          renderForm();
+          state.orders.unshift(response.order);
+          renderOrders();
         }
-      }else{
-        hidePreview(false);
       }
-      updateUploadButton();
-      trigger();
-    },
-    clear(){
-      clearValues();
-    },
-    getValue(){
-      const hidden = hiddenInput ? hiddenInput.value : '';
-      const url = urlInput ? urlInput.value.trim() : '';
-      return hidden || url;
-    }
-  };
-}
 
-function escapeHtml(str){
-  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-  return String(str == null ? '' : str).replace(/[&<>"']/g, ch => map[ch]);
-}
+      function handleUpdateStatus(orderId, status) {
+        const payload = {
+          cid: makeCid(),
+          clientRequestId: makeClientRequestId(),
+          orderId,
+          status
+        };
+        const container = ordersList.querySelector(`article[data-order="${orderId}"]`);
+        const buttons = container ? Array.from(container.querySelectorAll('button')) : [];
+        buttons.forEach(btn => { btn.disabled = true; });
+        google.script.run
+          .withSuccessHandler(handleResponse)
+          .withFailureHandler(err => {
+            buttons.forEach(btn => { btn.disabled = false; });
+            handleError(err, 'updateOrderStatus', payload);
+          })
+          .updateOrderStatus(payload);
 
-function setupDevModal(){
-  if(devModalReady) return;
-  const overlay = document.getElementById('devModalOverlay');
-  if(!overlay) return;
-  devModalReady = true;
-  overlay.addEventListener('click', e => {
-    if(e.target === overlay){
-      closeDevModal();
-    }
-  });
-  document.addEventListener('keydown', e => {
-    if(e.key === 'Escape' && state.dev && state.dev.show){
-      closeDevModal();
-    }
-  });
-}
-
-function openDevModal(){
-  if(!state.dev || !state.dev.allowed) return;
-  state.dev.show = true;
-  state.dev.error = '';
-  state.dev.message = '';
-  renderDevModal();
-  if(!state.dev.statusLoaded){
-    fetchDevStatus();
-  }else if(state.dev.authed && !state.dev.loadedUsers && !state.dev.loadingUsers){
-    loadDevUsers();
-  }
-}
-
-function closeDevModal(){
-  if(!state.dev) return;
-  state.dev.show = false;
-  state.dev.loading = false;
-  state.dev.error = '';
-  state.dev.message = '';
-  const overlay = document.getElementById('devModalOverlay');
-  const card = document.getElementById('devModalCard');
-  if(overlay){
-    overlay.classList.add('hidden');
-    overlay.setAttribute('aria-hidden','true');
-  }
-  if(card){
-    card.innerHTML = '';
-  }
-}
-
-function renderDevModal(){
-  const overlay = document.getElementById('devModalOverlay');
-  const card = document.getElementById('devModalCard');
-  if(!overlay || !card) return;
-  if(!state.dev || !state.dev.allowed || !state.dev.show){
-    overlay.classList.add('hidden');
-    overlay.setAttribute('aria-hidden','true');
-    card.innerHTML = '';
-    return;
-  }
-  overlay.classList.remove('hidden');
-  overlay.setAttribute('aria-hidden','false');
-  let body = '';
-  const disabledAttr = state.dev.loading ? 'disabled' : '';
-  if(!state.dev.statusLoaded){
-    body = '<p class="footnote">Loading developer tools…</p>';
-  }else if(state.dev.authed && state.dev.view === 'main'){
-    const sorted = Array.isArray(state.dev.users) ? [...state.dev.users].sort((a,b)=>String(a.email||'').localeCompare(String(b.email||''))) : [];
-    let list = '';
-    if(state.dev.loadingUsers){
-      list = '<p class="footnote">Loading access list…</p>';
-    }else if(sorted.length){
-      list = '<ul class="dev-users">' + sorted.map(row => `<li><span>${escapeHtml(row.email || '')}</span><small>${escapeHtml(row.role || '')}</small></li>`).join('') + '</ul>';
-    }else{
-      list = '<p class="field-note">No users added yet.</p>';
-    }
-    body = `
-      <p class="field-note">Signed in as <strong>${escapeHtml(state.session.email || '')}</strong>.</p>
-      <form id="devAddUserForm" class="dev-form">
-        <label class="field">
-          <span>User email</span>
-          <input type="email" id="devUserEmail" autocomplete="email" required ${disabledAttr} data-autofocus>
-        </label>
-        <label class="field">
-          <span>Role</span>
-          <select id="devUserRole" ${disabledAttr}>
-            <option value="requester">Requester</option>
-            <option value="approver">Approver</option>
-            <option value="developer">Developer</option>
-            <option value="super_admin">Super Admin</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Temporary password (optional)</span>
-          <input type="password" id="devUserPassword" autocomplete="new-password" minlength="12" ${disabledAttr}>
-          <p class="field-note">Provide at least 12 characters. Share it securely with the user.</p>
-        </label>
-        <div class="actions">
-          <button class="primary" type="submit" ${disabledAttr}>Save access</button>
-        </div>
-      </form>
-      <section>
-        <h3 class="panel-title">Project users</h3>
-        ${list}
-      </section>
-      <div class="modal-actions spread">
-        <button type="button" class="ghost" data-change-pass ${disabledAttr}>Change password</button>
-        <button type="button" class="ghost" data-logout ${disabledAttr}>Sign out</button>
-      </div>
-    `;
-  }else if(state.dev.view === 'set'){
-    const needCurrent = state.dev.hasPassword && !state.dev.authed;
-    const currentField = needCurrent ? `<label class="field"><span>Current password</span><input type="password" id="devCurrentPassword" autocomplete="current-password" ${disabledAttr} data-autofocus></label>` : '';
-    const newAutofocus = needCurrent ? '' : 'data-autofocus';
-    body = `
-      <form id="devSetForm" class="dev-form">
-        ${currentField}
-        <label class="field">
-          <span>New password</span>
-          <input type="password" id="devNewPassword" autocomplete="new-password" minlength="12" required ${disabledAttr} ${newAutofocus}>
-          <p class="field-note">Use at least 12 characters.</p>
-        </label>
-        <label class="field">
-          <span>Confirm password</span>
-          <input type="password" id="devConfirmPassword" autocomplete="new-password" required ${disabledAttr}>
-        </label>
-        <div class="actions">
-          <button class="primary" type="submit" ${disabledAttr}>Save password</button>
-          ${state.dev.hasPassword ? `<button type="button" class="ghost" data-cancel-reset ${disabledAttr}>Cancel</button>` : ''}
-        </div>
-      </form>
-    `;
-  }else{
-    body = `
-      <form id="devLoginForm" class="dev-form">
-        <label class="field">
-          <span>Developer password</span>
-          <input type="password" id="devLoginPassword" autocomplete="current-password" required ${disabledAttr} data-autofocus>
-        </label>
-        <div class="actions">
-          <button class="primary" type="submit" ${disabledAttr}>Sign in</button>
-          <button type="button" class="ghost" data-reset ${disabledAttr}>Reset password</button>
-        </div>
-      </form>
-    `;
-  }
-  const title = state.dev.authed ? 'Developer tools' : state.dev.hasPassword ? 'Developer sign-in' : 'Set developer access';
-  const messageBlock = state.dev.message ? `<div class="notice ok">${escapeHtml(state.dev.message)}</div>` : '';
-  const errorBlock = state.dev.error ? `<div class="notice error">${escapeHtml(state.dev.error)}</div>` : '';
-  card.innerHTML = `
-    <header class="modal-head">
-      <h2 id="devModalTitle">${title}</h2>
-      <button type="button" class="modal-close" data-close aria-label="Close developer tools">&times;</button>
-    </header>
-    <div class="modal-body">${body}</div>
-    ${messageBlock}${errorBlock}
-  `;
-  const closer = card.querySelector('[data-close]');
-  if(closer) closer.onclick = closeDevModal;
-  const loginForm = card.querySelector('#devLoginForm');
-  if(loginForm){
-    loginForm.onsubmit = handleDevLogin;
-    const resetBtn = card.querySelector('[data-reset]');
-    if(resetBtn){
-      resetBtn.onclick = () => {
-        state.dev.view = 'set';
-        state.dev.error = '';
-        state.dev.message = '';
-        renderDevModal();
-      };
-    }
-  }
-  const setForm = card.querySelector('#devSetForm');
-  if(setForm){
-    setForm.onsubmit = handleDevSetPassword;
-    const cancel = card.querySelector('[data-cancel-reset]');
-    if(cancel){
-      cancel.onclick = () => {
-        state.dev.view = state.dev.authed ? 'main' : (state.dev.hasPassword ? 'login' : 'set');
-        state.dev.error = '';
-        state.dev.message = '';
-        renderDevModal();
-      };
-    }
-  }
-  const addForm = card.querySelector('#devAddUserForm');
-  if(addForm){
-    addForm.onsubmit = handleDevAddUser;
-    const changeBtn = card.querySelector('[data-change-pass]');
-    if(changeBtn){
-      changeBtn.onclick = () => {
-        state.dev.view = 'set';
-        state.dev.error = '';
-        state.dev.message = '';
-        renderDevModal();
-      };
-    }
-    const logoutBtn = card.querySelector('[data-logout]');
-    if(logoutBtn){
-      logoutBtn.onclick = handleDevLogout;
-    }
-  }
-  const focusTarget = card.querySelector('[data-autofocus]');
-  if(focusTarget && typeof focusTarget.focus === 'function'){
-    focusTarget.focus();
-  }
-}
-
-function fetchDevStatus(){
-  if(!state.dev || !state.dev.allowed) return;
-  state.dev.statusLoaded = false;
-  if(state.dev.show) renderDevModal();
-  google.script.run.withSuccessHandler(res => {
-    const allowed = !!(res && res.allowed);
-    state.dev.allowed = allowed;
-    state.dev.statusLoaded = true;
-    state.dev.hasPassword = !!(res && res.hasPassword);
-    const active = !!(res && res.sessionActive && res.token);
-    state.dev.authed = allowed && active;
-    state.dev.token = state.dev.authed ? res.token : '';
-    state.dev.view = state.dev.authed ? 'main' : (state.dev.hasPassword ? 'login' : 'set');
-    state.dev.error = '';
-    if(state.dev.authed){
-      state.dev.loadedUsers = false;
-      state.dev.loadingUsers = false;
-      loadDevUsers();
-    }else{
-      state.dev.users = [];
-      state.dev.loadedUsers = false;
-      state.dev.loadingUsers = false;
-      if(!allowed && state.dev.show){
-        closeDevModal();
+        function handleResponse(response) {
+          buttons.forEach(btn => { btn.disabled = false; });
+          if (!response || !response.ok || !response.order) {
+            handleError(response, 'updateOrderStatus', payload);
+            return;
+          }
+          const updated = response.order;
+          const idx = state.orders.findIndex(item => item.id === updated.id);
+          if (idx >= 0) {
+            state.orders[idx] = updated;
+            renderOrders();
+          }
+          showToast('Order updated');
+        }
       }
-    }
-    updateDevLauncher();
-    if(state.dev.show) renderDevModal();
-  }).withFailureHandler(err => {
-    state.dev.statusLoaded = true;
-    state.dev.error = err.message;
-    updateDevLauncher();
-    if(state.dev.show) renderDevModal();
-  }).router({action:'devStatus',csrf:state.session.csrf,siteToken:state.auth.token});
-}
 
-function handleDevLogin(e){
-  e.preventDefault();
-  if(!state.dev || state.dev.loading) return;
-  const input = e.target.querySelector('#devLoginPassword');
-  const password = input ? input.value : '';
-  if(!password){
-    state.dev.error = 'Enter your developer password.';
-    renderDevModal();
-    return;
-  }
-  state.dev.loading = true;
-  state.dev.error = '';
-  renderDevModal();
-  google.script.run.withSuccessHandler(res => {
-    state.dev.loading = false;
-    state.dev.authed = true;
-    state.dev.hasPassword = true;
-    state.dev.token = res && res.token ? res.token : '';
-    state.dev.view = 'main';
-    state.dev.message = 'Signed in';
-    state.dev.loadedUsers = false;
-    if(input) input.value = '';
-    loadDevUsers();
-    renderDevModal();
-  }).withFailureHandler(err => {
-    state.dev.loading = false;
-    state.dev.error = err.message;
-    renderDevModal();
-  }).router({action:'devLogin',password,csrf:state.session.csrf,siteToken:state.auth.token});
-}
+      function renderForm() {
+        descriptionInput.value = state.form.description;
+        qtyInput.value = state.form.qty;
+      }
 
-function handleDevSetPassword(e){
-  e.preventDefault();
-  if(!state.dev || state.dev.loading) return;
-  const form = e.target;
-  const current = form.querySelector('#devCurrentPassword') ? form.querySelector('#devCurrentPassword').value : '';
-  const next = form.querySelector('#devNewPassword') ? form.querySelector('#devNewPassword').value : '';
-  const confirm = form.querySelector('#devConfirmPassword') ? form.querySelector('#devConfirmPassword').value : '';
-  if(!next || next.length < 12){
-    state.dev.error = 'Password must be at least 12 characters.';
-    renderDevModal();
-    return;
-  }
-  if(next !== confirm){
-    state.dev.error = 'Passwords do not match.';
-    renderDevModal();
-    return;
-  }
-  state.dev.loading = true;
-  state.dev.error = '';
-  renderDevModal();
-  google.script.run.withSuccessHandler(res => {
-    state.dev.loading = false;
-    state.dev.authed = true;
-    state.dev.hasPassword = true;
-    state.dev.token = res && res.token ? res.token : '';
-    state.dev.view = 'main';
-    state.dev.message = state.dev.show ? 'Password saved' : '';
-    state.dev.loadedUsers = false;
-    loadDevUsers();
-    renderDevModal();
-  }).withFailureHandler(err => {
-    state.dev.loading = false;
-    state.dev.error = err.message;
-    renderDevModal();
-  }).router({action:'devSetPassword',token:state.dev.token,currentPassword:current,newPassword:next,csrf:state.session.csrf,siteToken:state.auth.token});
-}
+      function renderOrders() {
+        ordersList.textContent = '';
+        if (!state.orders.length && state.ordersLoading) {
+          ordersList.appendChild(buildSkeletonBlock());
+          return;
+        }
+        if (!state.orders.length) {
+          const empty = document.createElement('p');
+          empty.className = 'empty';
+          empty.textContent = 'No orders yet. Submit your first request above.';
+          ordersList.appendChild(empty);
+          ordersMoreButton.disabled = true;
+          return;
+        }
+        const fragment = document.createDocumentFragment();
+        state.orders.forEach(order => {
+          const item = document.createElement('article');
+          item.className = 'order-item';
+          item.dataset.order = order.id;
 
-function handleDevAddUser(e){
-  e.preventDefault();
-  if(!state.dev || state.dev.loading) return;
-  const form = e.target;
-  const emailInput = form.querySelector('#devUserEmail');
-  const roleSelect = form.querySelector('#devUserRole');
-  const passwordInput = form.querySelector('#devUserPassword');
-  const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
-  const role = roleSelect ? roleSelect.value : '';
-  const password = passwordInput ? passwordInput.value.trim() : '';
-  if(!email || email.indexOf('@') === -1){
-    state.dev.error = 'Enter a valid email address.';
-    renderDevModal();
-    return;
-  }
-  if(password && password.length < 12){
-    state.dev.error = 'Passwords must be at least 12 characters.';
-    renderDevModal();
-    return;
-  }
-  state.dev.loading = true;
-  state.dev.error = '';
-  renderDevModal();
-  google.script.run.withSuccessHandler(() => {
-    state.dev.loading = false;
-    state.dev.message = 'Access saved';
-    state.dev.error = '';
-    state.dev.loadedUsers = false;
-    if(emailInput) emailInput.value = '';
-    if(roleSelect) roleSelect.value = 'requester';
-    if(passwordInput) passwordInput.value = '';
-    loadDevUsers();
-    renderDevModal();
-  }).withFailureHandler(err => {
-    state.dev.loading = false;
-    state.dev.error = err.message;
-    renderDevModal();
-  }).router({action:'devAddUser',token:state.dev.token,payload:{email,role,password},csrf:state.session.csrf,siteToken:state.auth.token});
-}
+          const title = document.createElement('strong');
+          title.textContent = order.description || 'Untitled request';
+          item.appendChild(title);
 
-function handleDevLogout(){
-  if(!state.dev || state.dev.loading) return;
-  state.dev.loading = true;
-  state.dev.error = '';
-  renderDevModal();
-  google.script.run.withSuccessHandler(() => {
-    state.dev.loading = false;
-    state.dev.authed = false;
-    state.dev.token = '';
-    state.dev.users = [];
-    state.dev.loadedUsers = false;
-    state.dev.loadingUsers = false;
-    state.dev.view = state.dev.hasPassword ? 'login' : 'set';
-    state.dev.message = 'Signed out';
-    renderDevModal();
-  }).withFailureHandler(err => {
-    state.dev.loading = false;
-    state.dev.error = err.message;
-    renderDevModal();
-  }).router({action:'devLogout',token:state.dev.token,csrf:state.session.csrf,siteToken:state.auth.token});
-}
+          const meta = document.createElement('span');
+          meta.className = 'meta';
+          meta.textContent = buildOrderMeta(order);
+          item.appendChild(meta);
 
-function loadDevUsers(){
-  if(!state.dev || !state.dev.authed || !state.dev.token || state.dev.loadingUsers) return;
-  state.dev.loadingUsers = true;
-  google.script.run.withSuccessHandler(rows => {
-    state.dev.loadingUsers = false;
-    state.dev.loadedUsers = true;
-    state.dev.users = Array.isArray(rows) ? rows : [];
-    if(state.dev.show) renderDevModal();
-  }).withFailureHandler(err => {
-    state.dev.loadingUsers = false;
-    state.dev.loadedUsers = true;
-    state.dev.error = err.message;
-    if(state.dev.show) renderDevModal();
-  }).router({action:'devListRoles',token:state.dev.token,csrf:state.session.csrf,siteToken:state.auth.token});
-}
+          const status = document.createElement('span');
+          status.className = 'status';
+          status.dataset.state = order.status;
+          status.textContent = formatStatus(order.status);
+          item.appendChild(status);
 
-function toast(msg){
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.display = 'block';
-  setTimeout(()=>t.style.display='none',3000);
-}
-function debounce(fn,ms){let t;return function(...args){const ctx=this;clearTimeout(t);t=setTimeout(()=>fn.apply(ctx,args),ms);};}
+          if (order.status === 'pending') {
+            const actions = document.createElement('div');
+            actions.className = 'inline-buttons';
+            const approve = document.createElement('button');
+            approve.type = 'button';
+            approve.className = 'secondary';
+            approve.textContent = 'Approve';
+            approve.addEventListener('click', () => handleUpdateStatus(order.id, 'approved'));
+            actions.appendChild(approve);
 
-init();
-</script>
+            const decline = document.createElement('button');
+            decline.type = 'button';
+            decline.className = 'secondary';
+            decline.textContent = 'Decline';
+            decline.addEventListener('click', () => handleUpdateStatus(order.id, 'declined'));
+            actions.appendChild(decline);
+
+            item.appendChild(actions);
+          }
+
+          fragment.appendChild(item);
+        });
+        ordersList.appendChild(fragment);
+        ordersMoreButton.disabled = !state.ordersNextToken;
+      }
+
+      function renderCatalog() {
+        catalogList.textContent = '';
+        catalogSelect.textContent = '';
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select an item (optional)';
+        catalogSelect.appendChild(defaultOption);
+
+        if (!state.catalog.length && state.catalogLoading) {
+          catalogList.appendChild(buildSkeletonBlock());
+          catalogMoreButton.disabled = true;
+          return;
+        }
+        if (!state.catalog.length) {
+          const empty = document.createElement('p');
+          empty.className = 'empty';
+          empty.textContent = 'No catalog items found.';
+          catalogList.appendChild(empty);
+          catalogMoreButton.disabled = true;
+          return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        state.catalog.forEach(item => {
+          const option = document.createElement('option');
+          option.value = item.sku;
+          option.textContent = `${item.description} · ${item.category}`;
+          catalogSelect.appendChild(option);
+
+          const card = document.createElement('article');
+          card.className = 'catalog-item';
+          card.tabIndex = 0;
+          card.setAttribute('role', 'listitem');
+          const name = document.createElement('strong');
+          name.textContent = item.description;
+          card.appendChild(name);
+          const meta = document.createElement('span');
+          meta.className = 'meta';
+          meta.textContent = `${item.category} • ${item.sku}`;
+          card.appendChild(meta);
+          card.addEventListener('click', () => {
+            setFormState({ description: item.description });
+            renderForm();
+            persistForm();
+          });
+          card.addEventListener('keydown', evt => {
+            if (evt.key === 'Enter' || evt.key === ' ') {
+              evt.preventDefault();
+              setFormState({ description: item.description });
+              renderForm();
+              persistForm();
+            }
+          });
+          fragment.appendChild(card);
+        });
+        catalogList.appendChild(fragment);
+        catalogMoreButton.disabled = !state.catalogNextToken;
+      }
+
+      function toggleOrdersSkeleton(active) {
+        if (active && !state.orders.length) {
+          ordersList.textContent = '';
+          ordersList.appendChild(buildSkeletonBlock());
+          ordersMoreButton.disabled = true;
+        }
+      }
+
+      function toggleCatalogSkeleton(active) {
+        if (active && !state.catalog.length) {
+          catalogList.textContent = '';
+          catalogList.appendChild(buildSkeletonBlock());
+          catalogMoreButton.disabled = true;
+        }
+      }
+
+      function buildSkeletonBlock() {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'order-item';
+        const title = document.createElement('div');
+        title.className = 'skeleton';
+        title.style.height = '20px';
+        wrapper.appendChild(title);
+        const line = document.createElement('div');
+        line.className = 'skeleton sm';
+        wrapper.appendChild(line);
+        return wrapper;
+      }
+
+      function buildOrderMeta(order) {
+        const parts = [];
+        if (order.qty) {
+          parts.push(`Qty ${order.qty}`);
+        }
+        if (order.ts) {
+          parts.push(new Date(order.ts).toLocaleString());
+        }
+        if (order.requester) {
+          parts.push(order.requester);
+        }
+        if (order.approver && order.status !== 'pending') {
+          parts.push(`by ${order.approver}`);
+        }
+        return parts.join(' • ');
+      }
+
+      function formatStatus(status) {
+        switch (status) {
+          case 'approved':
+            return 'Approved';
+          case 'declined':
+            return 'Declined';
+          default:
+            return 'Pending review';
+        }
+      }
+
+      function disableOrderForm(disabled) {
+        submitOrderButton.disabled = disabled;
+        descriptionInput.disabled = disabled;
+        qtyInput.disabled = disabled;
+        catalogSelect.disabled = disabled;
+        resetFormButton.disabled = disabled;
+      }
+
+      function setFormState(partial) {
+        state.form = Object.assign({}, state.form, partial);
+      }
+
+      function persistForm() {
+        try {
+          localStorage.setItem(LOCAL_KEY, JSON.stringify(state.form));
+        } catch (err) {
+          // ignore storage issues silently
+        }
+      }
+
+      function hydrateFormFromCache() {
+        try {
+          const raw = localStorage.getItem(LOCAL_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+              state.form = Object.assign({}, state.form, parsed);
+            }
+          }
+        } catch (err) {
+          // ignore cache issues
+        }
+        renderForm();
+      }
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.style.display = 'block';
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => {
+          toast.style.display = 'none';
+        }, 2800);
+      }
+
+      function handleError(err, context, payload) {
+        const message = err && err.message ? err.message : 'Something went wrong. Please try again.';
+        console.error('[SuppliesTracker]', context, message, err);
+        showToast(message);
+        try {
+          google.script.run
+            .withFailureHandler(() => { })
+            .logClientError({
+              cid: makeCid(),
+              context,
+              message,
+              stack: err && err.stack ? String(err.stack) : '',
+              payload
+            });
+        } catch (loggingError) {
+          // ignore logging issues
+        }
+      }
+
+      function makeCid() {
+        return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      }
+
+      function makeClientRequestId() {
+        return `${initialSessionEmail || 'user'}-${makeCid()}`;
+      }
+    })();
+  </script>
 </body>
 </html>
