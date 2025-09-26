@@ -195,6 +195,7 @@ const state = {
   }
 };
 
+const CAN_DECIDE_REQUESTS = ['approver','developer','super_admin'].includes(SESSION_ROLE);
 const CAN_MANAGE_PROOF = ['approver','developer','super_admin'].includes(SESSION_ROLE);
 const CAN_MANAGE_THUMBS = ['developer','super_admin'].includes(SESSION_ROLE);
 const CAN_UPLOAD_IMAGES = ['developer','super_admin'].includes(SESSION_ROLE);
@@ -204,6 +205,7 @@ const BULK_ACTION_LABELS = {
   'ON-HOLD': { progress: 'Placing on hold…', past: 'placed on hold' }
 };
 let proofPanelCtx = null;
+let bulkBarCtx = null;
 let thumbPanelCtx = null;
 let devModalReady = false;
 let initialRouteRendered = false;
@@ -657,9 +659,9 @@ function renderAll(app){
             <textarea id="comment" placeholder="Optional note"></textarea>
           </label>
           <div class="actions">
-            <button id="ap" class="primary" type="button">Approve</button>
-            <button id="dn" class="ghost" type="button">Deny</button>
-            <button id="oh" class="ghost" type="button">On-Hold</button>
+            <button id="ap" class="primary" type="button" data-decision="APPROVED">Approve</button>
+            <button id="dn" class="ghost" type="button" data-decision="DENIED">Deny</button>
+            <button id="oh" class="ghost" type="button" data-decision="ON-HOLD">On-Hold</button>
           </div>
         </div>
         <div class="table-wrapper">
@@ -758,15 +760,11 @@ function renderAll(app){
     toggleBulk();
   };
   app.querySelectorAll('[data-route="catalog"]').forEach(btn=>btn.onclick=()=>route('catalog'));
+  bulkBarCtx = null;
+  if(CAN_DECIDE_REQUESTS){
+    setupBulkBar(app);
+  }
   if(CAN_MANAGE_PROOF){
-    const bulkBar = app.querySelector('#bulkBar');
-    if(bulkBar) bulkBar.classList.remove('hidden');
-    const ap = app.querySelector('#ap');
-    const dn = app.querySelector('#dn');
-    const oh = app.querySelector('#oh');
-    if(ap) ap.onclick = ()=>bulk('APPROVED', ap);
-    if(dn) dn.onclick = ()=>bulk('DENIED', dn);
-    if(oh) oh.onclick = ()=>bulk('ON-HOLD', oh);
     setupProofPanel(app);
   }
   loadOrders();
@@ -1047,6 +1045,25 @@ function renderRows(){
     if(!state.rows.length) empty.classList.remove('hidden');
     else empty.classList.add('hidden');
   }
+}
+
+function setupBulkBar(app){
+  const bulkBar = app.querySelector('#bulkBar');
+  if(!bulkBar) return;
+  const buttons = Array.from(bulkBar.querySelectorAll('[data-decision]'));
+  if(!buttons.length) return;
+  buttons.forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      if(btn.disabled) return;
+      const decision = btn.dataset.decision;
+      if(!decision) return;
+      bulk(decision, btn);
+    });
+  });
+  bulkBarCtx = { bar: bulkBar, buttons, processing: false };
+  bulkBar.classList.remove('hidden');
+  toggleBulk();
 }
 
 function setupProofPanel(app){
@@ -1460,17 +1477,23 @@ function createImageField({ dropZone, preview, hiddenInput, urlInput, clearButto
 }
 
 function toggleBulk(){
-  const bar = document.getElementById('bulkBar');
-  if(!bar) return;
-  bar.classList.toggle('hidden', state.selection.size === 0);
+  if(!bulkBarCtx || !bulkBarCtx.bar) return;
+  const hasSelection = state.selection && state.selection.size > 0;
+  bulkBarCtx.bar.classList.toggle('hidden', !hasSelection);
+  if(!bulkBarCtx.processing){
+    bulkBarCtx.buttons.forEach(btn => {
+      btn.disabled = !hasSelection;
+    });
+  }
 }
 
 function getBulkButtons(){
-  return ['ap','dn','oh'].map(id => document.getElementById(id)).filter(Boolean);
+  return bulkBarCtx && Array.isArray(bulkBarCtx.buttons) ? bulkBarCtx.buttons : [];
 }
 
 function setBulkButtonsDisabled(disabled, trigger, decision){
   const labels = BULK_ACTION_LABELS[decision] || {};
+  if(bulkBarCtx) bulkBarCtx.processing = !!disabled;
   getBulkButtons().forEach(btn => {
     if(!btn) return;
     if(disabled){
@@ -1482,7 +1505,7 @@ function setBulkButtonsDisabled(disabled, trigger, decision){
         btn.textContent = labels.progress || 'Processing…';
       }
     }else{
-      btn.disabled = false;
+      btn.disabled = !(state.selection && state.selection.size > 0);
       if(btn.dataset.originalText){
         btn.textContent = btn.dataset.originalText;
         delete btn.dataset.originalText;
@@ -1524,6 +1547,10 @@ function bulk(decision, trigger){
   }
   const commentField = document.getElementById('comment');
   const comment = commentField ? commentField.value : '';
+  if(typeof google === 'undefined' || !google || !google.script || !google.script.run){
+    toast('Unable to reach the server. Please refresh and try again.');
+    return;
+  }
   setBulkButtonsDisabled(true, trigger, decision);
   google.script.run.withSuccessHandler(res => {
     setBulkButtonsDisabled(false);
