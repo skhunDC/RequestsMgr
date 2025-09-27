@@ -1171,6 +1171,20 @@
             if (etaValue) {
               etaInput.value = etaValue;
             }
+            let lastEtaValue = etaValue;
+            etaInput.addEventListener('change', () => {
+              const nextEta = etaInput.value ? etaInput.value.trim() : '';
+              if (statusValue === 'ordered' && !nextEta) {
+                showToast('Enter an ETA before saving.');
+                etaInput.value = lastEtaValue;
+                etaInput.focus();
+                return;
+              }
+              lastEtaValue = nextEta;
+              const normalizedStatus = statusValue || 'pending';
+              const targetStatus = request && request.status ? request.status : normalizedStatus;
+              handleUpdateStatus(type, request.id, targetStatus, { eta: nextEta });
+            });
             etaField.appendChild(etaInput);
             controls.appendChild(etaField);
 
@@ -1206,24 +1220,6 @@
                 handleUpdateStatus(type, request.id, 'ordered', { eta: nextEta });
               });
               buttonRow.appendChild(ordered);
-              hasButtons = true;
-            } else {
-              const saveEta = document.createElement('button');
-              saveEta.type = 'button';
-              saveEta.className = 'secondary';
-              saveEta.textContent = 'Save ETA';
-              saveEta.addEventListener('click', () => {
-                const nextEta = etaInput.value ? etaInput.value.trim() : '';
-                if (String(request.status || '').toLowerCase() === 'ordered' && !nextEta) {
-                  showToast('Enter an ETA before saving.');
-                  etaInput.focus();
-                  return;
-                }
-                const normalizedStatus = statusValue || 'pending';
-                const targetStatus = request && request.status ? request.status : normalizedStatus;
-                handleUpdateStatus(type, request.id, targetStatus, { eta: nextEta });
-              });
-              buttonRow.appendChild(saveEta);
               hasButtons = true;
             }
 
