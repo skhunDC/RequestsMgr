@@ -27,8 +27,8 @@
       margin: 0;
       background: var(--surface-alt);
       color: var(--text);
-      font-size: 16px;
-      line-height: 1.5;
+      font-size: clamp(16px, 4.6vw, 19px);
+      line-height: 1.6;
       -webkit-font-smoothing: antialiased;
     }
 
@@ -42,21 +42,21 @@
     }
 
     header img.logo {
-      width: clamp(120px, 32vw, 125px);
+      width: clamp(104px, 28vw, 120px);
       height: auto;
       display: block;
     }
 
     header h1 {
       margin: 0;
-      font-size: clamp(1.35rem, 4.5vw, 1.75rem);
+      font-size: clamp(1.45rem, 5vw, 2rem);
       font-weight: 600;
     }
 
     header p {
       margin: 0;
       color: var(--muted);
-      font-size: clamp(0.9rem, 3.5vw, 1rem);
+      font-size: clamp(1rem, 3.9vw, 1.1rem);
       max-width: 40rem;
     }
 
@@ -66,8 +66,8 @@
 
     nav.tab-nav {
       display: flex;
-      gap: 0.5rem;
-      padding: 0 clamp(0.75rem, 6vw, 2rem) clamp(0.75rem, 4vw, 1.25rem);
+      gap: 0.35rem;
+      padding: 0 clamp(0.75rem, 6vw, 1.35rem) clamp(0.75rem, 4vw, 1rem);
       overflow-x: auto;
       scrollbar-width: none;
     }
@@ -95,7 +95,7 @@
     section.card {
       background: var(--surface);
       border-radius: 16px;
-      padding: clamp(1rem, 5vw, 1.5rem);
+      padding: clamp(1.1rem, 5.8vw, 1.65rem);
       box-shadow: 0 12px 24px -18px rgba(23, 32, 42, 0.3);
       display: flex;
       flex-direction: column;
@@ -104,7 +104,7 @@
 
     h2 {
       margin: 0;
-      font-size: 1.15rem;
+      font-size: clamp(1.2rem, 4vw, 1.45rem);
       font-weight: 600;
     }
 
@@ -126,12 +126,12 @@
     }
 
     .card-title {
-      font-size: 1.15rem;
+      font-size: clamp(1.2rem, 4.4vw, 1.5rem);
       font-weight: 600;
     }
 
     .card-subtitle {
-      font-size: 0.9rem;
+      font-size: clamp(1rem, 3.7vw, 1.1rem);
       color: var(--muted);
     }
 
@@ -161,9 +161,9 @@
 
     label span {
       display: block;
-      font-size: 0.9rem;
+      font-size: clamp(1rem, 3.8vw, 1.15rem);
       font-weight: 600;
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.45rem;
     }
 
     input[type="number"],
@@ -183,12 +183,13 @@
     input[type="date"],
     select {
       width: 100%;
-      padding: 0.65rem 0.75rem;
+      padding: 0.75rem 0.85rem;
       border: 1px solid var(--border);
       border-radius: 12px;
       background: var(--surface-alt);
       color: inherit;
-      min-height: 44px;
+      min-height: 48px;
+      font-size: clamp(1.05rem, 4vw, 1.2rem);
     }
 
     textarea:focus,
@@ -210,12 +211,13 @@
       cursor: pointer;
       border: none;
       border-radius: 999px;
-      padding: 0.75rem 1.25rem;
+      padding: 0.8rem 1.35rem;
       font-weight: 600;
       background: var(--accent);
       color: #fff;
-      min-height: 44px;
+      min-height: 48px;
       transition: background 0.2s ease;
+      font-size: clamp(1.05rem, 4vw, 1.2rem);
     }
 
     button[disabled] {
@@ -240,12 +242,13 @@
     .tab-nav button {
       flex: 1 1 auto;
       min-width: 0;
-      padding: 0.65rem 1rem;
+      padding: 0.55rem 0.85rem;
       border-radius: 999px;
       border: 1px solid var(--border);
       background: var(--surface);
       color: var(--muted);
       font-weight: 600;
+      font-size: clamp(0.95rem, 3.5vw, 1.05rem);
     }
 
     .tab-nav button:not(.active):hover {
@@ -286,7 +289,7 @@
 
     .notice-block h3 {
       margin: 0;
-      font-size: 1rem;
+      font-size: clamp(1.05rem, 3.8vw, 1.2rem);
       font-weight: 600;
       color: var(--accent-strong);
     }
@@ -294,7 +297,7 @@
     .notice-block p {
       margin: 0;
       color: var(--muted);
-      font-size: 0.95rem;
+      font-size: clamp(0.95rem, 3.6vw, 1.05rem);
     }
 
     .skeleton {
@@ -403,12 +406,12 @@
     }
 
     datalist option {
-      font-size: 0.95rem;
+      font-size: clamp(1rem, 3.5vw, 1.1rem);
     }
 
     .input-helper {
       margin-top: 0.35rem;
-      font-size: 0.8rem;
+      font-size: clamp(0.95rem, 3.3vw, 1.05rem);
       color: var(--muted);
       display: block;
     }
@@ -416,7 +419,7 @@
     .input-helper.custom-item-alert {
       margin-top: 0.75rem;
       margin-bottom: 0.25rem;
-      font-size: 0.9rem;
+      font-size: clamp(1rem, 3.6vw, 1.1rem);
       font-weight: 700;
       color: var(--danger);
     }
@@ -424,9 +427,9 @@
     .urgency-badge {
       display: inline-flex;
       align-items: center;
-      font-size: 0.8rem;
+      font-size: clamp(0.85rem, 3vw, 0.95rem);
       font-weight: 600;
-      padding: 0.25rem 0.65rem;
+      padding: 0.3rem 0.7rem;
       border-radius: 999px;
       border: 1px solid transparent;
       text-transform: uppercase;
@@ -462,7 +465,7 @@
 
     .request-item strong,
     .catalog-item strong {
-      font-size: 1rem;
+      font-size: clamp(1.05rem, 3.8vw, 1.2rem);
     }
 
     .catalog-item .meta + .meta {
@@ -479,11 +482,11 @@
       align-items: center;
       gap: 0.25rem;
       align-self: flex-start;
-      padding: 0.2rem 0.55rem;
+      padding: 0.25rem 0.6rem;
       border-radius: 999px;
       background: rgba(11, 87, 208, 0.12);
       color: var(--accent-strong);
-      font-size: 0.7rem;
+      font-size: clamp(0.75rem, 2.9vw, 0.9rem);
       font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
@@ -495,13 +498,13 @@
     }
 
     .meta {
-      font-size: 0.8rem;
+      font-size: clamp(0.95rem, 3.2vw, 1.05rem);
       color: var(--muted);
     }
 
     .detail-line {
       display: block;
-      font-size: 0.85rem;
+      font-size: clamp(0.95rem, 3.4vw, 1.05rem);
       color: var(--muted);
     }
 
@@ -514,17 +517,58 @@
     }
 
     .eta-field span {
-      font-size: 0.8rem;
+      font-size: clamp(0.9rem, 3.2vw, 1rem);
       font-weight: 600;
+    }
+
+    @media (max-width: 520px) {
+      header {
+        padding: clamp(1.35rem, 6vw, 1.75rem) clamp(1.1rem, 7vw, 1.65rem) clamp(0.85rem, 5vw, 1.35rem);
+      }
+
+      nav.tab-nav {
+        gap: 0.25rem;
+        padding: 0 clamp(0.75rem, 6vw, 1rem) clamp(0.75rem, 4vw, 0.9rem);
+      }
+
+      .tab-nav button {
+        flex: 0 0 auto;
+        padding: 0.5rem 0.8rem;
+      }
+
+      main {
+        padding: 0 clamp(0.85rem, 6vw, 1.15rem) 2.15rem;
+        width: min(100%, 640px);
+      }
+
+      section.card {
+        border-radius: 20px;
+        padding: clamp(1.15rem, 6.5vw, 1.75rem);
+      }
+
+      .catalog-clear {
+        width: 34px;
+        height: 34px;
+      }
+    }
+
+    @media (max-width: 360px) {
+      button {
+        padding-inline: 1.1rem;
+      }
+
+      .tab-nav button {
+        padding-inline: 0.7rem;
+      }
     }
 
     .status {
       display: inline-flex;
       align-items: center;
       gap: 0.35rem;
-      font-size: 0.85rem;
+      font-size: clamp(0.95rem, 3.2vw, 1.05rem);
       font-weight: 600;
-      padding: 0.25rem 0.65rem;
+      padding: 0.35rem 0.75rem;
       border-radius: 999px;
       background: var(--surface);
       border: 1px solid var(--border);
