@@ -258,6 +258,16 @@
       gap: 0.5rem;
     }
 
+    .inline-buttons button.secondary.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .inline-buttons button.secondary.active:hover:not([disabled]) {
+      background: var(--accent-strong);
+    }
+
     .skeleton {
       position: relative;
       overflow: hidden;
@@ -1231,7 +1241,7 @@
               controls.appendChild(buttonRow);
             }
             item.appendChild(controls);
-          } else if (stateKey === 'pending') {
+          } else if (stateKey === 'pending' || stateKey === 'in_progress') {
             const actions = document.createElement('div');
             actions.className = 'inline-buttons';
             const complete = document.createElement('button');
@@ -1246,7 +1256,16 @@
             progress.className = 'secondary';
             progress.textContent = 'In Progress';
             progress.addEventListener('click', () => handleUpdateStatus(type, request.id, 'in_progress'));
+            progress.classList.toggle('active', stateKey === 'in_progress');
+            progress.setAttribute('aria-pressed', stateKey === 'in_progress' ? 'true' : 'false');
             actions.appendChild(progress);
+
+            const denied = document.createElement('button');
+            denied.type = 'button';
+            denied.className = 'secondary';
+            denied.textContent = 'Denied';
+            denied.addEventListener('click', () => handleUpdateStatus(type, request.id, 'denied'));
+            actions.appendChild(denied);
 
             item.appendChild(actions);
           }

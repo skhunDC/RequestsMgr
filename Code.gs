@@ -5,7 +5,8 @@ const MAX_PAGE_SIZE = 50;
 
 const SHEETS = {
   CATALOG: 'Catalog',
-  LOGS: 'Logs'
+  LOGS: 'Logs',
+  STATUS_LOG: 'StatusLog'
 };
 
 const LOCATION_OPTIONS = ['Plant', 'Short North', 'South Dublin', 'Muirfield', 'Morse Rd.', 'Granville', 'Newark'];
@@ -118,6 +119,7 @@ const REQUEST_TYPES = {
 };
 
 const LOG_HEADERS = ['ts', 'actor', 'fn', 'cid', 'message', 'stack', 'context'];
+const STATUS_LOG_HEADERS = ['ts', 'type', 'requestId', 'actor', 'status'];
 
 const CACHE_KEYS = {
   CATALOG: 'catalog:v1',
@@ -367,6 +369,8 @@ function updateRequestStatus(request) {
     invalidateRequestCache_(type, normalizeEmail_(updatedRecord.requester));
     invalidateRequestCache_(type, 'all');
 
+    recordStatusAction_(type, requestId, status, approverEmail);
+
     return {
       ok: true,
       request: updatedRecord
@@ -433,6 +437,9 @@ function ensureSetup_() {
 
     const logs = ss.getSheetByName(SHEETS.LOGS) || ss.insertSheet(SHEETS.LOGS);
     ensureHeaders_(logs, LOG_HEADERS);
+
+    const statusLog = ss.getSheetByName(SHEETS.STATUS_LOG) || ss.insertSheet(SHEETS.STATUS_LOG);
+    ensureHeaders_(statusLog, STATUS_LOG_HEADERS);
   } finally {
     lock.releaseLock();
   }
@@ -627,6 +634,20 @@ function logServerError_(fnName, cid, err, context) {
   } catch (logErr) {
     Logger.log('Failed to log to sheet: ' + logErr);
   }
+}
+
+function recordStatusAction_(type, requestId, status, actor) {
+  const sheet = getSheet_(SHEETS.STATUS_LOG, STATUS_LOG_HEADERS);
+  const entry = [
+    toIsoString_(new Date()),
+    String(type || ''),
+    String(requestId || ''),
+    normalizeEmail_(actor),
+    String(status || '')
+  ];
+  withLock_(() => {
+    sheet.appendRow(entry);
+  });
 }
 
 function getFieldNames_(headers) {
