@@ -691,13 +691,7 @@ function formatDateForDisplay_(value) {
   if (!normalized) {
     return '';
   }
-  const parts = normalized.split('-');
-  const year = Number(parts[0]);
-  const monthIndex = Number(parts[1]) - 1;
-  const day = Number(parts[2]);
-  const timezone = Session.getScriptTimeZone() || 'UTC';
-  const date = new Date(year, monthIndex, day);
-  return Utilities.formatDate(date, timezone, 'MMM d, yyyy');
+  return normalized;
 }
 
 function toIsoString_(date) {
