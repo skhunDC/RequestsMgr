@@ -324,6 +324,19 @@
       color: var(--muted);
     }
 
+    .eta-field {
+      margin-top: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      max-width: 220px;
+    }
+
+    .eta-field span {
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
     .status {
       display: inline-flex;
       align-items: center;
@@ -1147,6 +1160,34 @@
           status.textContent = formatStatus(stateKey);
           item.appendChild(status);
 
+          if (type === 'supplies') {
+            const etaWrapper = document.createElement('label');
+            etaWrapper.className = 'eta-field';
+
+            const etaText = document.createElement('span');
+            etaText.textContent = 'ETA';
+            etaWrapper.appendChild(etaText);
+
+            const etaInput = document.createElement('input');
+            etaInput.type = 'date';
+            etaInput.autocomplete = 'off';
+            const previousEta = getRequestEta(request);
+            etaInput.value = previousEta;
+            etaInput.setAttribute('aria-label', `ETA for ${request.summary || 'request'}`);
+            if (!server) {
+              etaInput.disabled = true;
+            }
+            etaInput.addEventListener('change', () => {
+              const nextValue = etaInput.value;
+              if (nextValue === previousEta) {
+                return;
+              }
+              handleUpdateEta(type, request, nextValue, etaInput, previousEta);
+            });
+            etaWrapper.appendChild(etaInput);
+            item.appendChild(etaWrapper);
+          }
+
           if (Array.isArray(request.details)) {
             request.details.forEach(detail => {
               if (!detail) return;
@@ -1261,6 +1302,51 @@
           .updateRequestStatus(payload);
       }
 
+      function handleUpdateEta(type, request, etaValue, input, previousEta) {
+        if (!server) {
+          showToast('Connect to Google Apps Script to update ETA dates.');
+          input.value = previousEta;
+          return;
+        }
+        if (!request || !request.id) {
+          input.value = previousEta;
+          handleError({ message: 'Request not found.' }, 'updateRequestEta');
+          return;
+        }
+        const payload = {
+          cid: makeCid(),
+          clientRequestId: makeClientRequestId(type),
+          type,
+          requestId: request.id,
+          status: request.status || 'pending',
+          eta: etaValue
+        };
+        input.disabled = true;
+        server
+          .withSuccessHandler(response => {
+            input.disabled = false;
+            if (!response || !response.ok || !response.request) {
+              input.value = previousEta;
+              handleError(response, 'updateRequestEta', payload);
+              return;
+            }
+            const updated = response.request;
+            const index = state.requests[type].findIndex(entry => entry.id === updated.id);
+            if (index >= 0) {
+              state.requests[type][index] = updated;
+              renderRequests(type);
+            }
+            const updatedEta = getRequestEta(updated);
+            showToast(updatedEta ? 'ETA updated' : 'ETA cleared');
+          })
+          .withFailureHandler(err => {
+            input.disabled = false;
+            input.value = previousEta;
+            handleError(err, 'updateRequestEta', payload);
+          })
+          .updateRequestStatus(payload);
+      }
+
       function buildRequestMeta(request) {
         const parts = [];
         if (request.ts) {
@@ -1277,6 +1363,13 @@
           parts.push(`by ${request.approver}`);
         }
         return parts.join(' • ');
+      }
+
+      function getRequestEta(request) {
+        if (!request || !request.fields) {
+          return '';
+        }
+        return String(request.fields.eta || '');
       }
 
       function loadCatalog({ append }) {

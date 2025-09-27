@@ -2,7 +2,7 @@
 
 const SCRIPT_PROP_SHEET_ID = 'SUPPLIES_TRACKING_SHEET_ID';
 const SCRIPT_PROP_SETUP_VERSION = 'SUPPLIES_TRACKING_SETUP_VERSION';
-const CURRENT_SETUP_VERSION = '1';
+const CURRENT_SETUP_VERSION = '2';
 const MAX_PAGE_SIZE = 50;
 
 const SHEETS = {
@@ -16,7 +16,7 @@ const LOCATION_OPTIONS = ['Plant', 'Short North', 'South Dublin', 'Muirfield', '
 const REQUEST_TYPES = {
   supplies: {
     sheetName: 'SuppliesRequests',
-    headers: ['id', 'ts', 'requester', 'description', 'qty', 'location', 'notes', 'status', 'approver'],
+    headers: ['id', 'ts', 'requester', 'description', 'qty', 'location', 'notes', 'eta', 'status', 'approver'],
     normalize(request) {
       const location = normalizeLocation_(request && request.location);
       const description = sanitizeString_(request && request.description);
@@ -43,6 +43,17 @@ const REQUEST_TYPES = {
       }
       if (fields.notes) {
         details.push(`Notes: ${fields.notes}`);
+      }
+      if (fields.eta) {
+        let formatted = '';
+        try {
+          formatted = formatDateForDisplay_(fields.eta);
+        } catch (err) {
+          formatted = fields.eta;
+        }
+        if (formatted) {
+          details.push(`ETA: ${formatted}`);
+        }
       }
       return details;
     }
@@ -316,6 +327,8 @@ function updateRequestStatus(request) {
       throw new Error('requestId is required.');
     }
     const status = normalizeStatus_(request && request.status);
+    const hasEta = Object.prototype.hasOwnProperty.call(request || {}, 'eta');
+    const etaValue = hasEta ? normalizeDateOnly_(request && request.eta) : '';
 
     const cache = CacheService.getScriptCache();
     const ridKey = [CACHE_KEYS.RID_PREFIX, rid].join(':');
@@ -643,6 +656,48 @@ function sanitizeString_(value) {
 
 function normalizeEmail_(email) {
   return String(email || '').trim().toLowerCase();
+}
+
+function normalizeDateOnly_(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  const text = String(value).trim();
+  if (!text) {
+    return '';
+  }
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    throw new Error('ETA must use the YYYY-MM-DD format.');
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    throw new Error('Invalid ETA date.');
+  }
+  const paddedMonth = month.toString().padStart(2, '0');
+  const paddedDay = day.toString().padStart(2, '0');
+  return `${year}-${paddedMonth}-${paddedDay}`;
+}
+
+function formatDateForDisplay_(value) {
+  const normalized = normalizeDateOnly_(value);
+  if (!normalized) {
+    return '';
+  }
+  const parts = normalized.split('-');
+  const year = Number(parts[0]);
+  const monthIndex = Number(parts[1]) - 1;
+  const day = Number(parts[2]);
+  const timezone = Session.getScriptTimeZone() || 'UTC';
+  const date = new Date(year, monthIndex, day);
+  return Utilities.formatDate(date, timezone, 'MMM d, yyyy');
 }
 
 function toIsoString_(date) {
