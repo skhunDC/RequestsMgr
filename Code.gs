@@ -1,6 +1,8 @@
 /* eslint-env googleappsscript */
 
 const SCRIPT_PROP_SHEET_ID = 'SUPPLIES_TRACKING_SHEET_ID';
+const SCRIPT_PROP_SETUP_VERSION = 'SUPPLIES_TRACKING_SETUP_VERSION';
+const CURRENT_SETUP_VERSION = '1';
 const MAX_PAGE_SIZE = 50;
 
 const SHEETS = {
@@ -424,11 +426,23 @@ function withErrorHandling_(fnName, cid, context, fn) {
 }
 
 function ensureSetup_() {
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) {
-    throw new Error('Unable to acquire initialization lock.');
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty(SCRIPT_PROP_SETUP_VERSION) === CURRENT_SETUP_VERSION) {
+    return;
   }
+
+  const lock = LockService.getScriptLock();
   try {
+    lock.waitLock(15000);
+  } catch (err) {
+    throw new Error('Initialization is in progress. Please try again in a few seconds.');
+  }
+
+  try {
+    if (props.getProperty(SCRIPT_PROP_SETUP_VERSION) === CURRENT_SETUP_VERSION) {
+      return;
+    }
+
     const ss = getSpreadsheet_();
     const requiredSheets = getRequiredSheetDefinitions_();
 
@@ -453,6 +467,8 @@ function ensureSetup_() {
       ];
       catalog.getRange(2, 1, defaults.length, defaults[0].length).setValues(defaults);
     }
+
+    props.setProperty(SCRIPT_PROP_SETUP_VERSION, CURRENT_SETUP_VERSION);
   } finally {
     lock.releaseLock();
   }
