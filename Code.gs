@@ -13,8 +13,9 @@ const LOCATION_OPTIONS = ['Plant', 'Short North', 'South Dublin', 'Muirfield', '
 const REQUEST_TYPES = {
   supplies: {
     sheetName: 'SuppliesRequests',
-    headers: ['id', 'ts', 'requester', 'description', 'qty', 'notes', 'eta', 'status', 'approver'],
+    headers: ['id', 'ts', 'requester', 'description', 'qty', 'location', 'notes', 'status', 'approver'],
     normalize(request) {
+      const location = normalizeLocation_(request && request.location);
       const description = sanitizeString_(request && request.description);
       if (!description) {
         throw new Error('Description is required.');
@@ -24,13 +25,16 @@ const REQUEST_TYPES = {
         throw new Error('Quantity must be at least 1.');
       }
       const notes = sanitizeString_(request && request.notes);
-      return { description, qty, notes };
+      return { description, qty, location, notes };
     },
     buildSummary(fields) {
       return fields.description || 'Supplies request';
     },
     buildDetails(fields) {
       const details = [];
+      if (fields.location) {
+        details.push(`Location: ${fields.location}`);
+      }
       if (fields.qty) {
         details.push(`Quantity: ${fields.qty}`);
       }
