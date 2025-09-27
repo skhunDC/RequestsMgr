@@ -262,15 +262,6 @@
       gap: 0.5rem;
     }
 
-    .scope-toggle {
-      width: 100%;
-      margin-bottom: 0.25rem;
-    }
-
-    .scope-toggle button {
-      flex: 1 1 0;
-    }
-
     .inline-buttons button.secondary.active {
       background: var(--accent);
       border-color: var(--accent);
@@ -567,10 +558,6 @@
           </div>
         </div>
         <div class="card-body">
-          <div class="inline-buttons scope-toggle" data-scope-controls="supplies" role="group" aria-label="Supplies request filter">
-            <button type="button" class="secondary" data-scope-option="mine">My requests</button>
-            <button type="button" class="secondary" data-scope-option="all">All requests</button>
-          </div>
           <div id="suppliesRequestsList" class="list" role="list"></div>
           <button type="button" id="suppliesMoreButton" class="load-more secondary">Load more</button>
         </div>
@@ -650,10 +637,6 @@
           </div>
         </div>
         <div class="card-body">
-          <div class="inline-buttons scope-toggle" data-scope-controls="it" role="group" aria-label="IT request filter">
-            <button type="button" class="secondary" data-scope-option="mine">My requests</button>
-            <button type="button" class="secondary" data-scope-option="all">All requests</button>
-          </div>
           <div id="itRequestsList" class="list" role="list"></div>
           <button type="button" id="itMoreButton" class="load-more secondary">Load more</button>
         </div>
@@ -716,10 +699,6 @@
           </div>
         </div>
         <div class="card-body">
-          <div class="inline-buttons scope-toggle" data-scope-controls="maintenance" role="group" aria-label="Maintenance request filter">
-            <button type="button" class="secondary" data-scope-option="mine">My requests</button>
-            <button type="button" class="secondary" data-scope-option="all">All requests</button>
-          </div>
           <div id="maintenanceRequestsList" class="list" role="list"></div>
           <button type="button" id="maintenanceMoreButton" class="load-more secondary">Load more</button>
         </div>
@@ -749,18 +728,7 @@
         it: 'request-manager:it',
         maintenance: 'request-manager:maintenance'
       };
-      const LOCAL_SCOPE_KEYS = {
-        supplies: 'request-manager:scope:supplies',
-        it: 'request-manager:scope:it',
-        maintenance: 'request-manager:scope:maintenance'
-      };
-      const DEFAULT_SCOPE = 'all';
-      const EMPTY_MESSAGES = {
-        supplies: 'No supplies requests yet. Submit your first request above.',
-        it: 'No IT requests yet. Log an issue to get started.',
-        maintenance: 'No maintenance requests yet. Report one above.'
-      };
-      const EMPTY_QUEUE_MESSAGES = {
+      const EMPTY_REQUEST_MESSAGES = {
         supplies: 'No supplies requests are pending right now.',
         it: 'No IT tickets are in the queue right now.',
         maintenance: 'No maintenance work orders are pending right now.'
@@ -793,11 +761,6 @@
           it: false,
           maintenance: false
         },
-        scopes: {
-          supplies: DEFAULT_SCOPE,
-          it: DEFAULT_SCOPE,
-          maintenance: DEFAULT_SCOPE
-        },
         catalog: {
           items: [],
           nextToken: '',
@@ -818,7 +781,6 @@
           reset: document.getElementById('suppliesResetButton'),
           list: document.getElementById('suppliesRequestsList'),
           more: document.getElementById('suppliesMoreButton'),
-          scope: document.querySelector('[data-scope-controls="supplies"]'),
           catalogSelect: document.getElementById('catalogSelect'),
           catalogList: document.getElementById('catalogList'),
           catalogMore: document.getElementById('catalogMoreButton')
@@ -833,8 +795,7 @@
           submit: document.getElementById('itSubmitButton'),
           reset: document.getElementById('itResetButton'),
           list: document.getElementById('itRequestsList'),
-          more: document.getElementById('itMoreButton'),
-          scope: document.querySelector('[data-scope-controls="it"]')
+          more: document.getElementById('itMoreButton')
         },
         maintenance: {
           form: document.getElementById('maintenanceForm'),
@@ -845,8 +806,7 @@
           submit: document.getElementById('maintenanceSubmitButton'),
           reset: document.getElementById('maintenanceResetButton'),
           list: document.getElementById('maintenanceRequestsList'),
-          more: document.getElementById('maintenanceMoreButton'),
-          scope: document.querySelector('[data-scope-controls="maintenance"]')
+          more: document.getElementById('maintenanceMoreButton')
         }
       };
 
@@ -854,12 +814,9 @@
 
       attachNavHandlers();
       attachFormHandlers();
-      attachScopeHandlers();
       REQUEST_KEYS.forEach(type => {
         hydrateFormFromCache(type);
-        hydrateScopeFromCache(type);
         renderForm(type);
-        renderScopeControls(type);
       });
       setActiveTab(state.activeTab);
       if (hasServer) {
@@ -979,37 +936,6 @@
           if (!state.loading.maintenance && state.nextTokens.maintenance) {
             loadRequests('maintenance', { append: true });
           }
-        });
-      }
-
-      function attachScopeHandlers() {
-        REQUEST_KEYS.forEach(type => {
-          const container = dom[type].scope;
-          if (!container) {
-            return;
-          }
-          container.addEventListener('click', event => {
-            const button = event.target.closest('button[data-scope-option]');
-            if (!button) {
-              return;
-            }
-            if (!hasServer) {
-              return;
-            }
-            const scope = button.getAttribute('data-scope-option');
-            if (!scope || (scope !== 'mine' && scope !== 'all')) {
-              return;
-            }
-            const changed = setScope(type, scope);
-            if (!changed) {
-              return;
-            }
-            state.loaded[type] = false;
-            state.requests[type] = [];
-            state.nextTokens[type] = '';
-            renderRequests(type);
-            loadRequests(type, { append: false });
-          });
         });
       }
 
@@ -1172,7 +1098,7 @@
           cid: makeCid(),
           type,
           pageSize: 10,
-          scope: state.scopes[type] || DEFAULT_SCOPE,
+          scope: 'all',
           nextToken: append ? state.nextTokens[type] : ''
         };
         server
@@ -1183,9 +1109,6 @@
             if (!response || !response.ok) {
               handleError(response, 'listRequests', payload);
               return;
-            }
-            if (response.scope) {
-              setScope(type, response.scope, { skipPersist: false });
             }
             state.nextTokens[type] = response.nextToken || '';
             const items = Array.isArray(response.requests) ? response.requests : [];
@@ -1211,8 +1134,7 @@
           } else {
             const empty = document.createElement('p');
             empty.className = 'empty';
-            const scope = state.scopes[type] || DEFAULT_SCOPE;
-            const message = scope === 'all' ? EMPTY_QUEUE_MESSAGES[type] : EMPTY_MESSAGES[type];
+            const message = EMPTY_REQUEST_MESSAGES[type];
             empty.textContent = hasServer ? message : 'Connect to Google Apps Script to load requests.';
             list.appendChild(empty);
           }
@@ -1595,68 +1517,6 @@
         }
       }
 
-      function setScope(type, scope, options) {
-        const normalized = scope === 'all' ? 'all' : 'mine';
-        if (state.scopes[type] === normalized) {
-          return false;
-        }
-        state.scopes[type] = normalized;
-        const skipPersist = options && options.skipPersist;
-        const skipRender = options && options.skipRender;
-        if (!skipPersist) {
-          persistScope(type);
-        }
-        if (!skipRender) {
-          renderScopeControls(type);
-        }
-        return true;
-      }
-
-      function renderScopeControls(type) {
-        const container = dom[type].scope;
-        if (!container) {
-          return;
-        }
-        const active = state.scopes[type] || DEFAULT_SCOPE;
-        const buttons = Array.from(container.querySelectorAll('button[data-scope-option]'));
-        buttons.forEach(button => {
-          const scope = button.getAttribute('data-scope-option');
-          const isActive = scope === active;
-          button.classList.toggle('active', isActive);
-          button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-          if (!hasServer) {
-            button.disabled = true;
-          } else {
-            button.disabled = false;
-          }
-        });
-      }
-
-      function persistScope(type) {
-        if (!LOCAL_SCOPE_KEYS[type]) {
-          return;
-        }
-        try {
-          localStorage.setItem(LOCAL_SCOPE_KEYS[type], state.scopes[type] || DEFAULT_SCOPE);
-        } catch (err) {
-          // ignore storage errors
-        }
-      }
-
-      function hydrateScopeFromCache(type) {
-        if (!LOCAL_SCOPE_KEYS[type]) {
-          return;
-        }
-        try {
-          const raw = localStorage.getItem(LOCAL_SCOPE_KEYS[type]);
-          if (raw) {
-            state.scopes[type] = raw === 'all' ? 'all' : 'mine';
-          }
-        } catch (err) {
-          state.scopes[type] = DEFAULT_SCOPE;
-        }
-      }
-
       function setFormState(type, partial) {
         state.forms[type] = Object.assign({}, state.forms[type], partial);
       }
@@ -1688,7 +1548,6 @@
             persistTimers[type] = null;
           }
           flushPersist(type);
-          persistScope(type);
         });
       }
 
