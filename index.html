@@ -342,6 +342,48 @@
       display: block;
     }
 
+    .input-helper.custom-item-alert {
+      margin-top: 0.75rem;
+      margin-bottom: 0.25rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--danger);
+    }
+
+    .urgency-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .urgency-badge + .urgency-badge {
+      margin-left: 0.35rem;
+    }
+
+    .urgency-badge[data-urgency="low"] {
+      background: rgba(15, 157, 88, 0.12);
+      border-color: rgba(15, 157, 88, 0.35);
+      color: var(--success);
+    }
+
+    .urgency-badge[data-urgency="normal"] {
+      background: rgba(251, 188, 5, 0.16);
+      border-color: rgba(251, 188, 5, 0.4);
+      color: #8c6d00;
+    }
+
+    .urgency-badge[data-urgency="critical"] {
+      background: rgba(217, 48, 37, 0.12);
+      border-color: rgba(217, 48, 37, 0.35);
+      color: var(--danger);
+    }
+
     .catalog-item.selected {
       border-color: rgba(11, 87, 208, 0.4);
       background: rgba(11, 87, 208, 0.08);
@@ -596,7 +638,7 @@
                 </div>
                 <select id="catalogSelect" name="catalogSku"></select>
               </div>
-              <span class="input-helper">Can't find it? Enter a custom item name below.</span>
+              <span class="input-helper custom-item-alert">Can't find it? Enter a custom item name below.</span>
             </label>
             <label class="full-width">
               <span>Item name</span>
@@ -701,7 +743,6 @@
               <select id="itUrgency" name="urgency">
                 <option value="low">Low</option>
                 <option value="normal">Normal</option>
-                <option value="high">High</option>
                 <option value="critical">Critical</option>
               </select>
             </label>
@@ -763,7 +804,6 @@
               <select id="maintenanceUrgency" name="urgency">
                 <option value="low">Low</option>
                 <option value="normal">Normal</option>
-                <option value="high">High</option>
                 <option value="critical">Critical</option>
               </select>
             </label>
@@ -1200,12 +1240,16 @@
           dom.it.location.value = formState.location || '';
           dom.it.issue.value = formState.issue || '';
           dom.it.device.value = formState.device || '';
-          dom.it.urgency.value = formState.urgency || 'normal';
+          const itUrgency = normalizeUrgency(formState.urgency) || 'normal';
+          dom.it.urgency.value = itUrgency;
+          state.forms.it.urgency = itUrgency;
           dom.it.details.value = formState.details || '';
         } else if (type === 'maintenance') {
           dom.maintenance.location.value = formState.location || '';
           dom.maintenance.issue.value = formState.issue || '';
-          dom.maintenance.urgency.value = formState.urgency || 'normal';
+          const maintenanceUrgency = normalizeUrgency(formState.urgency) || 'normal';
+          dom.maintenance.urgency.value = maintenanceUrgency;
+          state.forms.maintenance.urgency = maintenanceUrgency;
           dom.maintenance.accessNotes.value = formState.accessNotes || '';
         }
       }
@@ -1289,6 +1333,17 @@
           meta.className = 'meta';
           meta.textContent = buildRequestMeta(request, type);
           item.appendChild(meta);
+
+          if ((type === 'it' || type === 'maintenance') && request.fields) {
+            const urgencyKey = normalizeUrgency(request.fields.urgency);
+            if (urgencyKey) {
+              const urgencyBadge = document.createElement('span');
+              urgencyBadge.className = 'urgency-badge';
+              urgencyBadge.dataset.urgency = urgencyKey;
+              urgencyBadge.textContent = formatUrgencyLabel(urgencyKey);
+              item.appendChild(urgencyBadge);
+            }
+          }
 
           const status = document.createElement('span');
           status.className = 'status';
@@ -1526,6 +1581,32 @@
           parts.push(request.requester);
         }
         return parts.join(' • ');
+      }
+
+      function normalizeUrgency(value) {
+        const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
+        if (!text) {
+          return '';
+        }
+        if (text === 'high') {
+          return 'critical';
+        }
+        if (text === 'medium') {
+          return 'normal';
+        }
+        return text === 'low' || text === 'normal' || text === 'critical' ? text : '';
+      }
+
+      function formatUrgencyLabel(value) {
+        switch (value) {
+          case 'low':
+            return 'Low';
+          case 'critical':
+            return 'Critical';
+          case 'normal':
+          default:
+            return 'Normal';
+        }
       }
 
       function getRequestEta(request) {
@@ -1815,6 +1896,9 @@
                   form.urgency = form.impact;
                 }
                 delete form.impact;
+                form.urgency = normalizeUrgency(form.urgency) || 'normal';
+              } else if (type === 'maintenance') {
+                state.forms[type].urgency = normalizeUrgency(state.forms[type].urgency) || 'normal';
               }
             }
           }

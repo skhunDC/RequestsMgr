@@ -63,9 +63,7 @@ const REQUEST_TYPES = {
         throw new Error('Issue summary is required.');
       }
       const device = sanitizeString_(request && request.device);
-      const urgencyRaw = sanitizeString_(request && request.urgency).toLowerCase();
-      const allowed = ['low', 'normal', 'high', 'critical'];
-      const urgency = allowed.indexOf(urgencyRaw) === -1 ? 'normal' : urgencyRaw;
+      const urgency = normalizeUrgencyValue_(request && request.urgency);
       const details = sanitizeString_(request && request.details);
       return { location, issue, device, urgency, details };
     },
@@ -81,7 +79,8 @@ const REQUEST_TYPES = {
         details.push(`Device/System: ${fields.device}`);
       }
       if (fields.urgency) {
-        details.push(`Urgency: ${capitalize_(fields.urgency)}`);
+        const urgency = normalizeUrgencyValue_(fields.urgency);
+        details.push(`Urgency: ${capitalize_(urgency)}`);
       }
       if (fields.details) {
         details.push(`Details: ${fields.details}`);
@@ -98,9 +97,7 @@ const REQUEST_TYPES = {
       if (!issue) {
         throw new Error('Issue description is required.');
       }
-      const urgencyRaw = sanitizeString_(request && request.urgency).toLowerCase();
-      const allowed = ['low', 'normal', 'high', 'critical'];
-      const urgency = allowed.indexOf(urgencyRaw) === -1 ? 'normal' : urgencyRaw;
+      const urgency = normalizeUrgencyValue_(request && request.urgency);
       const accessNotes = sanitizeString_(request && request.accessNotes);
       return { location, issue, urgency, accessNotes };
     },
@@ -113,7 +110,8 @@ const REQUEST_TYPES = {
         details.push(`Location: ${fields.location}`);
       }
       if (fields.urgency) {
-        details.push(`Urgency: ${capitalize_(fields.urgency)}`);
+        const urgency = normalizeUrgencyValue_(fields.urgency);
+        details.push(`Urgency: ${capitalize_(urgency)}`);
       }
       if (fields.accessNotes) {
         details.push(`Access notes: ${fields.accessNotes}`);
@@ -939,9 +937,27 @@ function buildClientRequest_(type, row) {
   if (Object.prototype.hasOwnProperty.call(fields, 'eta')) {
     fields.eta = formatDateForDisplay_(fields.eta);
   }
+  if (Object.prototype.hasOwnProperty.call(fields, 'urgency')) {
+    fields.urgency = normalizeUrgencyValue_(fields.urgency);
+  }
   record.summary = def.buildSummary(fields);
   record.details = def.buildDetails(fields);
   return record;
+}
+
+function normalizeUrgencyValue_(value) {
+  const text = sanitizeString_(value).toLowerCase();
+  if (!text) {
+    return 'normal';
+  }
+  if (text === 'high') {
+    return 'critical';
+  }
+  if (text === 'medium') {
+    return 'normal';
+  }
+  const allowed = ['low', 'normal', 'critical'];
+  return allowed.indexOf(text) === -1 ? 'normal' : text;
 }
 
 function capitalize_(value) {
