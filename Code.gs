@@ -131,6 +131,16 @@ const CACHE_KEYS = {
   RID_PREFIX: 'rid'
 };
 
+const AUTHORIZED_STATUS_EMAILS = Object.freeze([
+  'skhun@dublincleaners.com',
+  'ss.sku@protonmail.com',
+  'rbown@dublincleaners.com',
+  'bbutler@dublincleaners.com',
+  'mlackey@dublincleaners.com',
+  'rbrown5940@gmail.com',
+  'brianmbutler77@gmail.com'
+].map(normalizeEmail_));
+
 const CACHE_TTLS = {
   CATALOG: 300,
   REQUESTS: 180,
@@ -152,8 +162,10 @@ function getRequiredSheetDefinitions_() {
 function doGet() {
   ensureSetup_();
   const template = HtmlService.createTemplateFromFile('index');
+  const email = getActiveUserEmail_();
   template.session = {
-    email: getActiveUserEmail_()
+    email,
+    canManageStatuses: isAuthorizedStatusActor_(email)
   };
   return template.evaluate().setTitle('Request Manager');
 }
@@ -331,11 +343,16 @@ function createRequest(request) {
 
     const fields = def.normalize(request);
     const email = normalizeEmail_(getActiveUserEmail_());
+    const requesterName = sanitizeString_(request && request.requesterName);
+    if (!email && !requesterName) {
+      throw new Error('Your name is required to submit requests.');
+    }
+    const requesterIdentity = email || requesterName;
     const now = new Date();
     const record = {
       id: uuid_(),
       ts: toIsoString_(now),
-      requester: email,
+      requester: requesterIdentity,
       status: 'pending',
       approver: '',
       type,
@@ -378,6 +395,9 @@ function createRequest(request) {
       invalidateCatalogCache_();
     }
     invalidateRequestCache_(type, email);
+    if (!email && requesterName) {
+      invalidateRequestCache_(type, requesterName);
+    }
     invalidateRequestCache_(type, 'all');
 
     return {
@@ -433,6 +453,9 @@ function updateRequestStatus(request) {
     }
     const etaCol = headerMap.eta;
     const approverEmail = getActiveUserEmail_();
+    if (!isAuthorizedStatusActor_(approverEmail)) {
+      throw new Error('You are not authorized to update requests.');
+    }
 
     withLock_(() => {
       const lastRow = sheet.getLastRow();
@@ -747,6 +770,11 @@ function invalidateRequestCache_(type, key) {
   const normalizedKey = key === 'all' ? 'all' : normalizeEmail_(key);
   const cacheKey = [CACHE_KEYS.REQUESTS_PREFIX, type, normalizedKey].join(':');
   cache.remove(cacheKey);
+}
+
+function isAuthorizedStatusActor_(email) {
+  const normalized = normalizeEmail_(email);
+  return normalized && AUTHORIZED_STATUS_EMAILS.indexOf(normalized) !== -1;
 }
 
 function parsePositiveInteger_(value) {

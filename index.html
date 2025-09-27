@@ -771,6 +771,10 @@
                 required
               >
             </label>
+            <label class="full-width requester-name-field" data-name-field="supplies">
+              <span>Your name</span>
+              <input id="suppliesRequesterName" name="requesterName" type="text" autocomplete="name">
+            </label>
             <label>
               <span>Location</span>
               <select id="suppliesLocation" name="location" required>
@@ -850,6 +854,10 @@
                 <option value="Newark">Newark</option>
               </select>
             </label>
+            <label class="full-width requester-name-field" data-name-field="it">
+              <span>Your name</span>
+              <input id="itRequesterName" name="requesterName" type="text" autocomplete="name">
+            </label>
             <label class="full-width">
               <span>Issue summary</span>
               <textarea id="itIssue" name="issue" autocomplete="off" required></textarea>
@@ -915,6 +923,10 @@
                 <option value="Newark">Newark</option>
               </select>
             </label>
+            <label class="full-width requester-name-field" data-name-field="maintenance">
+              <span>Your name</span>
+              <input id="maintenanceRequesterName" name="requesterName" type="text" autocomplete="name">
+            </label>
             <label class="full-width">
               <span>Issue description</span>
               <textarea id="maintenanceIssue" name="issue" autocomplete="off" required></textarea>
@@ -968,9 +980,9 @@
       let warmScheduled = false;
       let syncingCatalogToDescription = false;
       const FORM_TEMPLATES = {
-        supplies: { description: '', qty: 1, notes: '', catalogSku: '', location: '' },
-        it: { location: '', issue: '', device: '', urgency: 'normal', details: '' },
-        maintenance: { location: '', issue: '', urgency: 'normal', accessNotes: '' }
+        supplies: { description: '', qty: 1, notes: '', catalogSku: '', location: '', requesterName: '' },
+        it: { location: '', issue: '', device: '', urgency: 'normal', details: '', requesterName: '' },
+        maintenance: { location: '', issue: '', urgency: 'normal', accessNotes: '', requesterName: '' }
       };
       const LOCAL_KEYS = {
         supplies: 'request-manager:supplies',
@@ -990,6 +1002,7 @@
           it: Object.assign({}, FORM_TEMPLATES.it),
           maintenance: Object.assign({}, FORM_TEMPLATES.maintenance)
         },
+        requesterName: '',
         requests: {
           supplies: [],
           it: [],
@@ -1032,6 +1045,8 @@
           qty: document.getElementById('suppliesQty'),
           notes: document.getElementById('suppliesNotes'),
           description: document.getElementById('suppliesDescription'),
+          requesterName: document.getElementById('suppliesRequesterName'),
+          requesterNameRow: document.querySelector('[data-name-field="supplies"]'),
           submit: document.getElementById('suppliesSubmitButton'),
           reset: document.getElementById('suppliesResetButton'),
           list: document.getElementById('suppliesRequestsList'),
@@ -1051,6 +1066,8 @@
           device: document.getElementById('itDevice'),
           urgency: document.getElementById('itUrgency'),
           details: document.getElementById('itDetails'),
+          requesterName: document.getElementById('itRequesterName'),
+          requesterNameRow: document.querySelector('[data-name-field="it"]'),
           submit: document.getElementById('itSubmitButton'),
           reset: document.getElementById('itResetButton'),
           list: document.getElementById('itRequestsList'),
@@ -1062,6 +1079,8 @@
           issue: document.getElementById('maintenanceIssue'),
           urgency: document.getElementById('maintenanceUrgency'),
           accessNotes: document.getElementById('maintenanceAccessNotes'),
+          requesterName: document.getElementById('maintenanceRequesterName'),
+          requesterNameRow: document.querySelector('[data-name-field="maintenance"]'),
           submit: document.getElementById('maintenanceSubmitButton'),
           reset: document.getElementById('maintenanceResetButton'),
           list: document.getElementById('maintenanceRequestsList'),
@@ -1070,11 +1089,17 @@
       };
 
       const initialSessionEmail = SESSION && SESSION.email ? String(SESSION.email) : '';
+      const canManageStatuses = Boolean(SESSION && SESSION.canManageStatuses);
+      const requiresRequesterName = !initialSessionEmail;
 
+      configureRequesterNameRequirement();
       attachNavHandlers();
       attachFormHandlers();
       REQUEST_KEYS.forEach(type => {
         hydrateFormFromCache(type);
+      });
+      initializeRequesterName();
+      REQUEST_KEYS.forEach(type => {
         renderForm(type);
       });
       setActiveTab(state.activeTab);
@@ -1162,6 +1187,11 @@
             }
           }, 120);
         });
+        if (dom.supplies.requesterName) {
+          dom.supplies.requesterName.addEventListener('input', () => {
+            handleRequesterNameInput('supplies');
+          });
+        }
         const handleCatalogSearchInput = () => {
           const rawValue = dom.supplies.catalogSearch.value || '';
           state.catalog.search = rawValue;
@@ -1225,6 +1255,11 @@
           setFormState('it', { location: dom.it.location.value });
           persistForm('it');
         });
+        if (dom.it.requesterName) {
+          dom.it.requesterName.addEventListener('input', () => {
+            handleRequesterNameInput('it');
+          });
+        }
         dom.it.issue.addEventListener('input', () => {
           setFormState('it', { issue: dom.it.issue.value });
           persistForm('it');
@@ -1255,6 +1290,11 @@
           setFormState('maintenance', { location: dom.maintenance.location.value });
           persistForm('maintenance');
         });
+        if (dom.maintenance.requesterName) {
+          dom.maintenance.requesterName.addEventListener('input', () => {
+            handleRequesterNameInput('maintenance');
+          });
+        }
         dom.maintenance.issue.addEventListener('input', () => {
           setFormState('maintenance', { issue: dom.maintenance.issue.value });
           persistForm('maintenance');
@@ -1331,6 +1371,9 @@
           clientRequestId: makeClientRequestId(type),
           type
         }, formState);
+        if (requiresRequesterName) {
+          payload.requesterName = state.requesterName || formState.requesterName || '';
+        }
         server
           .withSuccessHandler(response => {
             disableForm(type, false);
@@ -1351,6 +1394,12 @@
       }
 
       function validateForm(type, formState) {
+        if (requiresRequesterName) {
+          const nameValue = (state.requesterName || formState.requesterName || '').trim();
+          if (!nameValue) {
+            return 'Your name is required.';
+          }
+        }
         switch (type) {
           case 'supplies':
             if (!formState.location || !formState.location.trim()) {
@@ -1386,6 +1435,9 @@
 
       function resetForm(type) {
         state.forms[type] = Object.assign({}, FORM_TEMPLATES[type]);
+        if (requiresRequesterName) {
+          state.forms[type].requesterName = state.requesterName || '';
+        }
         if (type === 'supplies') {
           state.catalog.search = '';
         }
@@ -1404,6 +1456,11 @@
           dom.supplies.qty.value = formState.qty || 1;
           dom.supplies.description.value = formState.description || '';
           dom.supplies.notes.value = formState.notes || '';
+          if (dom.supplies.requesterName) {
+            dom.supplies.requesterName.value = requiresRequesterName
+              ? (formState.requesterName || state.requesterName || '')
+              : '';
+          }
         } else if (type === 'it') {
           dom.it.location.value = formState.location || '';
           dom.it.issue.value = formState.issue || '';
@@ -1412,6 +1469,11 @@
           dom.it.urgency.value = itUrgency;
           state.forms.it.urgency = itUrgency;
           dom.it.details.value = formState.details || '';
+          if (dom.it.requesterName) {
+            dom.it.requesterName.value = requiresRequesterName
+              ? (formState.requesterName || state.requesterName || '')
+              : '';
+          }
         } else if (type === 'maintenance') {
           dom.maintenance.location.value = formState.location || '';
           dom.maintenance.issue.value = formState.issue || '';
@@ -1419,6 +1481,11 @@
           dom.maintenance.urgency.value = maintenanceUrgency;
           state.forms.maintenance.urgency = maintenanceUrgency;
           dom.maintenance.accessNotes.value = formState.accessNotes || '';
+          if (dom.maintenance.requesterName) {
+            dom.maintenance.requesterName.value = requiresRequesterName
+              ? (formState.requesterName || state.requesterName || '')
+              : '';
+          }
         }
       }
 
@@ -1535,18 +1602,27 @@
             const previousEta = getRequestEta(request);
             etaInput.value = previousEta;
             etaInput.setAttribute('aria-label', `ETA for ${request.summary || 'request'}`);
-            const etaEditable = canEditEtaStatus(stateKey);
-            if (!server || !etaEditable) {
+            const etaStatusAllowed = canEditEtaStatus(stateKey);
+            const etaEditable = server && canManageStatuses && etaStatusAllowed;
+            if (!etaEditable) {
               etaInput.disabled = true;
             }
-            etaInput.title = etaEditable ? '' : 'ETA can be set after approval only.';
-            etaInput.addEventListener('change', () => {
-              const nextValue = etaInput.value;
-              if (nextValue === previousEta) {
-                return;
-              }
-              handleUpdateEta(type, request, nextValue, etaInput, previousEta);
-            });
+            if (!canManageStatuses) {
+              etaInput.title = 'Only authorized approvers can update ETA.';
+            } else if (!etaStatusAllowed) {
+              etaInput.title = 'ETA can be set after approval only.';
+            } else {
+              etaInput.title = '';
+            }
+            if (etaEditable) {
+              etaInput.addEventListener('change', () => {
+                const nextValue = etaInput.value;
+                if (nextValue === previousEta) {
+                  return;
+                }
+                handleUpdateEta(type, request, nextValue, etaInput, previousEta);
+              });
+            }
             etaWrapper.appendChild(etaInput);
             item.appendChild(etaWrapper);
           }
@@ -1574,7 +1650,7 @@
             item.appendChild(statusLine);
           }
 
-          if (type === 'supplies') {
+          if (type === 'supplies' && canManageStatuses) {
             const buttonRow = document.createElement('div');
             buttonRow.className = 'inline-buttons';
             let hasButtons = false;
@@ -1602,7 +1678,7 @@
               controls.appendChild(buttonRow);
               item.appendChild(controls);
             }
-          } else if (stateKey === 'pending' || stateKey === 'in_progress') {
+          } else if (canManageStatuses && (stateKey === 'pending' || stateKey === 'in_progress')) {
             const actions = document.createElement('div');
             actions.className = 'inline-buttons';
             const complete = document.createElement('button');
@@ -1640,6 +1716,10 @@
       }
 
       function handleUpdateStatus(type, requestId, status) {
+        if (!canManageStatuses) {
+          showToast('You are not authorized to update requests.');
+          return;
+        }
         if (!server) {
           showToast('Connect to Google Apps Script to update statuses.');
           return;
@@ -1679,6 +1759,11 @@
       }
 
       function handleUpdateEta(type, request, etaValue, input, previousEta) {
+        if (!canManageStatuses) {
+          showToast('You are not authorized to update requests.');
+          input.value = previousEta;
+          return;
+        }
         if (!server) {
           showToast('Connect to Google Apps Script to update ETA dates.');
           input.value = previousEta;
@@ -2241,6 +2326,76 @@
         state.forms[type] = Object.assign({}, state.forms[type], partial);
       }
 
+      function handleRequesterNameInput(type) {
+        if (!requiresRequesterName) {
+          return;
+        }
+        const input = dom[type] && dom[type].requesterName;
+        if (!input) {
+          return;
+        }
+        setRequesterName(input.value || '', { sourceType: type });
+      }
+
+      function setRequesterName(value, options) {
+        const sourceType = options && options.sourceType;
+        const skipPersist = Boolean(options && options.skipPersist);
+        const text = typeof value === 'string' ? value : '';
+        state.requesterName = text;
+        REQUEST_KEYS.forEach(type => {
+          state.forms[type] = Object.assign({}, state.forms[type], { requesterName: text });
+          const input = dom[type] && dom[type].requesterName;
+          if (input) {
+            if (!requiresRequesterName) {
+              input.value = '';
+            } else if (type !== sourceType || document.activeElement !== input) {
+              input.value = text;
+            }
+          }
+          if (!skipPersist) {
+            persistForm(type);
+          }
+        });
+      }
+
+      function initializeRequesterName() {
+        if (!requiresRequesterName) {
+          setRequesterName('', { skipPersist: true });
+          return;
+        }
+        const cached = REQUEST_KEYS
+          .map(type => state.forms[type] && state.forms[type].requesterName ? String(state.forms[type].requesterName) : '')
+          .find(name => typeof name === 'string' && name.trim());
+        if (cached) {
+          setRequesterName(cached, { skipPersist: true });
+        } else {
+          setRequesterName('', { skipPersist: true });
+        }
+      }
+
+      function configureRequesterNameRequirement() {
+        if (!requiresRequesterName) {
+          state.requesterName = '';
+        }
+        REQUEST_KEYS.forEach(type => {
+          const wrapper = dom[type] && dom[type].requesterNameRow;
+          const input = dom[type] && dom[type].requesterName;
+          if (!wrapper || !input) {
+            return;
+          }
+          if (requiresRequesterName) {
+            wrapper.hidden = false;
+            input.required = true;
+            input.disabled = false;
+          } else {
+            wrapper.hidden = true;
+            input.required = false;
+            input.disabled = true;
+            input.value = '';
+          }
+        });
+      }
+
       function persistForm(type, options) {
         const immediate = options && options.immediate;
         if (immediate) {
@@ -2385,6 +2540,9 @@
           dom.supplies.notes.disabled = disabled;
           dom.supplies.catalogSearch.disabled = disabled;
           dom.supplies.reset.disabled = disabled;
+          if (dom.supplies.requesterName && requiresRequesterName) {
+            dom.supplies.requesterName.disabled = disabled;
+          }
         } else if (type === 'it') {
           dom.it.submit.disabled = disabled;
           dom.it.location.disabled = disabled;
@@ -2393,6 +2551,9 @@
           dom.it.urgency.disabled = disabled;
           dom.it.details.disabled = disabled;
           dom.it.reset.disabled = disabled;
+          if (dom.it.requesterName && requiresRequesterName) {
+            dom.it.requesterName.disabled = disabled;
+          }
         } else if (type === 'maintenance') {
           dom.maintenance.submit.disabled = disabled;
           dom.maintenance.location.disabled = disabled;
@@ -2400,6 +2561,9 @@
           dom.maintenance.urgency.disabled = disabled;
           dom.maintenance.accessNotes.disabled = disabled;
           dom.maintenance.reset.disabled = disabled;
+          if (dom.maintenance.requesterName && requiresRequesterName) {
+            dom.maintenance.requesterName.disabled = disabled;
+          }
         }
       }
 
