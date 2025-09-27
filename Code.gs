@@ -163,8 +163,9 @@ function doGet() {
 function listCatalog(request) {
   return withErrorHandling_('listCatalog', request && request.cid, request, () => {
     ensureSetup_();
+    const fetchAll = Boolean(request && request.fetchAll);
     const pageSize = clamp_(Number(request && request.pageSize) || 20, 1, MAX_PAGE_SIZE);
-    const startIndex = Number(request && request.nextToken) || 0;
+    const startIndex = fetchAll ? 0 : Number(request && request.nextToken) || 0;
 
     const cache = CacheService.getScriptCache();
     let items = [];
@@ -200,8 +201,8 @@ function listCatalog(request) {
       cache.put(CACHE_KEYS.CATALOG, JSON.stringify(items), CACHE_TTLS.CATALOG);
     }
 
-    const slice = items.slice(startIndex, startIndex + pageSize);
-    const nextToken = startIndex + slice.length < items.length ? String(startIndex + slice.length) : '';
+    const slice = fetchAll ? items : items.slice(startIndex, startIndex + pageSize);
+    const nextToken = fetchAll || startIndex + slice.length >= items.length ? '' : String(startIndex + slice.length);
     return {
       ok: true,
       items: slice,

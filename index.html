@@ -854,7 +854,8 @@
           items: [],
           nextToken: '',
           loading: false,
-          search: ''
+          search: '',
+          fullyLoaded: false
         }
       };
 
@@ -912,7 +913,7 @@
       });
       setActiveTab(state.activeTab);
       if (hasServer) {
-        loadCatalog({ append: false });
+        loadCatalog({ append: false, fetchAll: true });
         ensureRequestsLoaded('supplies');
       } else {
         renderCatalog();
@@ -974,11 +975,18 @@
             renderCatalog();
           }
         });
+        dom.supplies.catalogSearch.addEventListener('focus', () => {
+          ensureFullCatalogLoaded();
+        });
         dom.supplies.catalogSearch.addEventListener('input', () => {
           state.catalog.search = dom.supplies.catalogSearch.value || '';
+          ensureFullCatalogLoaded();
           if (state.catalog.items.length) {
             renderCatalog();
           }
+        });
+        dom.supplies.catalogSelect.addEventListener('focus', () => {
+          ensureFullCatalogLoaded();
         });
         dom.supplies.catalogSelect.addEventListener('change', () => {
           const option = dom.supplies.catalogSelect.options[dom.supplies.catalogSelect.selectedIndex];
@@ -999,8 +1007,8 @@
           }
         });
         dom.supplies.catalogMore.addEventListener('click', () => {
-          if (!state.catalog.loading && state.catalog.nextToken) {
-            loadCatalog({ append: true });
+          if (!state.catalog.loading) {
+            loadCatalog({ append: false, fetchAll: true });
           }
         });
 
@@ -1527,7 +1535,7 @@
         return String(request.fields.eta || '');
       }
 
-      function loadCatalog({ append }) {
+      function loadCatalog({ append, fetchAll }) {
         if (state.catalog.loading || !server) {
           if (!server) {
             state.catalog.loading = false;
@@ -1536,13 +1544,21 @@
           return;
         }
         state.catalog.loading = true;
+        if (fetchAll) {
+          state.catalog.fullyLoaded = false;
+        }
         dom.supplies.catalogMore.disabled = true;
         toggleCatalogSkeleton(true);
+        updateCatalogControls();
         const payload = {
-          cid: makeCid(),
-          pageSize: 20,
-          nextToken: append ? state.catalog.nextToken : ''
+          cid: makeCid()
         };
+        if (fetchAll) {
+          payload.fetchAll = true;
+        } else {
+          payload.pageSize = 20;
+          payload.nextToken = append ? state.catalog.nextToken : '';
+        }
         server
           .withSuccessHandler(response => {
             state.catalog.loading = false;
@@ -1553,13 +1569,16 @@
             }
             state.catalog.nextToken = response.nextToken || '';
             const items = Array.isArray(response.items) ? response.items : [];
-            state.catalog.items = append ? state.catalog.items.concat(items) : items;
+            state.catalog.items = append && !fetchAll ? state.catalog.items.concat(items) : items;
+            state.catalog.fullyLoaded = fetchAll || !state.catalog.nextToken;
             renderCatalog();
+            updateCatalogControls();
           })
           .withFailureHandler(err => {
             state.catalog.loading = false;
             toggleCatalogSkeleton(false);
             handleError(err, 'listCatalog', payload);
+            updateCatalogControls();
           })
           .listCatalog(payload);
       }
@@ -1569,6 +1588,7 @@
         dom.supplies.catalogSelect.textContent = '';
         const searchValue = state.catalog.search || '';
         dom.supplies.catalogSearch.value = searchValue;
+        updateCatalogControls();
 
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
@@ -1583,13 +1603,11 @@
           dom.supplies.catalogSearch.disabled = !state.catalog.loading;
           if (state.catalog.loading) {
             dom.supplies.catalogList.appendChild(buildSkeletonBlock());
-            dom.supplies.catalogMore.disabled = true;
           } else {
             const empty = document.createElement('p');
             empty.className = 'empty';
             empty.textContent = hasServer ? 'No catalog items found.' : 'Catalog requires Google Apps Script.';
             dom.supplies.catalogList.appendChild(empty);
-            dom.supplies.catalogMore.disabled = true;
           }
           dom.supplies.catalogSelect.disabled = true;
           return;
@@ -1630,11 +1648,14 @@
         if (!filteredItems.length) {
           const empty = document.createElement('p');
           empty.className = 'empty';
-          empty.textContent = normalizedSearch
-            ? 'No catalog items match your search yet. Load more or try another keyword.'
-            : (hasServer ? 'No catalog items found.' : 'Catalog requires Google Apps Script.');
+          if (normalizedSearch) {
+            empty.textContent = state.catalog.loading && !state.catalog.fullyLoaded
+              ? 'Loading more catalog items to finish your search…'
+              : 'No catalog items match your search. Try another keyword.';
+          } else {
+            empty.textContent = hasServer ? 'No catalog items found.' : 'Catalog requires Google Apps Script.';
+          }
           dom.supplies.catalogList.appendChild(empty);
-          dom.supplies.catalogMore.disabled = normalizedSearch ? !state.catalog.nextToken : true;
           dom.supplies.catalogSelect.disabled = true;
           return;
         }
@@ -1700,11 +1721,50 @@
           fragment.appendChild(card);
         });
         dom.supplies.catalogList.appendChild(fragment);
-        dom.supplies.catalogMore.disabled = !state.catalog.nextToken;
         dom.supplies.catalogSelect.disabled = false;
         dom.supplies.catalogSelect.value = selectedSku || '';
+        if (state.catalog.loading && !state.catalog.fullyLoaded) {
+          const loading = document.createElement('p');
+          loading.className = 'meta';
+          loading.textContent = 'Loading remaining catalog items…';
+          dom.supplies.catalogList.appendChild(loading);
+        }
         if (shouldPersist) {
           persistForm('supplies');
+        }
+      }
+
+      function ensureFullCatalogLoaded() {
+        if (!hasServer) {
+          return;
+        }
+        if (state.catalog.fullyLoaded || state.catalog.loading) {
+          return;
+        }
+        loadCatalog({ append: false, fetchAll: true });
+      }
+
+      function updateCatalogControls() {
+        const button = dom.supplies.catalogMore;
+        if (!button) {
+          return;
+        }
+        if (!hasServer) {
+          button.hidden = true;
+          return;
+        }
+        button.hidden = false;
+        if (state.catalog.loading) {
+          button.disabled = true;
+          button.textContent = state.catalog.fullyLoaded ? 'Refreshing…' : 'Loading all items…';
+          return;
+        }
+        if (state.catalog.fullyLoaded) {
+          button.disabled = false;
+          button.textContent = 'Refresh catalog';
+        } else {
+          button.disabled = false;
+          button.textContent = 'Load all items';
         }
       }
 
