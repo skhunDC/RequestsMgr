@@ -267,6 +267,12 @@
       background: var(--accent-strong);
     }
 
+    button.card-toggle:not([disabled]):hover,
+    button.card-toggle:not([disabled]):focus-visible {
+      background: none;
+      color: inherit;
+    }
+
     button.secondary {
       background: var(--surface-alt);
       color: var(--accent);
