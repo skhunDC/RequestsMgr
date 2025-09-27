@@ -355,9 +355,13 @@
       margin-top: 0.5rem;
     }
 
+    .supplies-actions .inline-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+
     .supplies-actions .inline-buttons button {
-      flex: 1 1 30%;
-      min-width: 0;
+      width: 100%;
     }
 
     .eta-field {
@@ -1188,7 +1192,6 @@
               denied.textContent = 'Denied';
               denied.addEventListener('click', () => handleUpdateStatus(type, request.id, 'denied'));
               buttonRow.appendChild(denied);
-
               const ordered = document.createElement('button');
               ordered.type = 'button';
               ordered.className = 'secondary';
