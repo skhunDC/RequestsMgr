@@ -45,12 +45,7 @@ const REQUEST_TYPES = {
         details.push(`Notes: ${fields.notes}`);
       }
       if (fields.eta) {
-        let formatted = '';
-        try {
-          formatted = formatDateForDisplay_(fields.eta);
-        } catch (err) {
-          formatted = fields.eta;
-        }
+        const formatted = formatDateForDisplay_(fields.eta);
         if (formatted) {
           details.push(`ETA: ${formatted}`);
         }
@@ -718,6 +713,13 @@ function normalizeDateOnly_(value) {
   if (value === null || value === undefined) {
     return '';
   }
+  if (Object.prototype.toString.call(value) === '[object Date]') {
+    if (isNaN(value.getTime())) {
+      throw new Error('Invalid ETA date.');
+    }
+    const tz = Session.getScriptTimeZone() || 'UTC';
+    return Utilities.formatDate(value, tz, 'yyyy-MM-dd');
+  }
   const text = String(value).trim();
   if (!text) {
     return '';
@@ -743,11 +745,37 @@ function normalizeDateOnly_(value) {
 }
 
 function formatDateForDisplay_(value) {
-  const normalized = normalizeDateOnly_(value);
-  if (!normalized) {
+  if (value === null || value === undefined || value === '') {
     return '';
   }
-  return normalized;
+  if (Object.prototype.toString.call(value) === '[object Date]') {
+    if (isNaN(value.getTime())) {
+      return '';
+    }
+    const tz = Session.getScriptTimeZone() || 'UTC';
+    return Utilities.formatDate(value, tz, 'yyyy-MM-dd');
+  }
+  if (typeof value === 'number' && !isNaN(value)) {
+    const tz = Session.getScriptTimeZone() || 'UTC';
+    return Utilities.formatDate(new Date(value), tz, 'yyyy-MM-dd');
+  }
+  const text = String(value).trim();
+  if (!text) {
+    return '';
+  }
+  try {
+    return normalizeDateOnly_(text);
+  } catch (err) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+      return text;
+    }
+    const parsed = new Date(text);
+    if (!isNaN(parsed.getTime())) {
+      const tz = Session.getScriptTimeZone() || 'UTC';
+      return Utilities.formatDate(parsed, tz, 'yyyy-MM-dd');
+    }
+    return text;
+  }
 }
 
 function toIsoString_(date) {
@@ -853,6 +881,9 @@ function buildClientRequest_(type, row) {
     type,
     fields
   };
+  if (Object.prototype.hasOwnProperty.call(fields, 'eta')) {
+    fields.eta = formatDateForDisplay_(fields.eta);
+  }
   record.summary = def.buildSummary(fields);
   record.details = def.buildDetails(fields);
   return record;
