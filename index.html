@@ -1153,31 +1153,32 @@
             });
           }
 
-          if (stateKey === 'pending') {
-            if (type === 'supplies') {
-              const controls = document.createElement('div');
-              controls.className = 'supplies-actions';
+          if (type === 'supplies') {
+            const controls = document.createElement('div');
+            controls.className = 'supplies-actions';
 
-              const etaField = document.createElement('label');
-              etaField.className = 'eta-field';
-              const etaLabel = document.createElement('span');
-              etaLabel.textContent = 'ETA';
-              etaField.appendChild(etaLabel);
-              const etaInput = document.createElement('input');
-              etaInput.type = 'date';
-              etaInput.setAttribute('data-role', 'eta');
-              const etaValue = request && request.fields && request.fields.eta
-                ? String(request.fields.eta)
-                : '';
-              if (etaValue) {
-                etaInput.value = etaValue;
-              }
-              etaField.appendChild(etaInput);
-              controls.appendChild(etaField);
+            const etaField = document.createElement('label');
+            etaField.className = 'eta-field';
+            const etaLabel = document.createElement('span');
+            etaLabel.textContent = 'ETA';
+            etaField.appendChild(etaLabel);
+            const etaInput = document.createElement('input');
+            etaInput.type = 'date';
+            etaInput.setAttribute('data-role', 'eta');
+            const etaValue = request && request.fields && request.fields.eta
+              ? String(request.fields.eta)
+              : '';
+            if (etaValue) {
+              etaInput.value = etaValue;
+            }
+            etaField.appendChild(etaInput);
+            controls.appendChild(etaField);
 
-              const buttonRow = document.createElement('div');
-              buttonRow.className = 'inline-buttons';
+            const buttonRow = document.createElement('div');
+            buttonRow.className = 'inline-buttons';
+            let hasButtons = false;
 
+            if (stateKey === 'pending') {
               const approved = document.createElement('button');
               approved.type = 'button';
               approved.className = 'secondary';
@@ -1191,28 +1192,63 @@
               denied.textContent = 'Denied';
               denied.addEventListener('click', () => handleUpdateStatus(type, request.id, 'denied'));
               buttonRow.appendChild(denied);
-
-              controls.appendChild(buttonRow);
-              item.appendChild(controls);
+              const ordered = document.createElement('button');
+              ordered.type = 'button';
+              ordered.className = 'secondary';
+              ordered.textContent = 'Ordered';
+              ordered.addEventListener('click', () => {
+                const nextEta = etaInput.value ? etaInput.value.trim() : '';
+                if (!nextEta) {
+                  showToast('Enter an ETA before marking as ordered.');
+                  etaInput.focus();
+                  return;
+                }
+                handleUpdateStatus(type, request.id, 'ordered', { eta: nextEta });
+              });
+              buttonRow.appendChild(ordered);
+              hasButtons = true;
             } else {
-              const actions = document.createElement('div');
-              actions.className = 'inline-buttons';
-              const complete = document.createElement('button');
-              complete.type = 'button';
-              complete.className = 'secondary';
-              complete.textContent = 'Complete';
-              complete.addEventListener('click', () => handleUpdateStatus(type, request.id, 'completed'));
-              actions.appendChild(complete);
-
-              const progress = document.createElement('button');
-              progress.type = 'button';
-              progress.className = 'secondary';
-              progress.textContent = 'In Progress';
-              progress.addEventListener('click', () => handleUpdateStatus(type, request.id, 'in_progress'));
-              actions.appendChild(progress);
-
-              item.appendChild(actions);
+              const saveEta = document.createElement('button');
+              saveEta.type = 'button';
+              saveEta.className = 'secondary';
+              saveEta.textContent = 'Save ETA';
+              saveEta.addEventListener('click', () => {
+                const nextEta = etaInput.value ? etaInput.value.trim() : '';
+                if (String(request.status || '').toLowerCase() === 'ordered' && !nextEta) {
+                  showToast('Enter an ETA before saving.');
+                  etaInput.focus();
+                  return;
+                }
+                const normalizedStatus = statusValue || 'pending';
+                const targetStatus = request && request.status ? request.status : normalizedStatus;
+                handleUpdateStatus(type, request.id, targetStatus, { eta: nextEta });
+              });
+              buttonRow.appendChild(saveEta);
+              hasButtons = true;
             }
+
+            if (hasButtons) {
+              controls.appendChild(buttonRow);
+            }
+            item.appendChild(controls);
+          } else if (stateKey === 'pending') {
+            const actions = document.createElement('div');
+            actions.className = 'inline-buttons';
+            const complete = document.createElement('button');
+            complete.type = 'button';
+            complete.className = 'secondary';
+            complete.textContent = 'Complete';
+            complete.addEventListener('click', () => handleUpdateStatus(type, request.id, 'completed'));
+            actions.appendChild(complete);
+
+            const progress = document.createElement('button');
+            progress.type = 'button';
+            progress.className = 'secondary';
+            progress.textContent = 'In Progress';
+            progress.addEventListener('click', () => handleUpdateStatus(type, request.id, 'in_progress'));
+            actions.appendChild(progress);
+
+            item.appendChild(actions);
           }
 
           fragment.appendChild(item);
