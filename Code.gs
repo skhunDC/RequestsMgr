@@ -336,6 +336,15 @@ function updateRequestStatus(request) {
 
     let updatedRecord = null;
     const headerMap = mapHeaders_(headers);
+    const statusCol = headerMap.status;
+    if (statusCol === undefined) {
+      throw new Error('Request sheet is missing a status column.');
+    }
+    const approverCol = headerMap.approver;
+    if (approverCol === undefined) {
+      throw new Error('Request sheet is missing an approver column.');
+    }
+    const etaCol = headerMap.eta;
     const approverEmail = getActiveUserEmail_();
 
     withLock_(() => {
@@ -347,10 +356,14 @@ function updateRequestStatus(request) {
       const data = dataRange.getValues();
       for (let r = 0; r < data.length; r++) {
         if (String(data[r][idIdx]).trim() === requestId) {
-          data[r][headerMap.status] = status;
-          data[r][headerMap.approver] = approverEmail;
-          sheet.getRange(r + 2, headerMap.status + 1).setValue(status);
-          sheet.getRange(r + 2, headerMap.approver + 1).setValue(approverEmail);
+          data[r][statusCol] = status;
+          data[r][approverCol] = approverEmail;
+          sheet.getRange(r + 2, statusCol + 1).setValue(status);
+          sheet.getRange(r + 2, approverCol + 1).setValue(approverEmail);
+          if (etaCol !== undefined && hasEta) {
+            data[r][etaCol] = etaValue;
+            sheet.getRange(r + 2, etaCol + 1).setValue(etaValue);
+          }
           const rowObject = {};
           headers.forEach((header, idx) => {
             rowObject[header] = data[r][idx];
@@ -566,7 +579,21 @@ function readTable_(sheet, headers) {
 function mapHeaders_(headers) {
   const map = {};
   headers.forEach((header, idx) => {
-    map[header] = idx;
+    const rawKey = String(header || '').trim();
+    if (!rawKey) {
+      return;
+    }
+    if (map[rawKey] === undefined) {
+      map[rawKey] = idx;
+    }
+    const lowerKey = rawKey.toLowerCase();
+    if (map[lowerKey] === undefined) {
+      map[lowerKey] = idx;
+    }
+    const normalizedKey = lowerKey.replace(/\s+/g, '_');
+    if (map[normalizedKey] === undefined) {
+      map[normalizedKey] = idx;
+    }
   });
   return map;
 }
