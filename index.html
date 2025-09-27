@@ -1682,8 +1682,42 @@
         }, 2800);
       }
 
+      function resolveErrorMessage(err) {
+        if (!err) {
+          return 'Something went wrong. Please try again.';
+        }
+        if (typeof err === 'string') {
+          return err;
+        }
+        if (typeof err.message === 'string' && err.message.trim()) {
+          return err.message.trim();
+        }
+        if (typeof err.statusText === 'string' && err.statusText.trim()) {
+          return err.statusText.trim();
+        }
+        if (typeof err.details === 'string' && err.details.trim()) {
+          return err.details.trim();
+        }
+        if (Array.isArray(err.details) && err.details.length) {
+          const firstDetail = err.details.find(detail => typeof detail === 'string' && detail.trim());
+          if (firstDetail) {
+            return firstDetail.trim();
+          }
+        }
+        if (Array.isArray(err.errors) && err.errors.length) {
+          const firstError = err.errors.find(detail => typeof detail === 'string' && detail.trim());
+          if (firstError) {
+            return firstError.trim();
+          }
+        }
+        if (typeof err.error === 'string' && err.error.trim()) {
+          return err.error.trim();
+        }
+        return 'Something went wrong. Please try again.';
+      }
+
       function handleError(err, context, payload) {
-        const message = err && err.message ? err.message : 'Something went wrong. Please try again.';
+        const message = resolveErrorMessage(err);
         console.error('[RequestManager]', context, message, err);
         showToast(message);
         if (!server) {
