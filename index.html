@@ -329,13 +329,22 @@
 
     .request-item,
     .catalog-item {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
       padding: 0.85rem;
       border-radius: 12px;
       border: 1px solid var(--border);
       background: var(--surface-alt);
+    }
+
+    .request-item {
+      display: grid;
+      gap: 0.6rem 1rem;
+      align-items: start;
+    }
+
+    .catalog-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
     }
 
     .catalog-field {
@@ -505,14 +514,62 @@
       color: var(--muted);
     }
 
+    .request-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.35rem 1rem;
+      align-items: center;
+    }
+
+    .request-summary {
+      display: grid;
+      gap: 0.3rem;
+      min-width: 0;
+    }
+
+    .request-sub-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 0.65rem;
+      align-items: center;
+    }
+
+    .request-sub-row .meta {
+      margin: 0;
+    }
+
+    .request-status {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
     .detail-line {
       display: block;
       font-size: clamp(0.95rem, 3.4vw, 1.05rem);
       color: var(--muted);
     }
 
+    .request-body {
+      display: grid;
+      gap: 0.35rem 1rem;
+      align-items: start;
+    }
+
+    .request-body .detail-line,
+    .request-body .eta-field,
+    .request-body .supplies-actions,
+    .request-body .inline-buttons {
+      margin-top: 0;
+    }
+
+    .request-body .inline-buttons,
+    .request-body .supplies-actions {
+      grid-column: 1 / -1;
+    }
+
     .eta-field {
-      margin-top: 0.5rem;
+      margin-top: 0;
       display: flex;
       flex-direction: column;
       gap: 0.35rem;
@@ -568,6 +625,21 @@
       }
     }
 
+    @media (min-width: 640px) {
+      .request-body {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .request-body .eta-field {
+        grid-column: auto;
+      }
+
+      .request-body .inline-buttons,
+      .request-body .supplies-actions {
+        grid-column: 1 / -1;
+      }
+    }
+
     .status {
       display: inline-flex;
       align-items: center;
@@ -606,7 +678,7 @@
       display: flex;
       flex-direction: column;
       gap: 0.65rem;
-      margin-top: 0.5rem;
+      margin-top: 0;
     }
 
     .supplies-actions .inline-buttons {
@@ -1537,14 +1609,29 @@
           item.dataset.requestType = type;
           item.dataset.requestId = request.id;
 
-          const title = document.createElement('strong');
-          title.textContent = request.summary || 'Request';
-          item.appendChild(title);
+          const header = document.createElement('div');
+          header.className = 'request-header';
 
-          const meta = document.createElement('span');
-          meta.className = 'meta';
-          meta.textContent = buildRequestMeta(request, type);
-          item.appendChild(meta);
+          const summary = document.createElement('div');
+          summary.className = 'request-summary';
+
+          const title = document.createElement('strong');
+          title.className = 'request-title';
+          title.textContent = request.summary || 'Request';
+          summary.appendChild(title);
+
+          const summaryFooter = document.createElement('div');
+          summaryFooter.className = 'request-sub-row';
+          let footerHasContent = false;
+
+          const metaText = buildRequestMeta(request, type);
+          if (metaText) {
+            const meta = document.createElement('span');
+            meta.className = 'meta';
+            meta.textContent = metaText;
+            summaryFooter.appendChild(meta);
+            footerHasContent = true;
+          }
 
           if ((type === 'it' || type === 'maintenance') && request.fields) {
             const urgencyKey = normalizeUrgency(request.fields.urgency);
@@ -1553,17 +1640,41 @@
               urgencyBadge.className = 'urgency-badge';
               urgencyBadge.dataset.urgency = urgencyKey;
               urgencyBadge.textContent = formatUrgencyLabel(urgencyKey);
-              item.appendChild(urgencyBadge);
+              summaryFooter.appendChild(urgencyBadge);
+              footerHasContent = true;
             }
           }
 
-          const status = document.createElement('span');
-          status.className = 'status';
+          if (footerHasContent) {
+            summary.appendChild(summaryFooter);
+          }
+
+          header.appendChild(summary);
+
           const statusValue = String(request.status || '').toLowerCase();
           const stateKey = statusValue.replace(/\s+/g, '_');
+          const status = document.createElement('span');
+          status.className = 'status';
           status.dataset.state = stateKey;
           status.textContent = formatStatus(stateKey);
-          item.appendChild(status);
+
+          const statusWrapper = document.createElement('div');
+          statusWrapper.className = 'request-status';
+          statusWrapper.appendChild(status);
+          header.appendChild(statusWrapper);
+
+          item.appendChild(header);
+
+          const body = document.createElement('div');
+          body.className = 'request-body';
+          let bodyHasContent = false;
+          const appendToBody = element => {
+            if (!element) {
+              return;
+            }
+            bodyHasContent = true;
+            body.appendChild(element);
+          };
 
           if (type === 'supplies') {
             const etaWrapper = document.createElement('label');
@@ -1601,7 +1712,7 @@
               });
             }
             etaWrapper.appendChild(etaInput);
-            item.appendChild(etaWrapper);
+            appendToBody(etaWrapper);
           }
 
           if (Array.isArray(request.details)) {
@@ -1610,21 +1721,21 @@
               const line = document.createElement('span');
               line.className = 'detail-line';
               line.textContent = detail;
-              item.appendChild(line);
+              appendToBody(line);
             });
           }
 
           const submittedLine = document.createElement('span');
           submittedLine.className = 'detail-line';
           submittedLine.textContent = `Submitted by: ${request.requester || 'Unknown requester'}`;
-          item.appendChild(submittedLine);
+          appendToBody(submittedLine);
 
           const statusLineText = buildStatusActorLine(type, stateKey, request.approver);
           if (statusLineText) {
             const statusLine = document.createElement('span');
             statusLine.className = 'detail-line';
             statusLine.textContent = statusLineText;
-            item.appendChild(statusLine);
+            appendToBody(statusLine);
           }
 
           if (type === 'supplies' && canManageStatuses) {
@@ -1653,7 +1764,7 @@
               const controls = document.createElement('div');
               controls.className = 'supplies-actions';
               controls.appendChild(buttonRow);
-              item.appendChild(controls);
+              appendToBody(controls);
             }
           } else if (canManageStatuses && (stateKey === 'pending' || stateKey === 'in_progress')) {
             const actions = document.createElement('div');
@@ -1681,7 +1792,11 @@
             denied.addEventListener('click', () => handleUpdateStatus(type, request.id, 'denied'));
             actions.appendChild(denied);
 
-            item.appendChild(actions);
+            appendToBody(actions);
+          }
+
+          if (bodyHasContent) {
+            item.appendChild(body);
           }
 
           fragment.appendChild(item);
@@ -2291,15 +2406,39 @@
       }
 
       function buildSkeletonBlock() {
-        const wrapper = document.createElement('div');
+        const wrapper = document.createElement('article');
         wrapper.className = 'request-item';
+
+        const header = document.createElement('div');
+        header.className = 'request-header';
+
+        const summary = document.createElement('div');
+        summary.className = 'request-summary';
         const title = document.createElement('div');
         title.className = 'skeleton';
         title.style.height = '20px';
-        wrapper.appendChild(title);
-        const line = document.createElement('div');
-        line.className = 'skeleton sm';
-        wrapper.appendChild(line);
+        summary.appendChild(title);
+        const meta = document.createElement('div');
+        meta.className = 'skeleton sm';
+        meta.style.width = '60%';
+        summary.appendChild(meta);
+        header.appendChild(summary);
+
+        const status = document.createElement('div');
+        status.className = 'skeleton';
+        status.style.width = '96px';
+        status.style.height = '28px';
+        header.appendChild(status);
+
+        wrapper.appendChild(header);
+
+        const body = document.createElement('div');
+        body.className = 'request-body';
+        const detail = document.createElement('div');
+        detail.className = 'skeleton sm';
+        detail.style.width = '80%';
+        body.appendChild(detail);
+        wrapper.appendChild(body);
         return wrapper;
       }
 
