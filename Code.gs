@@ -14,7 +14,7 @@ const LOCATION_OPTIONS = ['Plant', 'Short North', 'South Dublin', 'Muirfield', '
 const REQUEST_TYPES = {
   supplies: {
     sheetName: 'SuppliesRequests',
-    headers: ['id', 'ts', 'requester', 'description', 'qty', 'location', 'notes', 'status', 'approver'],
+    headers: ['id', 'ts', 'requester', 'description', 'qty', 'location', 'notes', 'status', 'approver', 'eta'],
     normalize(request) {
       const location = normalizeLocation_(request && request.location);
       const description = sanitizeString_(request && request.description);

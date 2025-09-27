@@ -1180,6 +1180,13 @@
             const etaInput = document.createElement('input');
             etaInput.type = 'date';
             etaInput.setAttribute('data-role', 'eta');
+            const etaStatus = document.createElement('span');
+            etaStatus.className = 'eta-display';
+            const applyEtaStatus = value => {
+              etaStatus.textContent = value
+                ? `Saved ETA: ${formatEtaDisplay(value)}`
+                : 'Saved ETA: Not set';
+            };
             const etaValue = request && request.fields && request.fields.eta
               ? String(request.fields.eta)
               : '';
@@ -1187,6 +1194,7 @@
               etaInput.value = etaValue;
             }
             let lastEtaValue = etaValue;
+            applyEtaStatus(etaValue);
             etaInput.addEventListener('change', () => {
               const nextEta = etaInput.value ? etaInput.value.trim() : '';
               if (statusValue === 'ordered' && !nextEta) {
@@ -1196,18 +1204,13 @@
                 return;
               }
               lastEtaValue = nextEta;
+              applyEtaStatus(nextEta);
               const normalizedStatus = statusValue || 'pending';
               const targetStatus = request && request.status ? request.status : normalizedStatus;
               handleUpdateStatus(type, request.id, targetStatus, { eta: nextEta });
             });
             etaField.appendChild(etaInput);
             controls.appendChild(etaField);
-
-            const etaStatus = document.createElement('span');
-            etaStatus.className = 'eta-display';
-            etaStatus.textContent = etaValue
-              ? `Saved ETA: ${formatEtaDisplay(etaValue)}`
-              : 'Saved ETA: Not set';
             controls.appendChild(etaStatus);
 
             const buttonRow = document.createElement('div');
@@ -1228,20 +1231,6 @@
               denied.textContent = 'Denied';
               denied.addEventListener('click', () => handleUpdateStatus(type, request.id, 'denied'));
               buttonRow.appendChild(denied);
-              const ordered = document.createElement('button');
-              ordered.type = 'button';
-              ordered.className = 'secondary';
-              ordered.textContent = 'Ordered';
-              ordered.addEventListener('click', () => {
-                const nextEta = etaInput.value ? etaInput.value.trim() : '';
-                if (!nextEta) {
-                  showToast('Enter an ETA before marking as ordered.');
-                  etaInput.focus();
-                  return;
-                }
-                handleUpdateStatus(type, request.id, 'ordered', { eta: nextEta });
-              });
-              buttonRow.appendChild(ordered);
               hasButtons = true;
             }
 
