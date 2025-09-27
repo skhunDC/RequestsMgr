@@ -921,10 +921,6 @@
         dom.panels.forEach(panel => {
           panel.classList.toggle('active', panel.getAttribute('data-tab-panel') === type);
         });
-        if (!state.openCards[type] && CARD_ORDER[type] && CARD_ORDER[type].length) {
-          state.openCards[type] = CARD_ORDER[type][0];
-        }
-        syncCardStack();
         ensureRequestsLoaded(type);
         scheduleWarmCache();
       }
