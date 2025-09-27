@@ -1444,7 +1444,7 @@
           .updateRequestStatus(payload);
       }
 
-      function buildRequestMeta(request) {
+      function buildRequestMeta(request, type) {
         const parts = [];
         if (request.ts) {
           try {
@@ -1453,10 +1453,11 @@
             parts.push(request.ts);
           }
         }
-        if (type !== 'supplies' && request.requester) {
+        const scopeType = typeof type === 'string' ? type : '';
+        if (scopeType !== 'supplies' && request.requester) {
           parts.push(request.requester);
         }
-        if (type !== 'supplies' && request.approver && request.status !== 'pending') {
+        if (scopeType !== 'supplies' && request.approver && request.status !== 'pending') {
           parts.push(`by ${request.approver}`);
         }
         return parts.join(' • ');
