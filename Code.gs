@@ -202,12 +202,10 @@ function listRequests(request) {
     ensureSetup_();
     const type = normalizeType_(request && request.type);
     const def = REQUEST_TYPES[type];
-    const scope = 'all';
-    const scopeKey = 'all';
     const pageSize = clamp_(Number(request && request.pageSize) || 15, 1, MAX_PAGE_SIZE);
     const startIndex = Number(request && request.nextToken) || 0;
 
-    const cacheKey = [CACHE_KEYS.REQUESTS_PREFIX, type, scopeKey].join(':');
+    const cacheKey = [CACHE_KEYS.REQUESTS_PREFIX, type, 'all'].join(':');
     const cache = CacheService.getScriptCache();
     let records = [];
     const cached = cache.get(cacheKey);
@@ -228,8 +226,7 @@ function listRequests(request) {
       ok: true,
       type,
       requests: slice,
-      nextToken,
-      scope
+      nextToken
     };
   });
 }
