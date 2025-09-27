@@ -339,6 +339,11 @@
       background: var(--surface-alt);
     }
 
+    .catalog-item.selected {
+      border-color: rgba(11, 87, 208, 0.4);
+      background: rgba(11, 87, 208, 0.08);
+    }
+
     .request-item strong,
     .catalog-item strong {
       font-size: 1rem;
@@ -370,6 +375,16 @@
     .status[data-state="approved"] {
       border-color: rgba(15, 157, 88, 0.35);
       color: var(--success);
+    }
+
+    .status[data-state="completed"] {
+      border-color: rgba(15, 157, 88, 0.35);
+      color: var(--success);
+    }
+
+    .status[data-state="in_progress"] {
+      border-color: rgba(11, 87, 208, 0.35);
+      color: var(--accent);
     }
 
     .status[data-state="declined"] {
@@ -504,8 +519,8 @@
         <div class="card-body">
           <form id="suppliesForm" class="form-grid" novalidate>
             <label class="full-width">
-              <span>Description</span>
-              <textarea id="suppliesDescription" name="description" autocomplete="off" required></textarea>
+              <span>Pick and Item</span>
+              <select id="catalogSelect" name="catalogSku" required></select>
             </label>
             <label>
               <span>Quantity</span>
@@ -514,10 +529,6 @@
             <label class="full-width">
               <span>Notes (optional)</span>
               <textarea id="suppliesNotes" name="notes" autocomplete="off"></textarea>
-            </label>
-            <label>
-              <span>Suggested item</span>
-              <select id="catalogSelect"></select>
             </label>
             <div class="inline-buttons full-width">
               <button type="submit" id="suppliesSubmitButton">Submit request</button>
@@ -567,6 +578,19 @@
         </button>
         <div class="card-body">
           <form id="itForm" class="form-grid" novalidate>
+            <label>
+              <span>Location</span>
+              <select id="itLocation" name="location" required>
+                <option value="">Select a location</option>
+                <option value="Plant">Plant</option>
+                <option value="Short North">Short North</option>
+                <option value="South Dublin">South Dublin</option>
+                <option value="Muirfield">Muirfield</option>
+                <option value="Morse Rd.">Morse Rd.</option>
+                <option value="Granville">Granville</option>
+                <option value="Newark">Newark</option>
+              </select>
+            </label>
             <label class="full-width">
               <span>Issue summary</span>
               <textarea id="itIssue" name="issue" autocomplete="off" required></textarea>
@@ -576,8 +600,8 @@
               <input id="itDevice" name="device" type="text" autocomplete="off">
             </label>
             <label>
-              <span>Impact</span>
-              <select id="itImpact" name="impact">
+              <span>Urgency</span>
+              <select id="itUrgency" name="urgency">
                 <option value="low">Low</option>
                 <option value="normal">Normal</option>
                 <option value="high">High</option>
@@ -624,7 +648,16 @@
           <form id="maintenanceForm" class="form-grid" novalidate>
             <label>
               <span>Location</span>
-              <input id="maintenanceLocation" name="location" type="text" autocomplete="off" required>
+              <select id="maintenanceLocation" name="location" required>
+                <option value="">Select a location</option>
+                <option value="Plant">Plant</option>
+                <option value="Short North">Short North</option>
+                <option value="South Dublin">South Dublin</option>
+                <option value="Muirfield">Muirfield</option>
+                <option value="Morse Rd.">Morse Rd.</option>
+                <option value="Granville">Granville</option>
+                <option value="Newark">Newark</option>
+              </select>
             </label>
             <label class="full-width">
               <span>Issue description</span>
@@ -680,8 +713,8 @@
       const persistTimers = {};
       let warmScheduled = false;
       const FORM_TEMPLATES = {
-        supplies: { description: '', qty: 1, notes: '' },
-        it: { issue: '', device: '', impact: 'normal', details: '' },
+        supplies: { description: '', qty: 1, notes: '', catalogSku: '' },
+        it: { location: '', issue: '', device: '', urgency: 'normal', details: '' },
         maintenance: { location: '', issue: '', urgency: 'normal', accessNotes: '' }
       };
       const LOCAL_KEYS = {
@@ -740,7 +773,6 @@
         toast: document.getElementById('toast'),
         supplies: {
           form: document.getElementById('suppliesForm'),
-          description: document.getElementById('suppliesDescription'),
           qty: document.getElementById('suppliesQty'),
           notes: document.getElementById('suppliesNotes'),
           submit: document.getElementById('suppliesSubmitButton'),
@@ -753,9 +785,10 @@
         },
         it: {
           form: document.getElementById('itForm'),
+          location: document.getElementById('itLocation'),
           issue: document.getElementById('itIssue'),
           device: document.getElementById('itDevice'),
-          impact: document.getElementById('itImpact'),
+          urgency: document.getElementById('itUrgency'),
           details: document.getElementById('itDetails'),
           submit: document.getElementById('itSubmitButton'),
           reset: document.getElementById('itResetButton'),
@@ -887,10 +920,6 @@
         dom.supplies.reset.addEventListener('click', () => {
           resetForm('supplies');
         });
-        dom.supplies.description.addEventListener('input', () => {
-          setFormState('supplies', { description: dom.supplies.description.value });
-          persistForm('supplies');
-        });
         dom.supplies.qty.addEventListener('input', () => {
           const qty = Number(dom.supplies.qty.value);
           const sanitized = Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : 1;
@@ -904,10 +933,12 @@
         });
         dom.supplies.catalogSelect.addEventListener('change', () => {
           const option = dom.supplies.catalogSelect.options[dom.supplies.catalogSelect.selectedIndex];
-          if (option && option.value) {
-            setFormState('supplies', { description: option.textContent });
-            renderForm('supplies');
-            persistForm('supplies');
+          const sku = option ? option.value : '';
+          const description = option && option.dataset ? (option.dataset.description || '') : '';
+          setFormState('supplies', { catalogSku: sku, description });
+          persistForm('supplies');
+          if (state.catalog.items.length) {
+            renderCatalog();
           }
         });
         dom.supplies.more.addEventListener('click', () => {
@@ -925,6 +956,10 @@
         dom.it.reset.addEventListener('click', () => {
           resetForm('it');
         });
+        dom.it.location.addEventListener('change', () => {
+          setFormState('it', { location: dom.it.location.value });
+          persistForm('it');
+        });
         dom.it.issue.addEventListener('input', () => {
           setFormState('it', { issue: dom.it.issue.value });
           persistForm('it');
@@ -933,8 +968,8 @@
           setFormState('it', { device: dom.it.device.value });
           persistForm('it');
         });
-        dom.it.impact.addEventListener('change', () => {
-          setFormState('it', { impact: dom.it.impact.value });
+        dom.it.urgency.addEventListener('change', () => {
+          setFormState('it', { urgency: dom.it.urgency.value });
           persistForm('it');
         });
         dom.it.details.addEventListener('input', () => {
@@ -951,7 +986,7 @@
         dom.maintenance.reset.addEventListener('click', () => {
           resetForm('maintenance');
         });
-        dom.maintenance.location.addEventListener('input', () => {
+        dom.maintenance.location.addEventListener('change', () => {
           setFormState('maintenance', { location: dom.maintenance.location.value });
           persistForm('maintenance');
         });
@@ -1058,13 +1093,16 @@
         switch (type) {
           case 'supplies':
             if (!formState.description || !formState.description.trim()) {
-              return 'Description is required.';
+              return 'Please pick an item before submitting.';
             }
             if (!formState.qty || Number(formState.qty) <= 0) {
               return 'Quantity must be at least 1.';
             }
             return '';
           case 'it':
+            if (!formState.location || !formState.location.trim()) {
+              return 'Location is required.';
+            }
             if (!formState.issue || !formState.issue.trim()) {
               return 'Issue summary is required.';
             }
@@ -1085,19 +1123,23 @@
       function resetForm(type) {
         state.forms[type] = Object.assign({}, FORM_TEMPLATES[type]);
         renderForm(type);
+        if (type === 'supplies' && state.catalog.items.length) {
+          renderCatalog();
+        }
         persistForm(type, { immediate: true });
       }
 
       function renderForm(type) {
         const formState = state.forms[type];
         if (type === 'supplies') {
-          dom.supplies.description.value = formState.description || '';
+          dom.supplies.catalogSelect.value = formState.catalogSku || '';
           dom.supplies.qty.value = formState.qty || 1;
           dom.supplies.notes.value = formState.notes || '';
         } else if (type === 'it') {
+          dom.it.location.value = formState.location || '';
           dom.it.issue.value = formState.issue || '';
           dom.it.device.value = formState.device || '';
-          dom.it.impact.value = formState.impact || 'normal';
+          dom.it.urgency.value = formState.urgency || 'normal';
           dom.it.details.value = formState.details || '';
         } else if (type === 'maintenance') {
           dom.maintenance.location.value = formState.location || '';
@@ -1187,8 +1229,10 @@
 
           const status = document.createElement('span');
           status.className = 'status';
-          status.dataset.state = request.status;
-          status.textContent = formatStatus(request.status);
+          const statusValue = String(request.status || '').toLowerCase();
+          const stateKey = statusValue.replace(/\s+/g, '_');
+          status.dataset.state = stateKey;
+          status.textContent = formatStatus(stateKey);
           item.appendChild(status);
 
           if (Array.isArray(request.details)) {
@@ -1201,22 +1245,22 @@
             });
           }
 
-          if (request.status === 'pending') {
+          if (stateKey === 'pending') {
             const actions = document.createElement('div');
             actions.className = 'inline-buttons';
-            const approve = document.createElement('button');
-            approve.type = 'button';
-            approve.className = 'secondary';
-            approve.textContent = 'Approve';
-            approve.addEventListener('click', () => handleUpdateStatus(type, request.id, 'approved'));
-            actions.appendChild(approve);
+            const complete = document.createElement('button');
+            complete.type = 'button';
+            complete.className = 'secondary';
+            complete.textContent = 'Complete';
+            complete.addEventListener('click', () => handleUpdateStatus(type, request.id, 'completed'));
+            actions.appendChild(complete);
 
-            const decline = document.createElement('button');
-            decline.type = 'button';
-            decline.className = 'secondary';
-            decline.textContent = 'Decline';
-            decline.addEventListener('click', () => handleUpdateStatus(type, request.id, 'declined'));
-            actions.appendChild(decline);
+            const progress = document.createElement('button');
+            progress.type = 'button';
+            progress.className = 'secondary';
+            progress.textContent = 'In Progress';
+            progress.addEventListener('click', () => handleUpdateStatus(type, request.id, 'in_progress'));
+            actions.appendChild(progress);
 
             item.appendChild(actions);
           }
@@ -1326,7 +1370,7 @@
         dom.supplies.catalogSelect.textContent = '';
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
-        defaultOption.textContent = state.catalog.items.length ? 'Select an item (optional)' : 'Catalog unavailable';
+        defaultOption.textContent = state.catalog.items.length ? 'Pick an item' : 'Catalog unavailable';
         dom.supplies.catalogSelect.appendChild(defaultOption);
 
         if (!state.catalog.items.length) {
@@ -1344,15 +1388,33 @@
           return;
         }
 
+        let selectedSku = state.forms.supplies.catalogSku || '';
+        let shouldPersist = false;
+        if (!selectedSku && state.forms.supplies.description) {
+          const match = state.catalog.items.find(item => item.description === state.forms.supplies.description);
+          if (match) {
+            selectedSku = match.sku;
+            setFormState('supplies', { catalogSku: match.sku, description: match.description });
+            shouldPersist = true;
+          }
+        }
+
         const fragment = document.createDocumentFragment();
         state.catalog.items.forEach(item => {
           const option = document.createElement('option');
           option.value = item.sku;
           option.textContent = `${item.description} · ${item.category}`;
+          option.dataset.description = item.description;
+          if (item.sku === selectedSku) {
+            option.selected = true;
+          }
           dom.supplies.catalogSelect.appendChild(option);
 
           const card = document.createElement('article');
           card.className = 'catalog-item';
+          if (item.sku === selectedSku) {
+            card.classList.add('selected');
+          }
           card.tabIndex = 0;
           card.setAttribute('role', 'listitem');
           const name = document.createElement('strong');
@@ -1362,17 +1424,17 @@
           meta.className = 'meta';
           meta.textContent = `${item.category} • ${item.sku}`;
           card.appendChild(meta);
+          const handleSelect = () => {
+            dom.supplies.catalogSelect.value = item.sku;
+            dom.supplies.catalogSelect.dispatchEvent(new Event('change'));
+          };
           card.addEventListener('click', () => {
-            setFormState('supplies', { description: item.description });
-            renderForm('supplies');
-            persistForm('supplies');
+            handleSelect();
           });
           card.addEventListener('keydown', evt => {
             if (evt.key === 'Enter' || evt.key === ' ') {
               evt.preventDefault();
-              setFormState('supplies', { description: item.description });
-              renderForm('supplies');
-              persistForm('supplies');
+              handleSelect();
             }
           });
           fragment.appendChild(card);
@@ -1380,6 +1442,10 @@
         dom.supplies.catalogList.appendChild(fragment);
         dom.supplies.catalogMore.disabled = !state.catalog.nextToken;
         dom.supplies.catalogSelect.disabled = false;
+        dom.supplies.catalogSelect.value = selectedSku || '';
+        if (shouldPersist) {
+          persistForm('supplies');
+        }
       }
 
       function setFormState(type, partial) {
@@ -1423,6 +1489,13 @@
             const parsed = JSON.parse(raw);
             if (parsed && typeof parsed === 'object') {
               state.forms[type] = Object.assign({}, FORM_TEMPLATES[type], parsed);
+              if (type === 'it') {
+                const form = state.forms[type];
+                if ((!form.urgency || form.urgency === undefined) && form.impact) {
+                  form.urgency = form.impact;
+                }
+                delete form.impact;
+              }
             }
           }
         } catch (err) {
@@ -1474,6 +1547,10 @@
 
       function formatStatus(status) {
         switch (status) {
+          case 'completed':
+            return 'Completed';
+          case 'in_progress':
+            return 'In progress';
           case 'approved':
             return 'Approved';
           case 'declined':
@@ -1486,16 +1563,16 @@
       function disableForm(type, disabled) {
         if (type === 'supplies') {
           dom.supplies.submit.disabled = disabled;
-          dom.supplies.description.disabled = disabled;
           dom.supplies.qty.disabled = disabled;
           dom.supplies.notes.disabled = disabled;
           dom.supplies.catalogSelect.disabled = disabled;
           dom.supplies.reset.disabled = disabled;
         } else if (type === 'it') {
           dom.it.submit.disabled = disabled;
+          dom.it.location.disabled = disabled;
           dom.it.issue.disabled = disabled;
           dom.it.device.disabled = disabled;
-          dom.it.impact.disabled = disabled;
+          dom.it.urgency.disabled = disabled;
           dom.it.details.disabled = disabled;
           dom.it.reset.disabled = disabled;
         } else if (type === 'maintenance') {

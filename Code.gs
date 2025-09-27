@@ -8,6 +8,8 @@ const SHEETS = {
   LOGS: 'Logs'
 };
 
+const LOCATION_OPTIONS = ['Plant', 'Short North', 'South Dublin', 'Muirfield', 'Morse Rd.', 'Granville', 'Newark'];
+
 const REQUEST_TYPES = {
   supplies: {
     sheetName: 'SuppliesRequests',
@@ -40,29 +42,33 @@ const REQUEST_TYPES = {
   },
   it: {
     sheetName: 'ITRequests',
-    headers: ['id', 'ts', 'requester', 'issue', 'device', 'impact', 'details', 'status', 'approver'],
+    headers: ['id', 'ts', 'requester', 'issue', 'device', 'urgency', 'details', 'status', 'approver', 'location'],
     normalize(request) {
+      const location = normalizeLocation_(request && request.location);
       const issue = sanitizeString_(request && request.issue);
       if (!issue) {
         throw new Error('Issue summary is required.');
       }
       const device = sanitizeString_(request && request.device);
-      const impactRaw = sanitizeString_(request && request.impact).toLowerCase();
+      const urgencyRaw = sanitizeString_(request && request.urgency).toLowerCase();
       const allowed = ['low', 'normal', 'high', 'critical'];
-      const impact = allowed.indexOf(impactRaw) === -1 ? 'normal' : impactRaw;
+      const urgency = allowed.indexOf(urgencyRaw) === -1 ? 'normal' : urgencyRaw;
       const details = sanitizeString_(request && request.details);
-      return { issue, device, impact, details };
+      return { location, issue, device, urgency, details };
     },
     buildSummary(fields) {
       return fields.issue || 'IT request';
     },
     buildDetails(fields) {
       const details = [];
+      if (fields.location) {
+        details.push(`Location: ${fields.location}`);
+      }
       if (fields.device) {
         details.push(`Device/System: ${fields.device}`);
       }
-      if (fields.impact) {
-        details.push(`Impact: ${capitalize_(fields.impact)}`);
+      if (fields.urgency) {
+        details.push(`Urgency: ${capitalize_(fields.urgency)}`);
       }
       if (fields.details) {
         details.push(`Details: ${fields.details}`);
@@ -74,10 +80,7 @@ const REQUEST_TYPES = {
     sheetName: 'MaintenanceRequests',
     headers: ['id', 'ts', 'requester', 'location', 'issue', 'urgency', 'accessNotes', 'status', 'approver'],
     normalize(request) {
-      const location = sanitizeString_(request && request.location);
-      if (!location) {
-        throw new Error('Location is required.');
-      }
+      const location = normalizeLocation_(request && request.location);
       const issue = sanitizeString_(request && request.issue);
       if (!issue) {
         throw new Error('Issue description is required.');
@@ -500,11 +503,17 @@ function normalizeStatus_(status) {
   if (!value) {
     throw new Error('status is required.');
   }
-  const allowed = ['pending', 'approved', 'declined'];
-  if (allowed.indexOf(value) === -1) {
+  const aliasMap = {
+    approved: 'completed',
+    'in progress': 'in_progress',
+    'in-progress': 'in_progress'
+  };
+  const normalized = aliasMap[value] || value;
+  const allowed = ['pending', 'completed', 'in_progress', 'declined'];
+  if (allowed.indexOf(normalized) === -1) {
     throw new Error('Unsupported status.');
   }
-  return value;
+  return normalized;
 }
 
 function normalizeType_(type) {
@@ -545,6 +554,18 @@ function clamp_(value, min, max) {
 
 function uuid_() {
   return Utilities.getUuid();
+}
+
+function normalizeLocation_(value) {
+  const name = sanitizeString_(value);
+  if (!name) {
+    throw new Error('Location is required.');
+  }
+  const match = LOCATION_OPTIONS.find(option => option.toLowerCase() === name.toLowerCase());
+  if (!match) {
+    throw new Error('Unsupported location.');
+  }
+  return match;
 }
 
 function withLock_(fn) {
