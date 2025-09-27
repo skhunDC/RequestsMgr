@@ -168,6 +168,7 @@
 
     input[type="number"],
     input[type="text"],
+    input[type="search"],
     input[type="date"],
     textarea,
     select,
@@ -178,6 +179,7 @@
     textarea,
     input[type="number"],
     input[type="text"],
+    input[type="search"],
     input[type="date"],
     select {
       width: 100%;
@@ -307,6 +309,39 @@
       background: var(--surface-alt);
     }
 
+    .catalog-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .catalog-search {
+      position: relative;
+    }
+
+    .catalog-search::after {
+      content: '\1F50D';
+      position: absolute;
+      right: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .catalog-search input[type="search"] {
+      padding-right: 2.25rem;
+      -webkit-appearance: none;
+    }
+
+    .input-helper {
+      margin-top: 0.35rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: block;
+    }
+
     .catalog-item.selected {
       border-color: rgba(11, 87, 208, 0.4);
       background: rgba(11, 87, 208, 0.08);
@@ -315,6 +350,35 @@
     .request-item strong,
     .catalog-item strong {
       font-size: 1rem;
+    }
+
+    .catalog-item .meta + .meta {
+      margin-top: -0.1rem;
+    }
+
+    .catalog-item .meta.usage {
+      color: var(--accent-strong);
+      font-weight: 500;
+    }
+
+    .catalog-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      align-self: flex-start;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      background: rgba(11, 87, 208, 0.12);
+      color: var(--accent-strong);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .catalog-badge::before {
+      content: '\2605';
+      font-size: 0.8rem;
     }
 
     .meta {
@@ -519,7 +583,31 @@
           <form id="suppliesForm" class="form-grid" novalidate>
             <label class="full-width">
               <span>Catalog</span>
-              <select id="catalogSelect" name="catalogSku" required></select>
+              <div class="catalog-field">
+                <div class="catalog-search">
+                  <input
+                    id="catalogSearch"
+                    type="search"
+                    name="catalogSearch"
+                    placeholder="Search the catalog"
+                    autocomplete="off"
+                    spellcheck="false"
+                  >
+                </div>
+                <select id="catalogSelect" name="catalogSku"></select>
+              </div>
+              <span class="input-helper">Can't find it? Enter a custom item name below.</span>
+            </label>
+            <label class="full-width">
+              <span>Item name</span>
+              <input
+                id="suppliesDescription"
+                name="description"
+                type="text"
+                placeholder="e.g., 2XL rubber gloves"
+                autocomplete="off"
+                required
+              >
             </label>
             <label>
               <span>Location</span>
@@ -718,6 +806,7 @@
       const PERSIST_DELAY = 240;
       const persistTimers = {};
       let warmScheduled = false;
+      let syncingCatalogToDescription = false;
       const FORM_TEMPLATES = {
         supplies: { description: '', qty: 1, notes: '', catalogSku: '', location: '' },
         it: { location: '', issue: '', device: '', urgency: 'normal', details: '' },
@@ -764,7 +853,8 @@
         catalog: {
           items: [],
           nextToken: '',
-          loading: false
+          loading: false,
+          search: ''
         }
       };
 
@@ -777,10 +867,12 @@
           location: document.getElementById('suppliesLocation'),
           qty: document.getElementById('suppliesQty'),
           notes: document.getElementById('suppliesNotes'),
+          description: document.getElementById('suppliesDescription'),
           submit: document.getElementById('suppliesSubmitButton'),
           reset: document.getElementById('suppliesResetButton'),
           list: document.getElementById('suppliesRequestsList'),
           more: document.getElementById('suppliesMoreButton'),
+          catalogSearch: document.getElementById('catalogSearch'),
           catalogSelect: document.getElementById('catalogSelect'),
           catalogList: document.getElementById('catalogList'),
           catalogMore: document.getElementById('catalogMoreButton')
@@ -861,10 +953,40 @@
           setFormState('supplies', { notes: dom.supplies.notes.value });
           persistForm('supplies');
         });
+        dom.supplies.description.addEventListener('input', () => {
+          const value = dom.supplies.description.value || '';
+          const trimmed = value.trim();
+          if (!syncingCatalogToDescription) {
+            let matchedSku = '';
+            if (trimmed) {
+              const match = state.catalog.items.find(item => item.description.toLowerCase() === trimmed.toLowerCase());
+              if (match) {
+                matchedSku = match.sku;
+              }
+            }
+            setFormState('supplies', { description: value, catalogSku: matchedSku });
+            dom.supplies.catalogSelect.value = matchedSku;
+          } else {
+            setFormState('supplies', { description: value });
+          }
+          persistForm('supplies');
+          if (state.catalog.items.length) {
+            renderCatalog();
+          }
+        });
+        dom.supplies.catalogSearch.addEventListener('input', () => {
+          state.catalog.search = dom.supplies.catalogSearch.value || '';
+          if (state.catalog.items.length) {
+            renderCatalog();
+          }
+        });
         dom.supplies.catalogSelect.addEventListener('change', () => {
           const option = dom.supplies.catalogSelect.options[dom.supplies.catalogSelect.selectedIndex];
           const sku = option ? option.value : '';
           const description = option && option.dataset ? (option.dataset.description || '') : '';
+          syncingCatalogToDescription = true;
+          dom.supplies.description.value = description;
+          syncingCatalogToDescription = false;
           setFormState('supplies', { catalogSku: sku, description });
           persistForm('supplies');
           if (state.catalog.items.length) {
@@ -1022,7 +1144,7 @@
               return 'Location is required.';
             }
             if (!formState.description || !formState.description.trim()) {
-              return 'Please pick an item before submitting.';
+              return 'Item name is required.';
             }
             if (!formState.qty || Number(formState.qty) <= 0) {
               return 'Quantity must be at least 1.';
@@ -1064,6 +1186,7 @@
           dom.supplies.catalogSelect.value = formState.catalogSku || '';
           dom.supplies.location.value = formState.location || '';
           dom.supplies.qty.value = formState.qty || 1;
+          dom.supplies.description.value = formState.description || '';
           dom.supplies.notes.value = formState.notes || '';
         } else if (type === 'it') {
           dom.it.location.value = formState.location || '';
@@ -1444,12 +1567,20 @@
       function renderCatalog() {
         dom.supplies.catalogList.textContent = '';
         dom.supplies.catalogSelect.textContent = '';
+        const searchValue = state.catalog.search || '';
+        dom.supplies.catalogSearch.value = searchValue;
+
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
-        defaultOption.textContent = state.catalog.items.length ? 'Pick an item' : 'Catalog unavailable';
+        if (state.catalog.items.length) {
+          defaultOption.textContent = searchValue.trim() ? 'Select a match' : 'Search or choose an item';
+        } else {
+          defaultOption.textContent = state.catalog.loading ? 'Loading catalog…' : 'Catalog unavailable';
+        }
         dom.supplies.catalogSelect.appendChild(defaultOption);
 
         if (!state.catalog.items.length) {
+          dom.supplies.catalogSearch.disabled = !state.catalog.loading;
           if (state.catalog.loading) {
             dom.supplies.catalogList.appendChild(buildSkeletonBlock());
             dom.supplies.catalogMore.disabled = true;
@@ -1460,27 +1591,68 @@
             dom.supplies.catalogList.appendChild(empty);
             dom.supplies.catalogMore.disabled = true;
           }
-          dom.supplies.catalogSelect.disabled = !state.catalog.items.length;
+          dom.supplies.catalogSelect.disabled = true;
           return;
         }
 
+        dom.supplies.catalogSearch.disabled = false;
+
         let selectedSku = state.forms.supplies.catalogSku || '';
+        const descriptionValue = (state.forms.supplies.description || '').trim();
         let shouldPersist = false;
-        if (!selectedSku && state.forms.supplies.description) {
-          const match = state.catalog.items.find(item => item.description === state.forms.supplies.description);
+        if (!selectedSku && descriptionValue) {
+          const match = state.catalog.items.find(item => item.description.toLowerCase() === descriptionValue.toLowerCase());
           if (match) {
             selectedSku = match.sku;
             setFormState('supplies', { catalogSku: match.sku, description: match.description });
+            syncingCatalogToDescription = true;
+            dom.supplies.description.value = match.description;
+            syncingCatalogToDescription = false;
             shouldPersist = true;
           }
         }
 
+        const normalizedSearch = searchValue.trim().toLowerCase();
+        let filteredItems = state.catalog.items.slice();
+        if (normalizedSearch) {
+          filteredItems = state.catalog.items.filter(item => {
+            const haystack = `${item.description} ${item.category} ${item.sku}`.toLowerCase();
+            return haystack.indexOf(normalizedSearch) !== -1;
+          });
+          if (selectedSku && !filteredItems.some(item => item.sku === selectedSku)) {
+            const selectedItem = state.catalog.items.find(item => item.sku === selectedSku);
+            if (selectedItem) {
+              filteredItems.unshift(selectedItem);
+            }
+          }
+        }
+
+        if (!filteredItems.length) {
+          const empty = document.createElement('p');
+          empty.className = 'empty';
+          empty.textContent = normalizedSearch
+            ? 'No catalog items match your search yet. Load more or try another keyword.'
+            : (hasServer ? 'No catalog items found.' : 'Catalog requires Google Apps Script.');
+          dom.supplies.catalogList.appendChild(empty);
+          dom.supplies.catalogMore.disabled = normalizedSearch ? !state.catalog.nextToken : true;
+          dom.supplies.catalogSelect.disabled = true;
+          return;
+        }
+
+        const popularItems = state.catalog.items.filter(item => Number(item.usageCount) > 0);
+        const topRank = Math.min(5, popularItems.length);
+        const topSkuSet = new Set(popularItems.slice(0, topRank).map(item => item.sku));
+
         const fragment = document.createDocumentFragment();
-        state.catalog.items.forEach(item => {
+        filteredItems.forEach(item => {
           const option = document.createElement('option');
           option.value = item.sku;
-          option.textContent = `${item.description} · ${item.category}`;
+          const categoryLabel = item.category ? ` · ${item.category}` : '';
+          const label = `${item.description}${categoryLabel}`;
+          option.textContent = topSkuSet.has(item.sku) && Number(item.usageCount) > 0 ? `★ ${label}` : label;
           option.dataset.description = item.description;
+          option.dataset.category = item.category || '';
+          option.dataset.usageCount = String(item.usageCount || 0);
           if (item.sku === selectedSku) {
             option.selected = true;
           }
@@ -1498,8 +1670,20 @@
           card.appendChild(name);
           const meta = document.createElement('span');
           meta.className = 'meta';
-          meta.textContent = `${item.category} • ${item.sku}`;
+          meta.textContent = item.category ? `${item.category} • ${item.sku}` : item.sku;
           card.appendChild(meta);
+          if (Number(item.usageCount) > 0) {
+            const usage = document.createElement('span');
+            usage.className = 'meta usage';
+            usage.textContent = item.usageCount === 1 ? 'Requested 1 time' : `Requested ${item.usageCount} times`;
+            card.appendChild(usage);
+          }
+          if (topSkuSet.has(item.sku) && Number(item.usageCount) > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'catalog-badge';
+            badge.textContent = 'Most requested';
+            card.appendChild(badge);
+          }
           const handleSelect = () => {
             dom.supplies.catalogSelect.value = item.sku;
             dom.supplies.catalogSelect.dispatchEvent(new Event('change'));

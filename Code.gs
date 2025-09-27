@@ -127,7 +127,8 @@ const LOG_HEADERS = ['ts', 'actor', 'fn', 'cid', 'message', 'stack', 'context'];
 const STATUS_LOG_HEADERS = ['ts', 'type', 'requestId', 'actor', 'status'];
 
 const CACHE_KEYS = {
-  CATALOG: 'catalog:v1',
+  CATALOG: 'catalog:v2',
+  CATALOG_USAGE: 'catalog-usage:v1',
   REQUESTS_PREFIX: 'requests',
   RID_PREFIX: 'rid'
 };
@@ -172,13 +173,30 @@ function listCatalog(request) {
       items = JSON.parse(cached);
     } else {
       const sheet = getSheet_(SHEETS.CATALOG, ['sku', 'description', 'category', 'archived']);
+      const usageCounts = getCatalogUsageCounts_();
       items = readTable_(sheet, ['sku', 'description', 'category', 'archived'])
         .filter(row => !row.archived)
-        .map(row => ({
-          sku: row.sku,
-          description: row.description,
-          category: row.category
-        }));
+        .map(row => {
+          const description = sanitizeString_(row.description);
+          const usageKey = description.toLowerCase();
+          const usageCount = usageCounts[usageKey] || 0;
+          return {
+            sku: sanitizeString_(row.sku),
+            description,
+            category: sanitizeString_(row.category),
+            usageCount
+          };
+        })
+        .sort((a, b) => {
+          if (b.usageCount !== a.usageCount) {
+            return b.usageCount - a.usageCount;
+          }
+          const categoryCompare = String(a.category || '').localeCompare(String(b.category || ''), undefined, { sensitivity: 'base' });
+          if (categoryCompare !== 0) {
+            return categoryCompare;
+          }
+          return String(a.description || '').localeCompare(String(b.description || ''), undefined, { sensitivity: 'base' });
+        });
       cache.put(CACHE_KEYS.CATALOG, JSON.stringify(items), CACHE_TTLS.CATALOG);
     }
 
@@ -190,6 +208,33 @@ function listCatalog(request) {
       nextToken
     };
   });
+}
+
+function getCatalogUsageCounts_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(CACHE_KEYS.CATALOG_USAGE);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (err) {
+      // ignore and rebuild
+    }
+  }
+
+  const def = REQUEST_TYPES.supplies;
+  const sheet = getSheet_(def.sheetName, def.headers);
+  const rows = readTable_(sheet, def.headers);
+  const counts = rows.reduce((acc, row) => {
+    const description = sanitizeString_(row.description);
+    if (!description) {
+      return acc;
+    }
+    const key = description.toLowerCase();
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  cache.put(CACHE_KEYS.CATALOG_USAGE, JSON.stringify(counts), CACHE_TTLS.CATALOG);
+  return counts;
 }
 
 function listRequests(request) {
@@ -330,6 +375,9 @@ function createRequest(request) {
     const clientRecord = buildClientRequest_(type, rowObject);
 
     cache.put(ridKey, JSON.stringify(clientRecord), CACHE_TTLS.RID);
+    if (type === 'supplies') {
+      invalidateCatalogCache_();
+    }
     invalidateRequestCache_(type, email);
     invalidateRequestCache_(type, 'all');
 
@@ -687,6 +735,12 @@ function normalizeType_(type) {
 function normalizeScope_(scope) {
   const value = String(scope || '').trim().toLowerCase();
   return value === 'mine' ? 'mine' : 'all';
+}
+
+function invalidateCatalogCache_() {
+  const cache = CacheService.getScriptCache();
+  cache.remove(CACHE_KEYS.CATALOG);
+  cache.remove(CACHE_KEYS.CATALOG_USAGE);
 }
 
 function invalidateRequestCache_(type, key) {
