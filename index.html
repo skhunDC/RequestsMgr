@@ -365,11 +365,6 @@
       margin-top: 0.5rem;
     }
 
-    .eta-display {
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-
     .supplies-actions .inline-buttons {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -377,12 +372,6 @@
 
     .supplies-actions .inline-buttons button {
       width: 100%;
-    }
-
-    .eta-field {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
     }
 
     .empty {
@@ -1169,50 +1158,6 @@
           }
 
           if (type === 'supplies') {
-            const controls = document.createElement('div');
-            controls.className = 'supplies-actions';
-
-            const etaField = document.createElement('label');
-            etaField.className = 'eta-field';
-            const etaLabel = document.createElement('span');
-            etaLabel.textContent = 'ETA';
-            etaField.appendChild(etaLabel);
-            const etaInput = document.createElement('input');
-            etaInput.type = 'date';
-            etaInput.setAttribute('data-role', 'eta');
-            const etaStatus = document.createElement('span');
-            etaStatus.className = 'eta-display';
-            const applyEtaStatus = value => {
-              etaStatus.textContent = value
-                ? `Saved ETA: ${formatEtaDisplay(value)}`
-                : 'Saved ETA: Not set';
-            };
-            const etaValue = request && request.fields && request.fields.eta
-              ? String(request.fields.eta)
-              : '';
-            if (etaValue) {
-              etaInput.value = etaValue;
-            }
-            let lastEtaValue = etaValue;
-            applyEtaStatus(etaValue);
-            etaInput.addEventListener('change', () => {
-              const nextEta = etaInput.value ? etaInput.value.trim() : '';
-              if (statusValue === 'ordered' && !nextEta) {
-                showToast('Enter an ETA before saving.');
-                etaInput.value = lastEtaValue;
-                etaInput.focus();
-                return;
-              }
-              lastEtaValue = nextEta;
-              applyEtaStatus(nextEta);
-              const normalizedStatus = statusValue || 'pending';
-              const targetStatus = request && request.status ? request.status : normalizedStatus;
-              handleUpdateStatus(type, request.id, targetStatus, { eta: nextEta });
-            });
-            etaField.appendChild(etaInput);
-            controls.appendChild(etaField);
-            controls.appendChild(etaStatus);
-
             const buttonRow = document.createElement('div');
             buttonRow.className = 'inline-buttons';
             let hasButtons = false;
@@ -1235,9 +1180,11 @@
             }
 
             if (hasButtons) {
+              const controls = document.createElement('div');
+              controls.className = 'supplies-actions';
               controls.appendChild(buttonRow);
+              item.appendChild(controls);
             }
-            item.appendChild(controls);
           } else if (stateKey === 'pending' || stateKey === 'in_progress') {
             const actions = document.createElement('div');
             actions.className = 'inline-buttons';
@@ -1275,7 +1222,7 @@
         }
       }
 
-      function handleUpdateStatus(type, requestId, status, extras = {}) {
+      function handleUpdateStatus(type, requestId, status) {
         if (!server) {
           showToast('Connect to Google Apps Script to update statuses.');
           return;
@@ -1287,12 +1234,9 @@
           requestId,
           status
         };
-        if (type === 'supplies' && Object.prototype.hasOwnProperty.call(extras, 'eta')) {
-          payload.eta = typeof extras.eta === 'string' ? extras.eta.trim() : '';
-        }
         const item = dom[type].list.querySelector(`article[data-request-id="${requestId}"]`);
         const interactive = item
-          ? Array.from(item.querySelectorAll('button, input[data-role="eta"]'))
+          ? Array.from(item.querySelectorAll('button'))
           : [];
         interactive.forEach(element => { element.disabled = true; });
         server
@@ -1333,21 +1277,6 @@
           parts.push(`by ${request.approver}`);
         }
         return parts.join(' • ');
-      }
-
-      function formatEtaDisplay(value) {
-        if (!value) {
-          return '';
-        }
-        try {
-          const date = new Date(value);
-          if (!Number.isNaN(date.getTime())) {
-            return date.toLocaleDateString();
-          }
-        } catch (err) {
-          // ignore parsing issues and fall back to the raw value
-        }
-        return value;
       }
 
       function loadCatalog({ append }) {
