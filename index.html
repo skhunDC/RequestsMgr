@@ -365,6 +365,11 @@
       margin-top: 0.5rem;
     }
 
+    .eta-display {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
     .supplies-actions .inline-buttons {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -1181,8 +1186,29 @@
             if (etaValue) {
               etaInput.value = etaValue;
             }
+            let lastEtaValue = etaValue;
+            etaInput.addEventListener('change', () => {
+              const nextEta = etaInput.value ? etaInput.value.trim() : '';
+              if (statusValue === 'ordered' && !nextEta) {
+                showToast('Enter an ETA before saving.');
+                etaInput.value = lastEtaValue;
+                etaInput.focus();
+                return;
+              }
+              lastEtaValue = nextEta;
+              const normalizedStatus = statusValue || 'pending';
+              const targetStatus = request && request.status ? request.status : normalizedStatus;
+              handleUpdateStatus(type, request.id, targetStatus, { eta: nextEta });
+            });
             etaField.appendChild(etaInput);
             controls.appendChild(etaField);
+
+            const etaStatus = document.createElement('span');
+            etaStatus.className = 'eta-display';
+            etaStatus.textContent = etaValue
+              ? `Saved ETA: ${formatEtaDisplay(etaValue)}`
+              : 'Saved ETA: Not set';
+            controls.appendChild(etaStatus);
 
             const buttonRow = document.createElement('div');
             buttonRow.className = 'inline-buttons';
@@ -1216,24 +1242,6 @@
                 handleUpdateStatus(type, request.id, 'ordered', { eta: nextEta });
               });
               buttonRow.appendChild(ordered);
-              hasButtons = true;
-            } else {
-              const saveEta = document.createElement('button');
-              saveEta.type = 'button';
-              saveEta.className = 'secondary';
-              saveEta.textContent = 'Save ETA';
-              saveEta.addEventListener('click', () => {
-                const nextEta = etaInput.value ? etaInput.value.trim() : '';
-                if (String(request.status || '').toLowerCase() === 'ordered' && !nextEta) {
-                  showToast('Enter an ETA before saving.');
-                  etaInput.focus();
-                  return;
-                }
-                const normalizedStatus = statusValue || 'pending';
-                const targetStatus = request && request.status ? request.status : normalizedStatus;
-                handleUpdateStatus(type, request.id, targetStatus, { eta: nextEta });
-              });
-              buttonRow.appendChild(saveEta);
               hasButtons = true;
             }
 
@@ -1336,6 +1344,21 @@
           parts.push(`by ${request.approver}`);
         }
         return parts.join(' • ');
+      }
+
+      function formatEtaDisplay(value) {
+        if (!value) {
+          return '';
+        }
+        try {
+          const date = new Date(value);
+          if (!Number.isNaN(date.getTime())) {
+            return date.toLocaleDateString();
+          }
+        } catch (err) {
+          // ignore parsing issues and fall back to the raw value
+        }
+        return value;
       }
 
       function loadCatalog({ append }) {
