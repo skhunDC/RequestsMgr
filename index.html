@@ -395,62 +395,6 @@
       box-shadow: 0 0 0 1px rgba(11, 87, 208, 0.35);
     }
 
-    .catalog-selected {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      padding: 0.75rem 0.9rem;
-      border-radius: 12px;
-      border: 1px solid rgba(11, 87, 208, 0.25);
-      background: rgba(11, 87, 208, 0.08);
-    }
-
-    .catalog-selected[hidden] {
-      display: none;
-    }
-
-    .catalog-selected strong {
-      font-size: 0.95rem;
-    }
-
-    .catalog-selected .meta {
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-
-    .catalog-selected .meta.usage {
-      color: var(--accent-strong);
-      font-weight: 600;
-    }
-
-    .catalog-selected-details {
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
-    }
-
-    .catalog-clear {
-      padding: 0.45rem 0.9rem;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--accent);
-      font-weight: 600;
-      font-size: 0.85rem;
-      transition: background 0.2s ease, border 0.2s ease;
-    }
-
-    .catalog-clear:hover:not([disabled]) {
-      background: #e9eef7;
-      border-color: rgba(11, 87, 208, 0.4);
-    }
-
-    .catalog-clear[disabled] {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
     .input-helper {
       margin-top: 0.35rem;
       font-size: 0.8rem;
@@ -761,14 +705,6 @@
                     aria-label="Top catalog matches"
                     hidden
                   ></div>
-                  <div id="catalogSelected" class="catalog-selected" hidden>
-                    <div class="catalog-selected-details">
-                      <strong id="catalogSelectedName"></strong>
-                      <span id="catalogSelectedMeta" class="meta"></span>
-                      <span id="catalogSelectedUsage" class="meta usage"></span>
-                    </div>
-                    <button type="button" id="catalogClearButton" class="catalog-clear">Clear</button>
-                  </div>
                 </div>
                 <select id="catalogSelect" name="catalogSku" class="visually-hidden" tabindex="-1" aria-hidden="true"></select>
               </div>
@@ -1050,11 +986,6 @@
           catalogSearch: document.getElementById('catalogSearch'),
           catalogSelect: document.getElementById('catalogSelect'),
           catalogSuggestions: document.getElementById('catalogSuggestionList'),
-          catalogSelected: document.getElementById('catalogSelected'),
-          catalogSelectedName: document.getElementById('catalogSelectedName'),
-          catalogSelectedMeta: document.getElementById('catalogSelectedMeta'),
-          catalogSelectedUsage: document.getElementById('catalogSelectedUsage'),
-          catalogClear: document.getElementById('catalogClearButton'),
           catalogList: document.getElementById('catalogList'),
           catalogMore: document.getElementById('catalogMoreButton')
         },
@@ -1183,14 +1114,6 @@
             renderCatalog();
           }
         });
-        if (dom.supplies.catalogClear) {
-          dom.supplies.catalogClear.addEventListener('click', () => {
-            selectCatalogSku('');
-            if (dom.supplies.catalogSearch) {
-              dom.supplies.catalogSearch.focus();
-            }
-          });
-        }
         dom.supplies.more.addEventListener('click', () => {
           if (!state.loading.supplies && state.nextTokens.supplies) {
             loadRequests('supplies', { append: true });
@@ -1823,7 +1746,6 @@
         updateCatalogControls();
 
         updateCatalogSuggestions([], selectedSku);
-        updateCatalogSelectionSummary(findCatalogItem(selectedSku));
 
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
@@ -1863,8 +1785,6 @@
             shouldPersist = true;
           }
         }
-
-        updateCatalogSelectionSummary(findCatalogItem(selectedSku));
 
         const normalizedSearch = searchValue.trim().toLowerCase();
         let filteredItems = state.catalog.items.slice();
@@ -2023,53 +1943,6 @@
         container.hidden = false;
         container.setAttribute('aria-hidden', 'false');
         container.appendChild(fragment);
-      }
-
-      function updateCatalogSelectionSummary(item) {
-        const container = dom.supplies.catalogSelected;
-        if (!container) {
-          return;
-        }
-        if (!item) {
-          container.hidden = true;
-          if (dom.supplies.catalogSelectedName) {
-            dom.supplies.catalogSelectedName.textContent = '';
-          }
-          if (dom.supplies.catalogSelectedMeta) {
-            dom.supplies.catalogSelectedMeta.textContent = '';
-          }
-          if (dom.supplies.catalogSelectedUsage) {
-            dom.supplies.catalogSelectedUsage.textContent = '';
-            dom.supplies.catalogSelectedUsage.hidden = true;
-          }
-          if (dom.supplies.catalogClear) {
-            dom.supplies.catalogClear.disabled = true;
-          }
-          container.setAttribute('aria-hidden', 'true');
-          return;
-        }
-        container.hidden = false;
-        container.setAttribute('aria-hidden', 'false');
-        if (dom.supplies.catalogSelectedName) {
-          dom.supplies.catalogSelectedName.textContent = item.description || '';
-        }
-        if (dom.supplies.catalogSelectedMeta) {
-          dom.supplies.catalogSelectedMeta.textContent = item.category ? `${item.category} • ${item.sku}` : item.sku || '';
-        }
-        if (dom.supplies.catalogSelectedUsage) {
-          if (Number(item.usageCount) > 0) {
-            dom.supplies.catalogSelectedUsage.hidden = false;
-            dom.supplies.catalogSelectedUsage.textContent = item.usageCount === 1
-              ? 'Requested 1 time'
-              : `Requested ${item.usageCount} times`;
-          } else {
-            dom.supplies.catalogSelectedUsage.textContent = '';
-            dom.supplies.catalogSelectedUsage.hidden = true;
-          }
-        }
-        if (dom.supplies.catalogClear) {
-          dom.supplies.catalogClear.disabled = false;
-        }
       }
 
       function selectCatalogSku(sku) {
