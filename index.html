@@ -529,6 +529,19 @@
               <select id="catalogSelect" name="catalogSku" required></select>
             </label>
             <label>
+              <span>Location</span>
+              <select id="suppliesLocation" name="location" required>
+                <option value="">Select a location</option>
+                <option value="Plant">Plant</option>
+                <option value="Short North">Short North</option>
+                <option value="South Dublin">South Dublin</option>
+                <option value="Muirfield">Muirfield</option>
+                <option value="Morse Rd.">Morse Rd.</option>
+                <option value="Granville">Granville</option>
+                <option value="Newark">Newark</option>
+              </select>
+            </label>
+            <label>
               <span>Quantity</span>
               <input id="suppliesQty" name="qty" type="number" min="1" step="1" required>
             </label>
@@ -719,7 +732,7 @@
       const persistTimers = {};
       let warmScheduled = false;
       const FORM_TEMPLATES = {
-        supplies: { description: '', qty: 1, notes: '', catalogSku: '' },
+        supplies: { description: '', qty: 1, notes: '', catalogSku: '', location: '' },
         it: { location: '', issue: '', device: '', urgency: 'normal', details: '' },
         maintenance: { location: '', issue: '', urgency: 'normal', accessNotes: '' }
       };
@@ -779,6 +792,7 @@
         toast: document.getElementById('toast'),
         supplies: {
           form: document.getElementById('suppliesForm'),
+          location: document.getElementById('suppliesLocation'),
           qty: document.getElementById('suppliesQty'),
           notes: document.getElementById('suppliesNotes'),
           submit: document.getElementById('suppliesSubmitButton'),
@@ -925,6 +939,10 @@
         dom.supplies.form.addEventListener('submit', evt => handleSubmit(evt, 'supplies'));
         dom.supplies.reset.addEventListener('click', () => {
           resetForm('supplies');
+        });
+        dom.supplies.location.addEventListener('change', () => {
+          setFormState('supplies', { location: dom.supplies.location.value });
+          persistForm('supplies');
         });
         dom.supplies.qty.addEventListener('input', () => {
           const qty = Number(dom.supplies.qty.value);
@@ -1098,6 +1116,9 @@
       function validateForm(type, formState) {
         switch (type) {
           case 'supplies':
+            if (!formState.location || !formState.location.trim()) {
+              return 'Location is required.';
+            }
             if (!formState.description || !formState.description.trim()) {
               return 'Please pick an item before submitting.';
             }
@@ -1139,6 +1160,7 @@
         const formState = state.forms[type];
         if (type === 'supplies') {
           dom.supplies.catalogSelect.value = formState.catalogSku || '';
+          dom.supplies.location.value = formState.location || '';
           dom.supplies.qty.value = formState.qty || 1;
           dom.supplies.notes.value = formState.notes || '';
         } else if (type === 'it') {
@@ -1569,6 +1591,7 @@
       function disableForm(type, disabled) {
         if (type === 'supplies') {
           dom.supplies.submit.disabled = disabled;
+          dom.supplies.location.disabled = disabled;
           dom.supplies.qty.disabled = disabled;
           dom.supplies.notes.disabled = disabled;
           dom.supplies.catalogSelect.disabled = disabled;
