@@ -213,6 +213,7 @@
 
     input[type="number"],
     input[type="text"],
+    input[type="date"],
     textarea,
     select,
     button {
@@ -222,6 +223,7 @@
     textarea,
     input[type="number"],
     input[type="text"],
+    input[type="date"],
     select {
       width: 100%;
       padding: 0.65rem 0.75rem;
@@ -235,6 +237,7 @@
     textarea:focus,
     input[type="number"]:focus,
     input[type="text"]:focus,
+    input[type="date"]:focus,
     select:focus,
     button:focus {
       outline: 2px solid var(--accent);
@@ -388,14 +391,34 @@
       color: var(--success);
     }
 
-    .status[data-state="in_progress"] {
+    .status[data-state="in_progress"],
+    .status[data-state="ordered"] {
       border-color: rgba(11, 87, 208, 0.35);
       color: var(--accent);
     }
 
-    .status[data-state="declined"] {
+    .status[data-state="declined"],
+    .status[data-state="denied"] {
       border-color: rgba(217, 48, 37, 0.35);
       color: var(--danger);
+    }
+
+    .supplies-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-top: 0.5rem;
+    }
+
+    .supplies-actions .inline-buttons button {
+      flex: 1 1 30%;
+      min-width: 0;
+    }
+
+    .eta-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
     }
 
     .empty {
@@ -1252,23 +1275,80 @@
           }
 
           if (stateKey === 'pending') {
-            const actions = document.createElement('div');
-            actions.className = 'inline-buttons';
-            const complete = document.createElement('button');
-            complete.type = 'button';
-            complete.className = 'secondary';
-            complete.textContent = 'Complete';
-            complete.addEventListener('click', () => handleUpdateStatus(type, request.id, 'completed'));
-            actions.appendChild(complete);
+            if (type === 'supplies') {
+              const controls = document.createElement('div');
+              controls.className = 'supplies-actions';
 
-            const progress = document.createElement('button');
-            progress.type = 'button';
-            progress.className = 'secondary';
-            progress.textContent = 'In Progress';
-            progress.addEventListener('click', () => handleUpdateStatus(type, request.id, 'in_progress'));
-            actions.appendChild(progress);
+              const etaField = document.createElement('label');
+              etaField.className = 'eta-field';
+              const etaLabel = document.createElement('span');
+              etaLabel.textContent = 'ETA';
+              etaField.appendChild(etaLabel);
+              const etaInput = document.createElement('input');
+              etaInput.type = 'date';
+              etaInput.setAttribute('data-role', 'eta');
+              const etaValue = request && request.fields && request.fields.eta
+                ? String(request.fields.eta)
+                : '';
+              if (etaValue) {
+                etaInput.value = etaValue;
+              }
+              etaField.appendChild(etaInput);
+              controls.appendChild(etaField);
 
-            item.appendChild(actions);
+              const buttonRow = document.createElement('div');
+              buttonRow.className = 'inline-buttons';
+
+              const approved = document.createElement('button');
+              approved.type = 'button';
+              approved.className = 'secondary';
+              approved.textContent = 'Approved';
+              approved.addEventListener('click', () => handleUpdateStatus(type, request.id, 'approved'));
+              buttonRow.appendChild(approved);
+
+              const denied = document.createElement('button');
+              denied.type = 'button';
+              denied.className = 'secondary';
+              denied.textContent = 'Denied';
+              denied.addEventListener('click', () => handleUpdateStatus(type, request.id, 'denied'));
+              buttonRow.appendChild(denied);
+
+              const ordered = document.createElement('button');
+              ordered.type = 'button';
+              ordered.className = 'secondary';
+              ordered.textContent = 'Ordered';
+              ordered.addEventListener('click', () => {
+                const nextEta = etaInput.value ? etaInput.value.trim() : '';
+                if (!nextEta) {
+                  showToast('Enter an ETA before marking as ordered.');
+                  etaInput.focus();
+                  return;
+                }
+                handleUpdateStatus(type, request.id, 'ordered', { eta: nextEta });
+              });
+              buttonRow.appendChild(ordered);
+
+              controls.appendChild(buttonRow);
+              item.appendChild(controls);
+            } else {
+              const actions = document.createElement('div');
+              actions.className = 'inline-buttons';
+              const complete = document.createElement('button');
+              complete.type = 'button';
+              complete.className = 'secondary';
+              complete.textContent = 'Complete';
+              complete.addEventListener('click', () => handleUpdateStatus(type, request.id, 'completed'));
+              actions.appendChild(complete);
+
+              const progress = document.createElement('button');
+              progress.type = 'button';
+              progress.className = 'secondary';
+              progress.textContent = 'In Progress';
+              progress.addEventListener('click', () => handleUpdateStatus(type, request.id, 'in_progress'));
+              actions.appendChild(progress);
+
+              item.appendChild(actions);
+            }
           }
 
           fragment.appendChild(item);
@@ -1279,7 +1359,7 @@
         }
       }
 
-      function handleUpdateStatus(type, requestId, status) {
+      function handleUpdateStatus(type, requestId, status, extras = {}) {
         if (!server) {
           showToast('Connect to Google Apps Script to update statuses.');
           return;
@@ -1291,12 +1371,17 @@
           requestId,
           status
         };
+        if (type === 'supplies' && Object.prototype.hasOwnProperty.call(extras, 'eta')) {
+          payload.eta = typeof extras.eta === 'string' ? extras.eta.trim() : '';
+        }
         const item = dom[type].list.querySelector(`article[data-request-id="${requestId}"]`);
-        const buttons = item ? Array.from(item.querySelectorAll('button')) : [];
-        buttons.forEach(btn => { btn.disabled = true; });
+        const interactive = item
+          ? Array.from(item.querySelectorAll('button, input[data-role="eta"]'))
+          : [];
+        interactive.forEach(element => { element.disabled = true; });
         server
           .withSuccessHandler(response => {
-            buttons.forEach(btn => { btn.disabled = false; });
+            interactive.forEach(element => { element.disabled = false; });
             if (!response || !response.ok || !response.request) {
               handleError(response, 'updateRequestStatus', payload);
               return;
@@ -1310,7 +1395,7 @@
             showToast('Request updated');
           })
           .withFailureHandler(err => {
-            buttons.forEach(btn => { btn.disabled = false; });
+            interactive.forEach(element => { element.disabled = false; });
             handleError(err, 'updateRequestStatus', payload);
           })
           .updateRequestStatus(payload);
@@ -1557,8 +1642,12 @@
             return 'Completed';
           case 'in_progress':
             return 'In progress';
+          case 'ordered':
+            return 'Ordered';
           case 'approved':
             return 'Approved';
+          case 'denied':
+            return 'Denied';
           case 'declined':
             return 'Declined';
           default:

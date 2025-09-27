@@ -13,7 +13,7 @@ const LOCATION_OPTIONS = ['Plant', 'Short North', 'South Dublin', 'Muirfield', '
 const REQUEST_TYPES = {
   supplies: {
     sheetName: 'SuppliesRequests',
-    headers: ['id', 'ts', 'requester', 'description', 'qty', 'notes', 'status', 'approver'],
+    headers: ['id', 'ts', 'requester', 'description', 'qty', 'notes', 'eta', 'status', 'approver'],
     normalize(request) {
       const description = sanitizeString_(request && request.description);
       if (!description) {
@@ -36,6 +36,9 @@ const REQUEST_TYPES = {
       }
       if (fields.notes) {
         details.push(`Notes: ${fields.notes}`);
+      }
+      if (fields.eta) {
+        details.push(`ETA: ${fields.eta}`);
       }
       return details;
     }
@@ -296,6 +299,11 @@ function updateRequestStatus(request) {
       throw new Error('requestId is required.');
     }
     const status = normalizeStatus_(request && request.status);
+    const hasEta = request && Object.prototype.hasOwnProperty.call(request, 'eta');
+    const etaValue = hasEta ? sanitizeString_(request.eta) : '';
+    if (type === 'supplies' && status === 'ordered' && !etaValue) {
+      throw new Error('ETA is required when marking a supplies request as ordered.');
+    }
 
     const cache = CacheService.getScriptCache();
     const ridKey = [CACHE_KEYS.RID_PREFIX, rid].join(':');
@@ -331,6 +339,10 @@ function updateRequestStatus(request) {
           data[r][headerMap.approver] = approverEmail;
           sheet.getRange(r + 2, headerMap.status + 1).setValue(status);
           sheet.getRange(r + 2, headerMap.approver + 1).setValue(approverEmail);
+          if (headerMap.eta !== undefined && hasEta) {
+            data[r][headerMap.eta] = etaValue;
+            sheet.getRange(r + 2, headerMap.eta + 1).setValue(etaValue);
+          }
           const rowObject = {};
           headers.forEach((header, idx) => {
             rowObject[header] = data[r][idx];
@@ -504,12 +516,13 @@ function normalizeStatus_(status) {
     throw new Error('status is required.');
   }
   const aliasMap = {
-    approved: 'completed',
+    complete: 'completed',
+    completed: 'completed',
     'in progress': 'in_progress',
     'in-progress': 'in_progress'
   };
   const normalized = aliasMap[value] || value;
-  const allowed = ['pending', 'completed', 'in_progress', 'declined'];
+  const allowed = ['pending', 'completed', 'in_progress', 'declined', 'approved', 'denied', 'ordered'];
   if (allowed.indexOf(normalized) === -1) {
     throw new Error('Unsupported status.');
   }
