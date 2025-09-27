@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Supplies Tracker</title>
+  <title>Request Manager</title>
   <style>
     :root {
       color-scheme: light;
@@ -46,13 +46,27 @@
       font-size: 0.95rem;
     }
 
+    nav.tab-nav {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0 1rem 0.75rem;
+      overflow-x: auto;
+    }
+
     main {
       padding: 0 1rem 2.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
       max-width: 720px;
       margin: 0 auto;
+    }
+
+    .tab-panel {
+      display: none;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .tab-panel.active {
+      display: flex;
     }
 
     section.card {
@@ -81,7 +95,9 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         align-items: end;
       }
-      .form-grid textarea {
+
+      .form-grid textarea,
+      .form-grid .full-width {
         grid-column: 1 / -1;
       }
     }
@@ -94,6 +110,7 @@
     }
 
     input[type="number"],
+    input[type="text"],
     textarea,
     select,
     button {
@@ -102,6 +119,7 @@
 
     textarea,
     input[type="number"],
+    input[type="text"],
     select {
       width: 100%;
       padding: 0.65rem 0.75rem;
@@ -114,6 +132,7 @@
 
     textarea:focus,
     input[type="number"]:focus,
+    input[type="text"]:focus,
     select:focus,
     button:focus {
       outline: 2px solid var(--accent);
@@ -156,6 +175,27 @@
       background: #e9eef7;
     }
 
+    .tab-nav button {
+      flex: 1 1 0;
+      min-width: 140px;
+      padding: 0.65rem 1rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .tab-nav button:not(.active):hover {
+      background: #eef2f9;
+    }
+
+    .tab-nav button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
     .inline-buttons {
       display: flex;
       flex-wrap: wrap;
@@ -186,7 +226,7 @@
       }
     }
 
-    .order-item,
+    .request-item,
     .catalog-item {
       display: flex;
       flex-direction: column;
@@ -197,13 +237,19 @@
       background: var(--surface-alt);
     }
 
-    .order-item strong,
+    .request-item strong,
     .catalog-item strong {
       font-size: 1rem;
     }
 
     .meta {
       font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .detail-line {
+      display: block;
+      font-size: 0.85rem;
       color: var(--muted);
     }
 
@@ -264,52 +310,153 @@
 </head>
 <body>
   <header>
-    <h1>Supplies Tracker</h1>
-    <p>Request, review, and manage supply orders quickly.</p>
+    <h1>Request Manager</h1>
+    <p>Submit and track supplies, IT, and maintenance needs from one workspace.</p>
   </header>
+  <nav class="tab-nav" aria-label="Request types">
+    <button type="button" data-tab-trigger="supplies" class="active">Supplies</button>
+    <button type="button" data-tab-trigger="it">IT</button>
+    <button type="button" data-tab-trigger="maintenance">Maintenance</button>
+  </nav>
   <main>
-    <section class="card" id="orderFormCard">
-      <div>
-        <h2>New request</h2>
-        <p class="meta">Use the catalog to fill details fast, then submit your order.</p>
-      </div>
-      <form id="orderForm" class="form-grid">
-        <label>
-          <span>Description</span>
-          <textarea id="descriptionInput" name="description" autocomplete="off" required></textarea>
-        </label>
-        <label>
-          <span>Quantity</span>
-          <input id="qtyInput" name="qty" type="number" min="1" step="1" required>
-        </label>
-        <label>
-          <span>Suggested item</span>
-          <select id="catalogSelect"></select>
-        </label>
-        <div class="inline-buttons">
-          <button type="submit" id="submitOrderButton">Submit request</button>
-          <button type="button" id="resetFormButton" class="secondary">Reset</button>
+    <div class="tab-panel active" data-tab-panel="supplies">
+      <section class="card" id="suppliesFormCard">
+        <div>
+          <h2>New supplies request</h2>
+          <p class="meta">Use the catalog to quickly fill in the item details before submitting.</p>
         </div>
-      </form>
-    </section>
+        <form id="suppliesForm" class="form-grid" novalidate>
+          <label class="full-width">
+            <span>Description</span>
+            <textarea id="suppliesDescription" name="description" autocomplete="off" required></textarea>
+          </label>
+          <label>
+            <span>Quantity</span>
+            <input id="suppliesQty" name="qty" type="number" min="1" step="1" required>
+          </label>
+          <label class="full-width">
+            <span>Notes (optional)</span>
+            <textarea id="suppliesNotes" name="notes" autocomplete="off"></textarea>
+          </label>
+          <label>
+            <span>Suggested item</span>
+            <select id="catalogSelect"></select>
+          </label>
+          <div class="inline-buttons full-width">
+            <button type="submit" id="suppliesSubmitButton">Submit request</button>
+            <button type="button" id="suppliesResetButton" class="secondary">Reset</button>
+          </div>
+        </form>
+      </section>
 
-    <section class="card" id="ordersCard">
-      <div>
-        <h2>Recent orders</h2>
-        <p class="meta">Statuses update in real time. Tap to change when you review an order.</p>
-      </div>
-      <div id="ordersList" class="list" role="list"></div>
-      <button type="button" id="ordersMoreButton" class="load-more secondary">Load more</button>
-    </section>
+      <section class="card" id="suppliesRequestsCard">
+        <div>
+          <h2>Supplies requests</h2>
+          <p class="meta">Track order status and approvals in one place.</p>
+        </div>
+        <div id="suppliesRequestsList" class="list" role="list"></div>
+        <button type="button" id="suppliesMoreButton" class="load-more secondary">Load more</button>
+      </section>
 
-    <section class="card" id="catalogCard">
-      <div>
-        <h2>Catalog</h2>
-        <p class="meta">Tap an item to autofill the request form.</p>
-      </div>
-      <div id="catalogList" class="list" role="list"></div>
-      <button type="button" id="catalogMoreButton" class="load-more secondary">Load more</button>
-    </section>
+      <section class="card" id="catalogCard">
+        <div>
+          <h2>Catalog</h2>
+          <p class="meta">Tap an item to autofill the request form.</p>
+        </div>
+        <div id="catalogList" class="list" role="list"></div>
+        <button type="button" id="catalogMoreButton" class="load-more secondary">Load more</button>
+      </section>
+    </div>
+
+    <div class="tab-panel" data-tab-panel="it">
+      <section class="card" id="itFormCard">
+        <div>
+          <h2>New IT request</h2>
+          <p class="meta">Report technology issues or access needs for quick routing.</p>
+        </div>
+        <form id="itForm" class="form-grid" novalidate>
+          <label class="full-width">
+            <span>Issue summary</span>
+            <textarea id="itIssue" name="issue" autocomplete="off" required></textarea>
+          </label>
+          <label>
+            <span>Device or system</span>
+            <input id="itDevice" name="device" type="text" autocomplete="off">
+          </label>
+          <label>
+            <span>Impact</span>
+            <select id="itImpact" name="impact">
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </label>
+          <label class="full-width">
+            <span>Additional details</span>
+            <textarea id="itDetails" name="details" autocomplete="off"></textarea>
+          </label>
+          <div class="inline-buttons full-width">
+            <button type="submit" id="itSubmitButton">Submit request</button>
+            <button type="button" id="itResetButton" class="secondary">Reset</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card" id="itRequestsCard">
+        <div>
+          <h2>IT queue</h2>
+          <p class="meta">Monitor progress and close items when resolved.</p>
+        </div>
+        <div id="itRequestsList" class="list" role="list"></div>
+        <button type="button" id="itMoreButton" class="load-more secondary">Load more</button>
+      </section>
+    </div>
+
+    <div class="tab-panel" data-tab-panel="maintenance">
+      <section class="card" id="maintenanceFormCard">
+        <div>
+          <h2>New maintenance request</h2>
+          <p class="meta">Share location details so facilities can prioritize the work.</p>
+        </div>
+        <form id="maintenanceForm" class="form-grid" novalidate>
+          <label>
+            <span>Location</span>
+            <input id="maintenanceLocation" name="location" type="text" autocomplete="off" required>
+          </label>
+          <label class="full-width">
+            <span>Issue description</span>
+            <textarea id="maintenanceIssue" name="issue" autocomplete="off" required></textarea>
+          </label>
+          <label>
+            <span>Urgency</span>
+            <select id="maintenanceUrgency" name="urgency">
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </label>
+          <label class="full-width">
+            <span>Access notes (optional)</span>
+            <textarea id="maintenanceAccessNotes" name="accessNotes" autocomplete="off"></textarea>
+          </label>
+          <div class="inline-buttons full-width">
+            <button type="submit" id="maintenanceSubmitButton">Submit request</button>
+            <button type="button" id="maintenanceResetButton" class="secondary">Reset</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card" id="maintenanceRequestsCard">
+        <div>
+          <h2>Maintenance pipeline</h2>
+          <p class="meta">See outstanding work orders and update when finished.</p>
+        </div>
+        <div id="maintenanceRequestsList" class="list" role="list"></div>
+        <button type="button" id="maintenanceMoreButton" class="load-more secondary">Load more</button>
+      </section>
+    </div>
   </main>
   <div id="toast" role="status" aria-live="polite"></div>
 
@@ -318,272 +465,440 @@
   </script>
   <script>
     (function () {
-      const state = {
-        form: { description: '', qty: 1 },
-        catalog: [],
-        catalogNextToken: '',
-        catalogLoading: false,
-        orders: [],
-        ordersNextToken: '',
-        ordersLoading: false
+      const hasServer = typeof google !== 'undefined' && google.script && google.script.run;
+      const server = hasServer ? google.script.run : null;
+      const REQUEST_KEYS = ['supplies', 'it', 'maintenance'];
+      const FORM_TEMPLATES = {
+        supplies: { description: '', qty: 1, notes: '' },
+        it: { issue: '', device: '', impact: 'normal', details: '' },
+        maintenance: { location: '', issue: '', urgency: 'normal', accessNotes: '' }
+      };
+      const LOCAL_KEYS = {
+        supplies: 'request-manager:supplies',
+        it: 'request-manager:it',
+        maintenance: 'request-manager:maintenance'
+      };
+      const EMPTY_MESSAGES = {
+        supplies: 'No supplies requests yet. Submit your first request above.',
+        it: 'No IT requests yet. Log an issue to get started.',
+        maintenance: 'No maintenance requests yet. Report one above.'
       };
 
-      const LOCAL_KEY = 'supplies-tracker-form';
+      const state = {
+        activeTab: 'supplies',
+        forms: {
+          supplies: Object.assign({}, FORM_TEMPLATES.supplies),
+          it: Object.assign({}, FORM_TEMPLATES.it),
+          maintenance: Object.assign({}, FORM_TEMPLATES.maintenance)
+        },
+        requests: {
+          supplies: [],
+          it: [],
+          maintenance: []
+        },
+        nextTokens: {
+          supplies: '',
+          it: '',
+          maintenance: ''
+        },
+        loading: {
+          supplies: false,
+          it: false,
+          maintenance: false
+        },
+        loaded: {
+          supplies: false,
+          it: false,
+          maintenance: false
+        },
+        catalog: {
+          items: [],
+          nextToken: '',
+          loading: false
+        }
+      };
 
-      const orderForm = document.getElementById('orderForm');
-      const descriptionInput = document.getElementById('descriptionInput');
-      const qtyInput = document.getElementById('qtyInput');
-      const catalogSelect = document.getElementById('catalogSelect');
-      const submitOrderButton = document.getElementById('submitOrderButton');
-      const resetFormButton = document.getElementById('resetFormButton');
-      const ordersList = document.getElementById('ordersList');
-      const ordersMoreButton = document.getElementById('ordersMoreButton');
-      const catalogList = document.getElementById('catalogList');
-      const catalogMoreButton = document.getElementById('catalogMoreButton');
-      const toast = document.getElementById('toast');
+      const dom = {
+        tabButtons: Array.from(document.querySelectorAll('[data-tab-trigger]')),
+        panels: Array.from(document.querySelectorAll('[data-tab-panel]')),
+        toast: document.getElementById('toast'),
+        supplies: {
+          form: document.getElementById('suppliesForm'),
+          description: document.getElementById('suppliesDescription'),
+          qty: document.getElementById('suppliesQty'),
+          notes: document.getElementById('suppliesNotes'),
+          submit: document.getElementById('suppliesSubmitButton'),
+          reset: document.getElementById('suppliesResetButton'),
+          list: document.getElementById('suppliesRequestsList'),
+          more: document.getElementById('suppliesMoreButton'),
+          catalogSelect: document.getElementById('catalogSelect'),
+          catalogList: document.getElementById('catalogList'),
+          catalogMore: document.getElementById('catalogMoreButton')
+        },
+        it: {
+          form: document.getElementById('itForm'),
+          issue: document.getElementById('itIssue'),
+          device: document.getElementById('itDevice'),
+          impact: document.getElementById('itImpact'),
+          details: document.getElementById('itDetails'),
+          submit: document.getElementById('itSubmitButton'),
+          reset: document.getElementById('itResetButton'),
+          list: document.getElementById('itRequestsList'),
+          more: document.getElementById('itMoreButton')
+        },
+        maintenance: {
+          form: document.getElementById('maintenanceForm'),
+          location: document.getElementById('maintenanceLocation'),
+          issue: document.getElementById('maintenanceIssue'),
+          urgency: document.getElementById('maintenanceUrgency'),
+          accessNotes: document.getElementById('maintenanceAccessNotes'),
+          submit: document.getElementById('maintenanceSubmitButton'),
+          reset: document.getElementById('maintenanceResetButton'),
+          list: document.getElementById('maintenanceRequestsList'),
+          more: document.getElementById('maintenanceMoreButton')
+        }
+      };
 
       const initialSessionEmail = SESSION && SESSION.email ? String(SESSION.email) : '';
 
-      attachHandlers();
-      hydrateFormFromCache();
-      setDefaultCatalogOption();
-      loadInitialData();
+      attachNavHandlers();
+      attachFormHandlers();
+      REQUEST_KEYS.forEach(type => {
+        hydrateFormFromCache(type);
+        renderForm(type);
+      });
+      setActiveTab(state.activeTab);
+      if (hasServer) {
+        loadCatalog({ append: false });
+        ensureRequestsLoaded('supplies');
+      } else {
+        renderCatalog();
+        REQUEST_KEYS.forEach(type => {
+          state.loaded[type] = true;
+          renderRequests(type);
+        });
+      }
 
-      function attachHandlers() {
-        orderForm.addEventListener('submit', handleSubmitOrder);
-        resetFormButton.addEventListener('click', () => {
-          setFormState({ description: '', qty: 1 });
-          persistForm();
-          renderForm();
+      function attachNavHandlers() {
+        dom.tabButtons.forEach(button => {
+          button.addEventListener('click', () => {
+            const type = button.getAttribute('data-tab-trigger');
+            if (type && REQUEST_KEYS.indexOf(type) !== -1) {
+              setActiveTab(type);
+            }
+          });
         });
-        catalogSelect.addEventListener('change', () => {
-          const option = catalogSelect.options[catalogSelect.selectedIndex];
+      }
+
+      function attachFormHandlers() {
+        dom.supplies.form.addEventListener('submit', evt => handleSubmit(evt, 'supplies'));
+        dom.supplies.reset.addEventListener('click', () => {
+          resetForm('supplies');
+        });
+        dom.supplies.description.addEventListener('input', () => {
+          setFormState('supplies', { description: dom.supplies.description.value });
+          persistForm('supplies');
+        });
+        dom.supplies.qty.addEventListener('input', () => {
+          const qty = Number(dom.supplies.qty.value);
+          const sanitized = Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : 1;
+          setFormState('supplies', { qty: sanitized });
+          dom.supplies.qty.value = sanitized;
+          persistForm('supplies');
+        });
+        dom.supplies.notes.addEventListener('input', () => {
+          setFormState('supplies', { notes: dom.supplies.notes.value });
+          persistForm('supplies');
+        });
+        dom.supplies.catalogSelect.addEventListener('change', () => {
+          const option = dom.supplies.catalogSelect.options[dom.supplies.catalogSelect.selectedIndex];
           if (option && option.value) {
-            setFormState({ description: option.textContent });
-            renderForm();
-            persistForm();
+            setFormState('supplies', { description: option.textContent });
+            renderForm('supplies');
+            persistForm('supplies');
           }
         });
-        descriptionInput.addEventListener('input', () => {
-          setFormState({ description: descriptionInput.value });
-          persistForm();
-        });
-        qtyInput.addEventListener('input', () => {
-          const qty = Number(qtyInput.value) > 0 ? Number(qtyInput.value) : 1;
-          setFormState({ qty });
-          qtyInput.value = qty;
-          persistForm();
-        });
-        ordersMoreButton.addEventListener('click', () => {
-          if (!state.ordersLoading && state.ordersNextToken) {
-            loadOrders({ append: true });
+        dom.supplies.more.addEventListener('click', () => {
+          if (!state.loading.supplies && state.nextTokens.supplies) {
+            loadRequests('supplies', { append: true });
           }
         });
-        catalogMoreButton.addEventListener('click', () => {
-          if (!state.catalogLoading && state.catalogNextToken) {
+        dom.supplies.catalogMore.addEventListener('click', () => {
+          if (!state.catalog.loading && state.catalog.nextToken) {
             loadCatalog({ append: true });
           }
         });
-      }
 
-      function setDefaultCatalogOption() {
-        catalogSelect.textContent = '';
-        const option = document.createElement('option');
-        option.value = '';
-        option.textContent = 'Select an item (optional)';
-        catalogSelect.appendChild(option);
-      }
-
-      function loadInitialData() {
-        loadCatalog({ append: false });
-        loadOrders({ append: false });
-      }
-
-      function loadCatalog({ append }) {
-        if (state.catalogLoading) return;
-        state.catalogLoading = true;
-        catalogMoreButton.disabled = true;
-        toggleCatalogSkeleton(true);
-        const payload = {
-          cid: makeCid(),
-          pageSize: 20,
-          nextToken: append ? state.catalogNextToken : ''
-        };
-        google.script.run
-          .withSuccessHandler(handleResponse)
-          .withFailureHandler(err => handleError(err, 'listCatalog', payload))
-          .listCatalog(payload);
-
-        function handleResponse(response) {
-          state.catalogLoading = false;
-          toggleCatalogSkeleton(false);
-          if (!response || !response.ok) {
-            handleError(response, 'listCatalog', payload);
-            return;
+        dom.it.form.addEventListener('submit', evt => handleSubmit(evt, 'it'));
+        dom.it.reset.addEventListener('click', () => {
+          resetForm('it');
+        });
+        dom.it.issue.addEventListener('input', () => {
+          setFormState('it', { issue: dom.it.issue.value });
+          persistForm('it');
+        });
+        dom.it.device.addEventListener('input', () => {
+          setFormState('it', { device: dom.it.device.value });
+          persistForm('it');
+        });
+        dom.it.impact.addEventListener('change', () => {
+          setFormState('it', { impact: dom.it.impact.value });
+          persistForm('it');
+        });
+        dom.it.details.addEventListener('input', () => {
+          setFormState('it', { details: dom.it.details.value });
+          persistForm('it');
+        });
+        dom.it.more.addEventListener('click', () => {
+          if (!state.loading.it && state.nextTokens.it) {
+            loadRequests('it', { append: true });
           }
-          state.catalogNextToken = response.nextToken || '';
-          const items = Array.isArray(response.items) ? response.items : [];
-          state.catalog = append ? state.catalog.concat(items) : items;
-          renderCatalog();
-        }
-      }
+        });
 
-      function loadOrders({ append }) {
-        if (state.ordersLoading) return;
-        state.ordersLoading = true;
-        ordersMoreButton.disabled = true;
-        toggleOrdersSkeleton(true);
-        const payload = {
-          cid: makeCid(),
-          pageSize: 10,
-          nextToken: append ? state.ordersNextToken : ''
-        };
-        google.script.run
-          .withSuccessHandler(handleResponse)
-          .withFailureHandler(err => handleError(err, 'listOrders', payload))
-          .listOrders(payload);
-
-        function handleResponse(response) {
-          state.ordersLoading = false;
-          toggleOrdersSkeleton(false);
-          if (!response || !response.ok) {
-            handleError(response, 'listOrders', payload);
-            return;
+        dom.maintenance.form.addEventListener('submit', evt => handleSubmit(evt, 'maintenance'));
+        dom.maintenance.reset.addEventListener('click', () => {
+          resetForm('maintenance');
+        });
+        dom.maintenance.location.addEventListener('input', () => {
+          setFormState('maintenance', { location: dom.maintenance.location.value });
+          persistForm('maintenance');
+        });
+        dom.maintenance.issue.addEventListener('input', () => {
+          setFormState('maintenance', { issue: dom.maintenance.issue.value });
+          persistForm('maintenance');
+        });
+        dom.maintenance.urgency.addEventListener('change', () => {
+          setFormState('maintenance', { urgency: dom.maintenance.urgency.value });
+          persistForm('maintenance');
+        });
+        dom.maintenance.accessNotes.addEventListener('input', () => {
+          setFormState('maintenance', { accessNotes: dom.maintenance.accessNotes.value });
+          persistForm('maintenance');
+        });
+        dom.maintenance.more.addEventListener('click', () => {
+          if (!state.loading.maintenance && state.nextTokens.maintenance) {
+            loadRequests('maintenance', { append: true });
           }
-          state.ordersNextToken = response.nextToken || '';
-          const items = Array.isArray(response.orders) ? response.orders : [];
-          state.orders = append ? state.orders.concat(items) : items;
-          renderOrders();
-        }
+        });
       }
 
-      function handleSubmitOrder(event) {
+      function setActiveTab(type) {
+        state.activeTab = type;
+        dom.tabButtons.forEach(button => {
+          button.classList.toggle('active', button.getAttribute('data-tab-trigger') === type);
+        });
+        dom.panels.forEach(panel => {
+          panel.classList.toggle('active', panel.getAttribute('data-tab-panel') === type);
+        });
+        ensureRequestsLoaded(type);
+      }
+
+      function ensureRequestsLoaded(type) {
+        if (state.loaded[type] || !hasServer) {
+          return;
+        }
+        loadRequests(type, { append: false });
+      }
+
+      function handleSubmit(event, type) {
         event.preventDefault();
-        const description = descriptionInput.value.trim();
-        const qty = qtyInput.value;
-        if (!description) {
-          handleError({ message: 'Description is required.' }, 'validation:description');
+        const formState = state.forms[type];
+        const validationError = validateForm(type, formState);
+        if (validationError) {
+          handleError({ message: validationError }, `${type}:validation`);
           return;
         }
-        disableOrderForm(true);
-        const payload = {
-          cid: makeCid(),
-          clientRequestId: makeClientRequestId(),
-          description,
-          qty
-        };
-        google.script.run
-          .withSuccessHandler(handleResponse)
-          .withFailureHandler(err => {
-            disableOrderForm(false);
-            handleError(err, 'createOrder', payload);
-          })
-          .createOrder(payload);
-
-        function handleResponse(response) {
-          disableOrderForm(false);
-          if (!response || !response.ok || !response.order) {
-            handleError(response, 'createOrder', payload);
-            return;
-          }
-          showToast('Request submitted');
-          setFormState({ description: '', qty: 1 });
-          persistForm();
-          renderForm();
-          state.orders.unshift(response.order);
-          renderOrders();
-        }
-      }
-
-      function handleUpdateStatus(orderId, status) {
-        const payload = {
-          cid: makeCid(),
-          clientRequestId: makeClientRequestId(),
-          orderId,
-          status
-        };
-        const container = ordersList.querySelector(`article[data-order="${orderId}"]`);
-        const buttons = container ? Array.from(container.querySelectorAll('button')) : [];
-        buttons.forEach(btn => { btn.disabled = true; });
-        google.script.run
-          .withSuccessHandler(handleResponse)
-          .withFailureHandler(err => {
-            buttons.forEach(btn => { btn.disabled = false; });
-            handleError(err, 'updateOrderStatus', payload);
-          })
-          .updateOrderStatus(payload);
-
-        function handleResponse(response) {
-          buttons.forEach(btn => { btn.disabled = false; });
-          if (!response || !response.ok || !response.order) {
-            handleError(response, 'updateOrderStatus', payload);
-            return;
-          }
-          const updated = response.order;
-          const idx = state.orders.findIndex(item => item.id === updated.id);
-          if (idx >= 0) {
-            state.orders[idx] = updated;
-            renderOrders();
-          }
-          showToast('Order updated');
-        }
-      }
-
-      function renderForm() {
-        descriptionInput.value = state.form.description;
-        qtyInput.value = state.form.qty;
-      }
-
-      function renderOrders() {
-        ordersList.textContent = '';
-        if (!state.orders.length && state.ordersLoading) {
-          ordersList.appendChild(buildSkeletonBlock());
+        if (!server) {
+          showToast('Connect to Google Apps Script to submit requests.');
           return;
         }
-        if (!state.orders.length) {
-          const empty = document.createElement('p');
-          empty.className = 'empty';
-          empty.textContent = 'No orders yet. Submit your first request above.';
-          ordersList.appendChild(empty);
-          ordersMoreButton.disabled = true;
+        disableForm(type, true);
+        const payload = Object.assign({
+          cid: makeCid(),
+          clientRequestId: makeClientRequestId(type),
+          type
+        }, formState);
+        server
+          .withSuccessHandler(response => {
+            disableForm(type, false);
+            if (!response || !response.ok || !response.request) {
+              handleError(response, 'createRequest', payload);
+              return;
+            }
+            showToast('Request submitted');
+            resetForm(type);
+            state.requests[type].unshift(response.request);
+            renderRequests(type);
+          })
+          .withFailureHandler(err => {
+            disableForm(type, false);
+            handleError(err, 'createRequest', payload);
+          })
+          .createRequest(payload);
+      }
+
+      function validateForm(type, formState) {
+        switch (type) {
+          case 'supplies':
+            if (!formState.description || !formState.description.trim()) {
+              return 'Description is required.';
+            }
+            if (!formState.qty || Number(formState.qty) <= 0) {
+              return 'Quantity must be at least 1.';
+            }
+            return '';
+          case 'it':
+            if (!formState.issue || !formState.issue.trim()) {
+              return 'Issue summary is required.';
+            }
+            return '';
+          case 'maintenance':
+            if (!formState.location || !formState.location.trim()) {
+              return 'Location is required.';
+            }
+            if (!formState.issue || !formState.issue.trim()) {
+              return 'Issue description is required.';
+            }
+            return '';
+          default:
+            return 'Unsupported request type.';
+        }
+      }
+
+      function resetForm(type) {
+        state.forms[type] = Object.assign({}, FORM_TEMPLATES[type]);
+        renderForm(type);
+        persistForm(type);
+      }
+
+      function renderForm(type) {
+        const formState = state.forms[type];
+        if (type === 'supplies') {
+          dom.supplies.description.value = formState.description || '';
+          dom.supplies.qty.value = formState.qty || 1;
+          dom.supplies.notes.value = formState.notes || '';
+        } else if (type === 'it') {
+          dom.it.issue.value = formState.issue || '';
+          dom.it.device.value = formState.device || '';
+          dom.it.impact.value = formState.impact || 'normal';
+          dom.it.details.value = formState.details || '';
+        } else if (type === 'maintenance') {
+          dom.maintenance.location.value = formState.location || '';
+          dom.maintenance.issue.value = formState.issue || '';
+          dom.maintenance.urgency.value = formState.urgency || 'normal';
+          dom.maintenance.accessNotes.value = formState.accessNotes || '';
+        }
+      }
+
+      function loadRequests(type, { append }) {
+        if (state.loading[type]) {
+          return;
+        }
+        if (!server) {
+          state.loaded[type] = true;
+          renderRequests(type);
+          return;
+        }
+        state.loading[type] = true;
+        const moreButton = dom[type].more;
+        if (moreButton) {
+          moreButton.disabled = true;
+        }
+        toggleRequestsSkeleton(type, true);
+        const payload = {
+          cid: makeCid(),
+          type,
+          pageSize: 10,
+          nextToken: append ? state.nextTokens[type] : ''
+        };
+        server
+          .withSuccessHandler(response => {
+            state.loading[type] = false;
+            state.loaded[type] = true;
+            toggleRequestsSkeleton(type, false);
+            if (!response || !response.ok) {
+              handleError(response, 'listRequests', payload);
+              return;
+            }
+            state.nextTokens[type] = response.nextToken || '';
+            const items = Array.isArray(response.requests) ? response.requests : [];
+            state.requests[type] = append ? state.requests[type].concat(items) : items;
+            renderRequests(type);
+          })
+          .withFailureHandler(err => {
+            state.loading[type] = false;
+            state.loaded[type] = true;
+            toggleRequestsSkeleton(type, false);
+            handleError(err, 'listRequests', payload);
+          })
+          .listRequests(payload);
+      }
+
+      function renderRequests(type) {
+        const list = dom[type].list;
+        const moreButton = dom[type].more;
+        list.textContent = '';
+        if (!state.requests[type].length) {
+          if (state.loading[type]) {
+            list.appendChild(buildSkeletonBlock());
+          } else {
+            const empty = document.createElement('p');
+            empty.className = 'empty';
+            empty.textContent = hasServer ? EMPTY_MESSAGES[type] : 'Connect to Google Apps Script to load requests.';
+            list.appendChild(empty);
+          }
+          if (moreButton) {
+            moreButton.disabled = true;
+          }
           return;
         }
         const fragment = document.createDocumentFragment();
-        state.orders.forEach(order => {
+        state.requests[type].forEach(request => {
           const item = document.createElement('article');
-          item.className = 'order-item';
-          item.dataset.order = order.id;
+          item.className = 'request-item';
+          item.dataset.requestType = type;
+          item.dataset.requestId = request.id;
 
           const title = document.createElement('strong');
-          title.textContent = order.description || 'Untitled request';
+          title.textContent = request.summary || 'Request';
           item.appendChild(title);
 
           const meta = document.createElement('span');
           meta.className = 'meta';
-          meta.textContent = buildOrderMeta(order);
+          meta.textContent = buildRequestMeta(request);
           item.appendChild(meta);
 
           const status = document.createElement('span');
           status.className = 'status';
-          status.dataset.state = order.status;
-          status.textContent = formatStatus(order.status);
+          status.dataset.state = request.status;
+          status.textContent = formatStatus(request.status);
           item.appendChild(status);
 
-          if (order.status === 'pending') {
+          if (Array.isArray(request.details)) {
+            request.details.forEach(detail => {
+              if (!detail) return;
+              const line = document.createElement('span');
+              line.className = 'detail-line';
+              line.textContent = detail;
+              item.appendChild(line);
+            });
+          }
+
+          if (request.status === 'pending') {
             const actions = document.createElement('div');
             actions.className = 'inline-buttons';
             const approve = document.createElement('button');
             approve.type = 'button';
             approve.className = 'secondary';
             approve.textContent = 'Approve';
-            approve.addEventListener('click', () => handleUpdateStatus(order.id, 'approved'));
+            approve.addEventListener('click', () => handleUpdateStatus(type, request.id, 'approved'));
             actions.appendChild(approve);
 
             const decline = document.createElement('button');
             decline.type = 'button';
             decline.className = 'secondary';
             decline.textContent = 'Decline';
-            decline.addEventListener('click', () => handleUpdateStatus(order.id, 'declined'));
+            decline.addEventListener('click', () => handleUpdateStatus(type, request.id, 'declined'));
             actions.appendChild(decline);
 
             item.appendChild(actions);
@@ -591,38 +906,133 @@
 
           fragment.appendChild(item);
         });
-        ordersList.appendChild(fragment);
-        ordersMoreButton.disabled = !state.ordersNextToken;
+        list.appendChild(fragment);
+        if (moreButton) {
+          moreButton.disabled = !state.nextTokens[type];
+        }
+      }
+
+      function handleUpdateStatus(type, requestId, status) {
+        if (!server) {
+          showToast('Connect to Google Apps Script to update statuses.');
+          return;
+        }
+        const payload = {
+          cid: makeCid(),
+          clientRequestId: makeClientRequestId(type),
+          type,
+          requestId,
+          status
+        };
+        const item = dom[type].list.querySelector(`article[data-request-id="${requestId}"]`);
+        const buttons = item ? Array.from(item.querySelectorAll('button')) : [];
+        buttons.forEach(btn => { btn.disabled = true; });
+        server
+          .withSuccessHandler(response => {
+            buttons.forEach(btn => { btn.disabled = false; });
+            if (!response || !response.ok || !response.request) {
+              handleError(response, 'updateRequestStatus', payload);
+              return;
+            }
+            const updated = response.request;
+            const index = state.requests[type].findIndex(entry => entry.id === updated.id);
+            if (index >= 0) {
+              state.requests[type][index] = updated;
+              renderRequests(type);
+            }
+            showToast('Request updated');
+          })
+          .withFailureHandler(err => {
+            buttons.forEach(btn => { btn.disabled = false; });
+            handleError(err, 'updateRequestStatus', payload);
+          })
+          .updateRequestStatus(payload);
+      }
+
+      function buildRequestMeta(request) {
+        const parts = [];
+        if (request.ts) {
+          try {
+            parts.push(new Date(request.ts).toLocaleString());
+          } catch (err) {
+            parts.push(request.ts);
+          }
+        }
+        if (request.requester) {
+          parts.push(request.requester);
+        }
+        if (request.approver && request.status !== 'pending') {
+          parts.push(`by ${request.approver}`);
+        }
+        return parts.join(' • ');
+      }
+
+      function loadCatalog({ append }) {
+        if (state.catalog.loading || !server) {
+          if (!server) {
+            state.catalog.loading = false;
+            renderCatalog();
+          }
+          return;
+        }
+        state.catalog.loading = true;
+        dom.supplies.catalogMore.disabled = true;
+        toggleCatalogSkeleton(true);
+        const payload = {
+          cid: makeCid(),
+          pageSize: 20,
+          nextToken: append ? state.catalog.nextToken : ''
+        };
+        server
+          .withSuccessHandler(response => {
+            state.catalog.loading = false;
+            toggleCatalogSkeleton(false);
+            if (!response || !response.ok) {
+              handleError(response, 'listCatalog', payload);
+              return;
+            }
+            state.catalog.nextToken = response.nextToken || '';
+            const items = Array.isArray(response.items) ? response.items : [];
+            state.catalog.items = append ? state.catalog.items.concat(items) : items;
+            renderCatalog();
+          })
+          .withFailureHandler(err => {
+            state.catalog.loading = false;
+            toggleCatalogSkeleton(false);
+            handleError(err, 'listCatalog', payload);
+          })
+          .listCatalog(payload);
       }
 
       function renderCatalog() {
-        catalogList.textContent = '';
-        catalogSelect.textContent = '';
+        dom.supplies.catalogList.textContent = '';
+        dom.supplies.catalogSelect.textContent = '';
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
-        defaultOption.textContent = 'Select an item (optional)';
-        catalogSelect.appendChild(defaultOption);
+        defaultOption.textContent = state.catalog.items.length ? 'Select an item (optional)' : 'Catalog unavailable';
+        dom.supplies.catalogSelect.appendChild(defaultOption);
 
-        if (!state.catalog.length && state.catalogLoading) {
-          catalogList.appendChild(buildSkeletonBlock());
-          catalogMoreButton.disabled = true;
-          return;
-        }
-        if (!state.catalog.length) {
-          const empty = document.createElement('p');
-          empty.className = 'empty';
-          empty.textContent = 'No catalog items found.';
-          catalogList.appendChild(empty);
-          catalogMoreButton.disabled = true;
+        if (!state.catalog.items.length) {
+          if (state.catalog.loading) {
+            dom.supplies.catalogList.appendChild(buildSkeletonBlock());
+            dom.supplies.catalogMore.disabled = true;
+          } else {
+            const empty = document.createElement('p');
+            empty.className = 'empty';
+            empty.textContent = hasServer ? 'No catalog items found.' : 'Catalog requires Google Apps Script.';
+            dom.supplies.catalogList.appendChild(empty);
+            dom.supplies.catalogMore.disabled = true;
+          }
+          dom.supplies.catalogSelect.disabled = !state.catalog.items.length;
           return;
         }
 
         const fragment = document.createDocumentFragment();
-        state.catalog.forEach(item => {
+        state.catalog.items.forEach(item => {
           const option = document.createElement('option');
           option.value = item.sku;
           option.textContent = `${item.description} · ${item.category}`;
-          catalogSelect.appendChild(option);
+          dom.supplies.catalogSelect.appendChild(option);
 
           const card = document.createElement('article');
           card.className = 'catalog-item';
@@ -636,43 +1046,76 @@
           meta.textContent = `${item.category} • ${item.sku}`;
           card.appendChild(meta);
           card.addEventListener('click', () => {
-            setFormState({ description: item.description });
-            renderForm();
-            persistForm();
+            setFormState('supplies', { description: item.description });
+            renderForm('supplies');
+            persistForm('supplies');
           });
           card.addEventListener('keydown', evt => {
             if (evt.key === 'Enter' || evt.key === ' ') {
               evt.preventDefault();
-              setFormState({ description: item.description });
-              renderForm();
-              persistForm();
+              setFormState('supplies', { description: item.description });
+              renderForm('supplies');
+              persistForm('supplies');
             }
           });
           fragment.appendChild(card);
         });
-        catalogList.appendChild(fragment);
-        catalogMoreButton.disabled = !state.catalogNextToken;
+        dom.supplies.catalogList.appendChild(fragment);
+        dom.supplies.catalogMore.disabled = !state.catalog.nextToken;
+        dom.supplies.catalogSelect.disabled = false;
       }
 
-      function toggleOrdersSkeleton(active) {
-        if (active && !state.orders.length) {
-          ordersList.textContent = '';
-          ordersList.appendChild(buildSkeletonBlock());
-          ordersMoreButton.disabled = true;
+      function setFormState(type, partial) {
+        state.forms[type] = Object.assign({}, state.forms[type], partial);
+      }
+
+      function persistForm(type) {
+        try {
+          localStorage.setItem(LOCAL_KEYS[type], JSON.stringify(state.forms[type]));
+        } catch (err) {
+          // ignore storage errors
+        }
+      }
+
+      function hydrateFormFromCache(type) {
+        try {
+          const raw = localStorage.getItem(LOCAL_KEYS[type]);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+              state.forms[type] = Object.assign({}, FORM_TEMPLATES[type], parsed);
+            }
+          }
+        } catch (err) {
+          // ignore cache issues
+        }
+      }
+
+      function toggleRequestsSkeleton(type, active) {
+        if (!active || state.requests[type].length) {
+          return;
+        }
+        const list = dom[type].list;
+        list.textContent = '';
+        list.appendChild(buildSkeletonBlock());
+        const moreButton = dom[type].more;
+        if (moreButton) {
+          moreButton.disabled = true;
         }
       }
 
       function toggleCatalogSkeleton(active) {
-        if (active && !state.catalog.length) {
-          catalogList.textContent = '';
-          catalogList.appendChild(buildSkeletonBlock());
-          catalogMoreButton.disabled = true;
+        if (!active || state.catalog.items.length) {
+          return;
         }
+        dom.supplies.catalogList.textContent = '';
+        dom.supplies.catalogList.appendChild(buildSkeletonBlock());
+        dom.supplies.catalogMore.disabled = true;
       }
 
       function buildSkeletonBlock() {
         const wrapper = document.createElement('div');
-        wrapper.className = 'order-item';
+        wrapper.className = 'request-item';
         const title = document.createElement('div');
         title.className = 'skeleton';
         title.style.height = '20px';
@@ -681,23 +1124,6 @@
         line.className = 'skeleton sm';
         wrapper.appendChild(line);
         return wrapper;
-      }
-
-      function buildOrderMeta(order) {
-        const parts = [];
-        if (order.qty) {
-          parts.push(`Qty ${order.qty}`);
-        }
-        if (order.ts) {
-          parts.push(new Date(order.ts).toLocaleString());
-        }
-        if (order.requester) {
-          parts.push(order.requester);
-        }
-        if (order.approver && order.status !== 'pending') {
-          parts.push(`by ${order.approver}`);
-        }
-        return parts.join(' • ');
       }
 
       function formatStatus(status) {
@@ -711,56 +1137,49 @@
         }
       }
 
-      function disableOrderForm(disabled) {
-        submitOrderButton.disabled = disabled;
-        descriptionInput.disabled = disabled;
-        qtyInput.disabled = disabled;
-        catalogSelect.disabled = disabled;
-        resetFormButton.disabled = disabled;
-      }
-
-      function setFormState(partial) {
-        state.form = Object.assign({}, state.form, partial);
-      }
-
-      function persistForm() {
-        try {
-          localStorage.setItem(LOCAL_KEY, JSON.stringify(state.form));
-        } catch (err) {
-          // ignore storage issues silently
+      function disableForm(type, disabled) {
+        if (type === 'supplies') {
+          dom.supplies.submit.disabled = disabled;
+          dom.supplies.description.disabled = disabled;
+          dom.supplies.qty.disabled = disabled;
+          dom.supplies.notes.disabled = disabled;
+          dom.supplies.catalogSelect.disabled = disabled;
+          dom.supplies.reset.disabled = disabled;
+        } else if (type === 'it') {
+          dom.it.submit.disabled = disabled;
+          dom.it.issue.disabled = disabled;
+          dom.it.device.disabled = disabled;
+          dom.it.impact.disabled = disabled;
+          dom.it.details.disabled = disabled;
+          dom.it.reset.disabled = disabled;
+        } else if (type === 'maintenance') {
+          dom.maintenance.submit.disabled = disabled;
+          dom.maintenance.location.disabled = disabled;
+          dom.maintenance.issue.disabled = disabled;
+          dom.maintenance.urgency.disabled = disabled;
+          dom.maintenance.accessNotes.disabled = disabled;
+          dom.maintenance.reset.disabled = disabled;
         }
-      }
-
-      function hydrateFormFromCache() {
-        try {
-          const raw = localStorage.getItem(LOCAL_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed && typeof parsed === 'object') {
-              state.form = Object.assign({}, state.form, parsed);
-            }
-          }
-        } catch (err) {
-          // ignore cache issues
-        }
-        renderForm();
       }
 
       function showToast(message) {
-        toast.textContent = message;
-        toast.style.display = 'block';
+        dom.toast.textContent = message;
+        dom.toast.style.display = 'block';
         clearTimeout(showToast.timer);
         showToast.timer = setTimeout(() => {
-          toast.style.display = 'none';
+          dom.toast.style.display = 'none';
         }, 2800);
       }
 
       function handleError(err, context, payload) {
         const message = err && err.message ? err.message : 'Something went wrong. Please try again.';
-        console.error('[SuppliesTracker]', context, message, err);
+        console.error('[RequestManager]', context, message, err);
         showToast(message);
+        if (!server) {
+          return;
+        }
         try {
-          google.script.run
+          server
             .withFailureHandler(() => { })
             .logClientError({
               cid: makeCid(),
@@ -778,8 +1197,8 @@
         return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       }
 
-      function makeClientRequestId() {
-        return `${initialSessionEmail || 'user'}-${makeCid()}`;
+      function makeClientRequestId(type) {
+        return `${initialSessionEmail || 'user'}-${type}-${makeCid()}`;
       }
     })();
   </script>

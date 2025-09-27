@@ -1,29 +1,125 @@
 /* eslint-env googleappsscript */
 
+const SCRIPT_PROP_SHEET_ID = 'SUPPLIES_TRACKING_SHEET_ID';
+const MAX_PAGE_SIZE = 50;
+
 const SHEETS = {
-  ORDERS: 'Orders',
   CATALOG: 'Catalog',
   LOGS: 'Logs'
 };
 
-const ORDER_HEADERS = ['id', 'ts', 'requester', 'description', 'qty', 'status', 'approver'];
-const CATALOG_HEADERS = ['sku', 'description', 'category', 'archived'];
+const REQUEST_TYPES = {
+  supplies: {
+    sheetName: 'SuppliesRequests',
+    headers: ['id', 'ts', 'requester', 'description', 'qty', 'notes', 'status', 'approver'],
+    normalize(request) {
+      const description = sanitizeString_(request && request.description);
+      if (!description) {
+        throw new Error('Description is required.');
+      }
+      const qty = parsePositiveInteger_(request && request.qty);
+      if (!qty) {
+        throw new Error('Quantity must be at least 1.');
+      }
+      const notes = sanitizeString_(request && request.notes);
+      return { description, qty, notes };
+    },
+    buildSummary(fields) {
+      return fields.description || 'Supplies request';
+    },
+    buildDetails(fields) {
+      const details = [];
+      if (fields.qty) {
+        details.push(`Quantity: ${fields.qty}`);
+      }
+      if (fields.notes) {
+        details.push(`Notes: ${fields.notes}`);
+      }
+      return details;
+    }
+  },
+  it: {
+    sheetName: 'ITRequests',
+    headers: ['id', 'ts', 'requester', 'issue', 'device', 'impact', 'details', 'status', 'approver'],
+    normalize(request) {
+      const issue = sanitizeString_(request && request.issue);
+      if (!issue) {
+        throw new Error('Issue summary is required.');
+      }
+      const device = sanitizeString_(request && request.device);
+      const impactRaw = sanitizeString_(request && request.impact).toLowerCase();
+      const allowed = ['low', 'normal', 'high', 'critical'];
+      const impact = allowed.indexOf(impactRaw) === -1 ? 'normal' : impactRaw;
+      const details = sanitizeString_(request && request.details);
+      return { issue, device, impact, details };
+    },
+    buildSummary(fields) {
+      return fields.issue || 'IT request';
+    },
+    buildDetails(fields) {
+      const details = [];
+      if (fields.device) {
+        details.push(`Device/System: ${fields.device}`);
+      }
+      if (fields.impact) {
+        details.push(`Impact: ${capitalize_(fields.impact)}`);
+      }
+      if (fields.details) {
+        details.push(`Details: ${fields.details}`);
+      }
+      return details;
+    }
+  },
+  maintenance: {
+    sheetName: 'MaintenanceRequests',
+    headers: ['id', 'ts', 'requester', 'location', 'issue', 'urgency', 'accessNotes', 'status', 'approver'],
+    normalize(request) {
+      const location = sanitizeString_(request && request.location);
+      if (!location) {
+        throw new Error('Location is required.');
+      }
+      const issue = sanitizeString_(request && request.issue);
+      if (!issue) {
+        throw new Error('Issue description is required.');
+      }
+      const urgencyRaw = sanitizeString_(request && request.urgency).toLowerCase();
+      const allowed = ['low', 'normal', 'high', 'critical'];
+      const urgency = allowed.indexOf(urgencyRaw) === -1 ? 'normal' : urgencyRaw;
+      const accessNotes = sanitizeString_(request && request.accessNotes);
+      return { location, issue, urgency, accessNotes };
+    },
+    buildSummary(fields) {
+      return fields.issue || 'Maintenance request';
+    },
+    buildDetails(fields) {
+      const details = [];
+      if (fields.location) {
+        details.push(`Location: ${fields.location}`);
+      }
+      if (fields.urgency) {
+        details.push(`Urgency: ${capitalize_(fields.urgency)}`);
+      }
+      if (fields.accessNotes) {
+        details.push(`Access notes: ${fields.accessNotes}`);
+      }
+      return details;
+    }
+  }
+};
+
 const LOG_HEADERS = ['ts', 'actor', 'fn', 'cid', 'message', 'stack', 'context'];
 
 const CACHE_KEYS = {
   CATALOG: 'catalog:v1',
-  ORDERS_PREFIX: 'orders',
+  REQUESTS_PREFIX: 'requests',
   RID_PREFIX: 'rid'
 };
 
 const CACHE_TTLS = {
   CATALOG: 300,
-  ORDERS: 180,
+  REQUESTS: 180,
   RID: 300
 };
-
-const SCRIPT_PROP_SHEET_ID = 'SUPPLIES_TRACKING_SHEET_ID';
-const MAX_PAGE_SIZE = 50;
 
 function doGet() {
   ensureSetup_();
@@ -31,7 +127,7 @@ function doGet() {
   template.session = {
     email: getActiveUserEmail_()
   };
-  return template.evaluate().setTitle('Supplies Tracker');
+  return template.evaluate().setTitle('Request Manager');
 }
 
 function listCatalog(request) {
@@ -46,8 +142,8 @@ function listCatalog(request) {
     if (cached) {
       items = JSON.parse(cached);
     } else {
-      const sheet = getSheet_(SHEETS.CATALOG, CATALOG_HEADERS);
-      items = readTable_(sheet, CATALOG_HEADERS)
+      const sheet = getSheet_(SHEETS.CATALOG, ['sku', 'description', 'category', 'archived']);
+      items = readTable_(sheet, ['sku', 'description', 'category', 'archived'])
         .filter(row => !row.archived)
         .map(row => ({
           sku: row.sku,
@@ -67,155 +163,158 @@ function listCatalog(request) {
   });
 }
 
-function listOrders(request) {
-  return withErrorHandling_('listOrders', request && request.cid, request, () => {
+function listRequests(request) {
+  return withErrorHandling_('listRequests', request && request.cid, request, () => {
     ensureSetup_();
+    const type = normalizeType_(request && request.type);
+    const def = REQUEST_TYPES[type];
     const email = normalizeEmail_(getActiveUserEmail_());
     const scope = request && request.scope === 'all' ? 'all' : 'mine';
-    const tokenKey = scope === 'all' ? 'all' : email;
+    const scopeKey = scope === 'all' ? 'all' : email;
     const pageSize = clamp_(Number(request && request.pageSize) || 15, 1, MAX_PAGE_SIZE);
     const startIndex = Number(request && request.nextToken) || 0;
 
-    const cacheKey = [CACHE_KEYS.ORDERS_PREFIX, tokenKey].join(':');
+    const cacheKey = [CACHE_KEYS.REQUESTS_PREFIX, type, scopeKey].join(':');
     const cache = CacheService.getScriptCache();
-    let orders = [];
+    let records = [];
     const cached = cache.get(cacheKey);
     if (cached) {
-      orders = JSON.parse(cached);
+      records = JSON.parse(cached);
     } else {
-      const sheet = getSheet_(SHEETS.ORDERS, ORDER_HEADERS);
-      const rows = readTable_(sheet, ORDER_HEADERS);
+      const sheet = getSheet_(def.sheetName, def.headers);
+      const rows = readTable_(sheet, def.headers);
       const filtered = scope === 'all'
         ? rows
         : rows.filter(row => normalizeEmail_(row.requester) === email);
-      orders = filtered
-        .map(row => ({
-          id: row.id,
-          ts: row.ts,
-          requester: row.requester,
-          description: row.description,
-          qty: Number(row.qty) || 0,
-          status: row.status || 'pending',
-          approver: row.approver || ''
-        }))
+      records = filtered
+        .map(row => buildClientRequest_(type, row))
         .sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
-      cache.put(cacheKey, JSON.stringify(orders), CACHE_TTLS.ORDERS);
+      cache.put(cacheKey, JSON.stringify(records), CACHE_TTLS.REQUESTS);
     }
 
-    const slice = orders.slice(startIndex, startIndex + pageSize);
-    const nextToken = startIndex + slice.length < orders.length ? String(startIndex + slice.length) : '';
+    const slice = records.slice(startIndex, startIndex + pageSize);
+    const nextToken = startIndex + slice.length < records.length ? String(startIndex + slice.length) : '';
     return {
       ok: true,
-      orders: slice,
+      type,
+      requests: slice,
       nextToken,
       scope
     };
   });
 }
 
-function createOrder(request) {
-  return withErrorHandling_('createOrder', request && request.cid, request, () => {
+function createRequest(request) {
+  return withErrorHandling_('createRequest', request && request.cid, request, () => {
     ensureSetup_();
     const rid = String(request && request.clientRequestId || '').trim();
     if (!rid) {
       throw new Error('clientRequestId is required.');
     }
+    const type = normalizeType_(request && request.type);
+    const def = REQUEST_TYPES[type];
+
     const cache = CacheService.getScriptCache();
     const ridKey = [CACHE_KEYS.RID_PREFIX, rid].join(':');
     const existing = cache.get(ridKey);
     if (existing) {
       return {
         ok: true,
-        order: JSON.parse(existing)
+        request: JSON.parse(existing)
       };
     }
 
-    const description = sanitizeString_(request && request.description);
-    if (!description) {
-      throw new Error('Description is required.');
-    }
-    const qty = parsePositiveInteger_(request && request.qty);
-    if (!qty) {
-      throw new Error('Quantity must be at least 1.');
-    }
-
+    const fields = def.normalize(request);
     const email = normalizeEmail_(getActiveUserEmail_());
     const now = new Date();
-    const order = {
+    const record = {
       id: uuid_(),
       ts: toIsoString_(now),
       requester: email,
-      description,
-      qty,
       status: 'pending',
-      approver: ''
+      approver: '',
+      type,
+      fields
     };
 
-    const sheet = getSheet_(SHEETS.ORDERS, ORDER_HEADERS);
-    withLock_(() => {
-      sheet.appendRow([
-        order.id,
-        order.ts,
-        order.requester,
-        order.description,
-        order.qty,
-        order.status,
-        order.approver
-      ]);
+    const rowValues = def.headers.map(header => {
+      switch (header) {
+        case 'id':
+          return record.id;
+        case 'ts':
+          return record.ts;
+        case 'requester':
+          return record.requester;
+        case 'status':
+          return record.status;
+        case 'approver':
+          return record.approver;
+        default:
+          return Object.prototype.hasOwnProperty.call(fields, header) ? fields[header] : '';
+      }
     });
 
-    cache.put(ridKey, JSON.stringify(order), CACHE_TTLS.RID);
-    invalidateOrdersCache_(email);
-    invalidateOrdersCache_('all');
+    const sheet = getSheet_(def.sheetName, def.headers);
+    withLock_(() => {
+      sheet.appendRow(rowValues);
+    });
+
+    const rowObject = Object.assign({}, fields, {
+      id: record.id,
+      ts: record.ts,
+      requester: record.requester,
+      status: record.status,
+      approver: record.approver
+    });
+    const clientRecord = buildClientRequest_(type, rowObject);
+
+    cache.put(ridKey, JSON.stringify(clientRecord), CACHE_TTLS.RID);
+    invalidateRequestCache_(type, email);
+    invalidateRequestCache_(type, 'all');
 
     return {
       ok: true,
-      order
+      request: clientRecord
     };
   });
 }
 
-function updateOrderStatus(request) {
-  return withErrorHandling_('updateOrderStatus', request && request.cid, request, () => {
+function updateRequestStatus(request) {
+  return withErrorHandling_('updateRequestStatus', request && request.cid, request, () => {
     ensureSetup_();
     const rid = String(request && request.clientRequestId || '').trim();
     if (!rid) {
       throw new Error('clientRequestId is required.');
     }
-    const orderId = String(request && request.orderId || '').trim();
-    if (!orderId) {
-      throw new Error('orderId is required.');
+    const type = normalizeType_(request && request.type);
+    const def = REQUEST_TYPES[type];
+    const requestId = String(request && request.requestId || '').trim();
+    if (!requestId) {
+      throw new Error('requestId is required.');
     }
     const status = normalizeStatus_(request && request.status);
+
     const cache = CacheService.getScriptCache();
     const ridKey = [CACHE_KEYS.RID_PREFIX, rid].join(':');
     const cached = cache.get(ridKey);
     if (cached) {
       return {
         ok: true,
-        order: JSON.parse(cached)
+        request: JSON.parse(cached)
       };
     }
 
-    const sheet = getSheet_(SHEETS.ORDERS, ORDER_HEADERS);
-    const headers = sheet.getRange(1, 1, 1, ORDER_HEADERS.length).getValues()[0];
+    const sheet = getSheet_(def.sheetName, def.headers);
+    const headers = sheet.getRange(1, 1, 1, def.headers.length).getValues()[0];
     const idIdx = headers.indexOf('id');
     if (idIdx === -1) {
-      throw new Error('Orders sheet is misconfigured.');
+      throw new Error('Request sheet is misconfigured.');
     }
 
-    let updatedOrder = null;
+    let updatedRecord = null;
     const headerMap = mapHeaders_(headers);
-    const statusIdx = headerMap.status;
-    const approverIdx = headerMap.approver;
-    const requesterIdx = headerMap.requester;
-    const qtyIdx = headerMap.qty;
-    const descIdx = headerMap.description;
-    const tsIdx = headerMap.ts;
-    if ([statusIdx, approverIdx, requesterIdx, qtyIdx, descIdx, tsIdx].some(idx => typeof idx !== 'number')) {
-      throw new Error('Orders sheet is misconfigured.');
-    }
     const approverEmail = getActiveUserEmail_();
+
     withLock_(() => {
       const lastRow = sheet.getLastRow();
       if (lastRow <= 1) {
@@ -224,36 +323,34 @@ function updateOrderStatus(request) {
       const dataRange = sheet.getRange(2, 1, lastRow - 1, headers.length);
       const data = dataRange.getValues();
       for (let r = 0; r < data.length; r++) {
-        if (String(data[r][idIdx]).trim() === orderId) {
-          data[r][statusIdx] = status;
-          data[r][approverIdx] = approverEmail;
-          sheet.getRange(r + 2, statusIdx + 1).setValue(status);
-          sheet.getRange(r + 2, approverIdx + 1).setValue(approverEmail);
-          updatedOrder = {
-            id: orderId,
-            ts: String(data[r][tsIdx] || ''),
-            requester: String(data[r][requesterIdx] || ''),
-            description: String(data[r][descIdx] || ''),
-            qty: Number(data[r][qtyIdx]) || 0,
-            status,
-            approver: approverEmail
-          };
+        if (String(data[r][idIdx]).trim() === requestId) {
+          data[r][headerMap.status] = status;
+          data[r][headerMap.approver] = approverEmail;
+          sheet.getRange(r + 2, headerMap.status + 1).setValue(status);
+          sheet.getRange(r + 2, headerMap.approver + 1).setValue(approverEmail);
+          const rowObject = {};
+          headers.forEach((header, idx) => {
+            rowObject[header] = data[r][idx];
+          });
+          rowObject.status = status;
+          rowObject.approver = approverEmail;
+          updatedRecord = buildClientRequest_(type, rowObject);
           break;
         }
       }
     });
 
-    if (!updatedOrder) {
-      throw new Error('Order not found.');
+    if (!updatedRecord) {
+      throw new Error('Request not found.');
     }
 
-    cache.put(ridKey, JSON.stringify(updatedOrder), CACHE_TTLS.RID);
-    invalidateOrdersCache_(normalizeEmail_(updatedOrder.requester));
-    invalidateOrdersCache_('all');
+    cache.put(ridKey, JSON.stringify(updatedRecord), CACHE_TTLS.RID);
+    invalidateRequestCache_(type, normalizeEmail_(updatedRecord.requester));
+    invalidateRequestCache_(type, 'all');
 
     return {
       ok: true,
-      order: updatedOrder
+      request: updatedRecord
     };
   });
 }
@@ -298,11 +395,14 @@ function ensureSetup_() {
   }
   try {
     const ss = getSpreadsheet_();
-    const orders = ss.getSheetByName(SHEETS.ORDERS) || ss.insertSheet(SHEETS.ORDERS);
-    ensureHeaders_(orders, ORDER_HEADERS);
+    Object.keys(REQUEST_TYPES).forEach(type => {
+      const def = REQUEST_TYPES[type];
+      const sheet = ss.getSheetByName(def.sheetName) || ss.insertSheet(def.sheetName);
+      ensureHeaders_(sheet, def.headers);
+    });
 
     const catalog = ss.getSheetByName(SHEETS.CATALOG) || ss.insertSheet(SHEETS.CATALOG);
-    ensureHeaders_(catalog, CATALOG_HEADERS);
+    ensureHeaders_(catalog, ['sku', 'description', 'category', 'archived']);
     if (catalog.getLastRow() <= 1) {
       const defaults = [
         ['SKU-001', 'Copy Paper 8.5x11 (case)', 'Office', false],
@@ -334,7 +434,7 @@ function getSpreadsheet_() {
     ss = SpreadsheetApp.getActive();
   }
   if (!ss) {
-    ss = SpreadsheetApp.create('SuppliesTracking');
+    ss = SpreadsheetApp.create('RequestManager');
   }
   if (ss && ss.getId() !== storedId) {
     props.setProperty(SCRIPT_PROP_SHEET_ID, ss.getId());
@@ -407,9 +507,18 @@ function normalizeStatus_(status) {
   return value;
 }
 
-function invalidateOrdersCache_(key) {
+function normalizeType_(type) {
+  const value = String(type || '').trim().toLowerCase();
+  if (!value || !REQUEST_TYPES[value]) {
+    throw new Error('Unsupported request type.');
+  }
+  return value;
+}
+
+function invalidateRequestCache_(type, key) {
   const cache = CacheService.getScriptCache();
-  const cacheKey = [CACHE_KEYS.ORDERS_PREFIX, normalizeEmail_(key)].join(':');
+  const normalizedKey = key === 'all' ? 'all' : normalizeEmail_(key);
+  const cacheKey = [CACHE_KEYS.REQUESTS_PREFIX, type, normalizedKey].join(':');
   cache.remove(cacheKey);
 }
 
@@ -480,4 +589,38 @@ function logServerError_(fnName, cid, err, context) {
   } catch (logErr) {
     Logger.log('Failed to log to sheet: ' + logErr);
   }
+}
+
+function getFieldNames_(headers) {
+  const base = ['id', 'ts', 'requester', 'status', 'approver'];
+  return headers.filter(header => base.indexOf(header) === -1);
+}
+
+function buildClientRequest_(type, row) {
+  const def = REQUEST_TYPES[type];
+  const fieldNames = getFieldNames_(def.headers);
+  const fields = {};
+  fieldNames.forEach(name => {
+    fields[name] = row[name] !== undefined ? row[name] : '';
+  });
+  const record = {
+    id: String(row.id || ''),
+    ts: String(row.ts || ''),
+    requester: String(row.requester || ''),
+    status: String(row.status || 'pending').toLowerCase() || 'pending',
+    approver: String(row.approver || ''),
+    type,
+    fields
+  };
+  record.summary = def.buildSummary(fields);
+  record.details = def.buildDetails(fields);
+  return record;
+}
+
+function capitalize_(value) {
+  const text = String(value || '');
+  if (!text) {
+    return '';
+  }
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
