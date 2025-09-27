@@ -133,6 +133,18 @@ const CACHE_TTLS = {
   RID: 300
 };
 
+function getRequiredSheetDefinitions_() {
+  const definitions = {};
+  Object.keys(REQUEST_TYPES).forEach(type => {
+    const def = REQUEST_TYPES[type];
+    definitions[def.sheetName] = def.headers.slice();
+  });
+  definitions[SHEETS.CATALOG] = ['sku', 'description', 'category', 'archived'];
+  definitions[SHEETS.LOGS] = LOG_HEADERS.slice();
+  definitions[SHEETS.STATUS_LOG] = STATUS_LOG_HEADERS.slice();
+  return definitions;
+}
+
 function doGet() {
   ensureSetup_();
   const template = HtmlService.createTemplateFromFile('index');
@@ -418,14 +430,21 @@ function ensureSetup_() {
   }
   try {
     const ss = getSpreadsheet_();
-    Object.keys(REQUEST_TYPES).forEach(type => {
-      const def = REQUEST_TYPES[type];
-      const sheet = ss.getSheetByName(def.sheetName) || ss.insertSheet(def.sheetName);
-      ensureHeaders_(sheet, def.headers);
+    const requiredSheets = getRequiredSheetDefinitions_();
+
+    Object.keys(requiredSheets).forEach(name => {
+      const sheet = ss.getSheetByName(name) || ss.insertSheet(name);
+      normalizeSheetStructure_(sheet, requiredSheets[name]);
     });
 
-    const catalog = ss.getSheetByName(SHEETS.CATALOG) || ss.insertSheet(SHEETS.CATALOG);
-    ensureHeaders_(catalog, ['sku', 'description', 'category', 'archived']);
+    ss.getSheets().forEach(sheet => {
+      const name = sheet.getName();
+      if (!Object.prototype.hasOwnProperty.call(requiredSheets, name)) {
+        ss.deleteSheet(sheet);
+      }
+    });
+
+    const catalog = ss.getSheetByName(SHEETS.CATALOG);
     if (catalog.getLastRow() <= 1) {
       const defaults = [
         ['SKU-001', 'Copy Paper 8.5x11 (case)', 'Office', false],
@@ -434,12 +453,6 @@ function ensureSetup_() {
       ];
       catalog.getRange(2, 1, defaults.length, defaults[0].length).setValues(defaults);
     }
-
-    const logs = ss.getSheetByName(SHEETS.LOGS) || ss.insertSheet(SHEETS.LOGS);
-    ensureHeaders_(logs, LOG_HEADERS);
-
-    const statusLog = ss.getSheetByName(SHEETS.STATUS_LOG) || ss.insertSheet(SHEETS.STATUS_LOG);
-    ensureHeaders_(statusLog, STATUS_LOG_HEADERS);
   } finally {
     lock.releaseLock();
   }
@@ -491,6 +504,39 @@ function ensureHeaders_(sheet, headers) {
   });
   if (updated && sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
+  }
+}
+
+function normalizeSheetStructure_(sheet, headers) {
+  const totalRows = sheet.getLastRow();
+  const totalColumns = sheet.getLastColumn();
+  let rows = [];
+  if (totalRows > 1 && totalColumns > 0) {
+    const headerRow = sheet.getRange(1, 1, 1, totalColumns).getValues()[0];
+    const headerMap = {};
+    headerRow.forEach((header, idx) => {
+      const key = String(header || '').trim().toLowerCase();
+      if (key && headerMap[key] === undefined) {
+        headerMap[key] = idx;
+      }
+    });
+    const dataRange = sheet.getRange(2, 1, totalRows - 1, totalColumns);
+    const data = dataRange.getValues();
+    rows = data.map(row => headers.map(header => {
+      const idx = headerMap[String(header).toLowerCase()];
+      return idx === undefined ? '' : row[idx];
+    }));
+  }
+
+  sheet.clear();
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (rows.length > 0) {
+    sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  }
+
+  const maxColumns = sheet.getMaxColumns();
+  if (maxColumns > headers.length) {
+    sheet.deleteColumns(headers.length + 1, maxColumns - headers.length);
   }
 }
 
