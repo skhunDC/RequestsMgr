@@ -104,20 +104,18 @@
       font-weight: 600;
     }
 
-    .card-toggle {
+    .card-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 0.75rem;
       width: 100%;
-      background: none;
-      border: none;
-      padding: 0;
       text-align: left;
       color: inherit;
+      user-select: none;
     }
 
-    .card-toggle-text {
+    .card-header-text {
       display: flex;
       flex-direction: column;
       gap: 0.35rem;
@@ -133,58 +131,11 @@
       color: var(--muted);
     }
 
-    .card-chevron {
-      width: 1.75rem;
-      height: 1.75rem;
-      border-radius: 999px;
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.2s ease;
-    }
-
-    .card-chevron::before {
-      content: '';
-      border-style: solid;
-      border-width: 0.35rem 0.35rem 0 0;
-      border-color: var(--muted);
-      display: inline-block;
-      width: 0.5rem;
-      height: 0.5rem;
-      transform: rotate(45deg);
-    }
-
     .card-body {
       display: flex;
       flex-direction: column;
       gap: 1rem;
       margin-top: 1rem;
-    }
-
-    .card.stack-enabled .card-toggle {
-      cursor: pointer;
-    }
-
-    .card.stack-enabled .card-chevron {
-      opacity: 1;
-    }
-
-    .card:not(.stack-enabled) .card-toggle {
-      cursor: default;
-    }
-
-    .card:not(.stack-enabled) .card-chevron {
-      display: none;
-    }
-
-    .card.stack-enabled.collapsed .card-body {
-      display: none;
-    }
-
-    .card.stack-enabled.collapsed .card-chevron {
-      transform: rotate(-90deg);
     }
 
     .form-grid {
@@ -265,12 +216,6 @@
 
     button:not([disabled]):hover {
       background: var(--accent-strong);
-    }
-
-    button.card-toggle:not([disabled]):hover,
-    button.card-toggle:not([disabled]):focus-visible {
-      background: none;
-      color: inherit;
     }
 
     button.secondary {
@@ -515,13 +460,12 @@
   <main>
     <div class="tab-panel active" data-tab-panel="supplies">
       <section class="card" id="suppliesFormCard">
-        <button type="button" class="card-toggle" aria-expanded="true">
-          <span class="card-toggle-text">
+        <div class="card-header">
+          <div class="card-header-text">
             <span class="card-title">New supplies request</span>
             <span class="card-subtitle meta">Use the catalog to quickly fill in the item details before submitting.</span>
-          </span>
-          <span class="card-chevron" aria-hidden="true"></span>
-        </button>
+          </div>
+        </div>
         <div class="card-body">
           <form id="suppliesForm" class="form-grid" novalidate>
             <label class="full-width">
@@ -545,13 +489,12 @@
       </section>
 
       <section class="card" id="suppliesRequestsCard">
-        <button type="button" class="card-toggle" aria-expanded="false">
-          <span class="card-toggle-text">
+        <div class="card-header">
+          <div class="card-header-text">
             <span class="card-title">Supplies requests</span>
             <span class="card-subtitle meta">Track order status and approvals in one place.</span>
-          </span>
-          <span class="card-chevron" aria-hidden="true"></span>
-        </button>
+          </div>
+        </div>
         <div class="card-body">
           <div id="suppliesRequestsList" class="list" role="list"></div>
           <button type="button" id="suppliesMoreButton" class="load-more secondary">Load more</button>
@@ -559,13 +502,12 @@
       </section>
 
       <section class="card" id="catalogCard">
-        <button type="button" class="card-toggle" aria-expanded="false">
-          <span class="card-toggle-text">
+        <div class="card-header">
+          <div class="card-header-text">
             <span class="card-title">Catalog</span>
             <span class="card-subtitle meta">Tap an item to autofill the request form.</span>
-          </span>
-          <span class="card-chevron" aria-hidden="true"></span>
-        </button>
+          </div>
+        </div>
         <div class="card-body">
           <div id="catalogList" class="list" role="list"></div>
           <button type="button" id="catalogMoreButton" class="load-more secondary">Load more</button>
@@ -575,13 +517,12 @@
 
     <div class="tab-panel" data-tab-panel="it">
       <section class="card" id="itFormCard">
-        <button type="button" class="card-toggle" aria-expanded="true">
-          <span class="card-toggle-text">
+        <div class="card-header">
+          <div class="card-header-text">
             <span class="card-title">New IT request</span>
             <span class="card-subtitle meta">Report technology issues or access needs for quick routing.</span>
-          </span>
-          <span class="card-chevron" aria-hidden="true"></span>
-        </button>
+          </div>
+        </div>
         <div class="card-body">
           <form id="itForm" class="form-grid" novalidate>
             <label>
@@ -627,13 +568,12 @@
       </section>
 
       <section class="card" id="itRequestsCard">
-        <button type="button" class="card-toggle" aria-expanded="false">
-          <span class="card-toggle-text">
+        <div class="card-header">
+          <div class="card-header-text">
             <span class="card-title">IT queue</span>
             <span class="card-subtitle meta">Monitor progress and close items when resolved.</span>
-          </span>
-          <span class="card-chevron" aria-hidden="true"></span>
-        </button>
+          </div>
+        </div>
         <div class="card-body">
           <div id="itRequestsList" class="list" role="list"></div>
           <button type="button" id="itMoreButton" class="load-more secondary">Load more</button>
@@ -643,13 +583,12 @@
 
     <div class="tab-panel" data-tab-panel="maintenance">
       <section class="card" id="maintenanceFormCard">
-        <button type="button" class="card-toggle" aria-expanded="true">
-          <span class="card-toggle-text">
+        <div class="card-header">
+          <div class="card-header-text">
             <span class="card-title">New maintenance request</span>
             <span class="card-subtitle meta">Share location details so facilities can prioritize the work.</span>
-          </span>
-          <span class="card-chevron" aria-hidden="true"></span>
-        </button>
+          </div>
+        </div>
         <div class="card-body">
           <form id="maintenanceForm" class="form-grid" novalidate>
             <label>
@@ -691,13 +630,12 @@
       </section>
 
       <section class="card" id="maintenanceRequestsCard">
-        <button type="button" class="card-toggle" aria-expanded="false">
-          <span class="card-toggle-text">
+        <div class="card-header">
+          <div class="card-header-text">
             <span class="card-title">Maintenance pipeline</span>
             <span class="card-subtitle meta">See outstanding work orders and update when finished.</span>
-          </span>
-          <span class="card-chevron" aria-hidden="true"></span>
-        </button>
+          </div>
+        </div>
         <div class="card-body">
           <div id="maintenanceRequestsList" class="list" role="list"></div>
           <button type="button" id="maintenanceMoreButton" class="load-more secondary">Load more</button>
@@ -765,11 +703,6 @@
           items: [],
           nextToken: '',
           loading: false
-        },
-        openCards: {
-          supplies: 'suppliesFormCard',
-          it: 'itFormCard',
-          maintenance: 'maintenanceFormCard'
         }
       };
 
@@ -814,56 +747,10 @@
         }
       };
 
-      const CARD_ORDER = {
-        supplies: ['suppliesFormCard', 'suppliesRequestsCard', 'catalogCard'],
-        it: ['itFormCard', 'itRequestsCard'],
-        maintenance: ['maintenanceFormCard', 'maintenanceRequestsCard']
-      };
-
-      const cards = {};
-      Object.entries(CARD_ORDER).forEach(([type, ids]) => {
-        cards[type] = ids.map(id => {
-          const el = document.getElementById(id);
-          return {
-            id,
-            el,
-            toggle: el ? el.querySelector('.card-toggle') : null,
-            body: el ? el.querySelector('.card-body') : null
-          };
-        });
-      });
-
-      const stackQuery = window.matchMedia('(max-width: 719px)');
-
-      Object.entries(cards).forEach(([type, group]) => {
-        group.forEach(({ toggle, id }) => {
-          if (!toggle) {
-            return;
-          }
-          toggle.addEventListener('click', () => {
-            if (!stackQuery.matches) {
-              return;
-            }
-            if (state.openCards[type] === id) {
-              return;
-            }
-            state.openCards[type] = id;
-            syncCardStack();
-          });
-        });
-      });
-
-      if (typeof stackQuery.addEventListener === 'function') {
-        stackQuery.addEventListener('change', syncCardStack);
-      } else if (typeof stackQuery.addListener === 'function') {
-        stackQuery.addListener(syncCardStack);
-      }
-
       const initialSessionEmail = SESSION && SESSION.email ? String(SESSION.email) : '';
 
       attachNavHandlers();
       attachFormHandlers();
-      syncCardStack();
       REQUEST_KEYS.forEach(type => {
         hydrateFormFromCache(type);
         renderForm(type);
@@ -877,36 +764,6 @@
         REQUEST_KEYS.forEach(type => {
           state.loaded[type] = true;
           renderRequests(type);
-        });
-      }
-
-      function syncCardStack() {
-        const stacked = stackQuery.matches;
-        Object.entries(cards).forEach(([type, group]) => {
-          if (!state.openCards[type] && CARD_ORDER[type] && CARD_ORDER[type].length) {
-            state.openCards[type] = CARD_ORDER[type][0];
-          }
-          const activeId = state.openCards[type];
-          group.forEach(({ id, el, toggle, body }) => {
-            const isActive = !stacked || id === activeId;
-            if (el) {
-              el.classList.toggle('stack-enabled', stacked);
-              el.classList.toggle('collapsed', stacked && !isActive);
-            }
-            if (toggle) {
-              toggle.setAttribute('aria-expanded', String(isActive));
-              if (stacked) {
-                toggle.removeAttribute('aria-disabled');
-                toggle.tabIndex = 0;
-              } else {
-                toggle.setAttribute('aria-disabled', 'true');
-                toggle.tabIndex = -1;
-              }
-            }
-            if (body) {
-              body.hidden = stacked && !isActive;
-            }
-          });
         });
       }
 
