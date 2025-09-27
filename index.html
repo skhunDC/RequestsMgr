@@ -70,6 +70,8 @@
       padding: 0 clamp(0.75rem, 6vw, 1.35rem) clamp(0.75rem, 4vw, 1rem);
       overflow-x: auto;
       scrollbar-width: none;
+      width: min(100%, 720px);
+      margin: 0 auto;
     }
 
     nav.tab-nav::-webkit-scrollbar {
@@ -240,15 +242,16 @@
     }
 
     .tab-nav button {
-      flex: 1 1 auto;
+      flex: 1 1 0;
       min-width: 0;
-      padding: 0.55rem 0.85rem;
+      padding: 0.65rem 1rem;
       border-radius: 999px;
       border: 1px solid var(--border);
       background: var(--surface);
       color: var(--muted);
       font-weight: 600;
       font-size: clamp(0.95rem, 3.5vw, 1.05rem);
+      text-align: center;
     }
 
     .tab-nav button:not(.active):hover {
@@ -527,13 +530,16 @@
       }
 
       nav.tab-nav {
-        gap: 0.25rem;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.35rem;
         padding: 0 clamp(0.75rem, 6vw, 1rem) clamp(0.75rem, 4vw, 0.9rem);
+        overflow: visible;
       }
 
       .tab-nav button {
-        flex: 0 0 auto;
-        padding: 0.5rem 0.8rem;
+        width: 100%;
+        padding: 0.65rem 0.75rem;
       }
 
       main {
