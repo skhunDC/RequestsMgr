@@ -202,9 +202,8 @@ function listRequests(request) {
     ensureSetup_();
     const type = normalizeType_(request && request.type);
     const def = REQUEST_TYPES[type];
-    const email = normalizeEmail_(getActiveUserEmail_());
-    const scope = request && request.scope === 'all' ? 'all' : 'mine';
-    const scopeKey = scope === 'all' ? 'all' : email;
+    const scope = 'all';
+    const scopeKey = 'all';
     const pageSize = clamp_(Number(request && request.pageSize) || 15, 1, MAX_PAGE_SIZE);
     const startIndex = Number(request && request.nextToken) || 0;
 
@@ -217,10 +216,7 @@ function listRequests(request) {
     } else {
       const sheet = getSheet_(def.sheetName, def.headers);
       const rows = readTable_(sheet, def.headers);
-      const filtered = scope === 'all'
-        ? rows
-        : rows.filter(row => normalizeEmail_(row.requester) === email);
-      records = filtered
+      records = rows
         .map(row => buildClientRequest_(type, row))
         .sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
       cache.put(cacheKey, JSON.stringify(records), CACHE_TTLS.REQUESTS);
