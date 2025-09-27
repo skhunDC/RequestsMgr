@@ -401,9 +401,14 @@ function updateRequestStatus(request) {
       const data = dataRange.getValues();
       for (let r = 0; r < data.length; r++) {
         if (String(data[r][idIdx]).trim() === requestId) {
-          data[r][statusCol] = status;
+          const currentStatus = toStatusKey_(data[r][statusCol]);
+          const nextStatus = status;
+          if (hasEta && !canEditEtaStatus_(currentStatus, nextStatus)) {
+            throw new Error('ETA can only be set when the request has been approved.');
+          }
+          data[r][statusCol] = nextStatus;
           data[r][approverCol] = approverEmail;
-          sheet.getRange(r + 2, statusCol + 1).setValue(status);
+          sheet.getRange(r + 2, statusCol + 1).setValue(nextStatus);
           sheet.getRange(r + 2, approverCol + 1).setValue(approverEmail);
           if (etaCol !== undefined && hasEta) {
             data[r][etaCol] = etaValue;
@@ -660,6 +665,20 @@ function normalizeStatus_(status) {
     throw new Error('Unsupported status.');
   }
   return normalized;
+}
+
+function toStatusKey_(status) {
+  return String(status || '').trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+function canEditEtaStatus_(currentStatus, nextStatus) {
+  const allowed = ['approved', 'ordered', 'completed'];
+  const next = toStatusKey_(nextStatus);
+  if (next) {
+    return allowed.indexOf(next) !== -1;
+  }
+  const current = toStatusKey_(currentStatus);
+  return allowed.indexOf(current) !== -1;
 }
 
 function normalizeType_(type) {

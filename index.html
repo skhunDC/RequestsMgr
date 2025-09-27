@@ -1181,9 +1181,11 @@
             const previousEta = getRequestEta(request);
             etaInput.value = previousEta;
             etaInput.setAttribute('aria-label', `ETA for ${request.summary || 'request'}`);
-            if (!server) {
+            const etaEditable = canEditEtaStatus(stateKey);
+            if (!server || !etaEditable) {
               etaInput.disabled = true;
             }
+            etaInput.title = etaEditable ? '' : 'ETA can be set after approval only.';
             etaInput.addEventListener('change', () => {
               const nextValue = etaInput.value;
               if (nextValue === previousEta) {
@@ -1333,6 +1335,11 @@
           handleError({ message: 'Request not found.' }, 'updateRequestEta');
           return;
         }
+        if (!canEditEtaStatus(request && request.status)) {
+          input.value = previousEta;
+          showToast('ETA can be set after approval only.');
+          return;
+        }
         const payload = {
           cid: makeCid(),
           clientRequestId: makeClientRequestId(type),
@@ -1365,6 +1372,13 @@
             handleError(err, 'updateRequestEta', payload);
           })
           .updateRequestStatus(payload);
+      }
+
+      function canEditEtaStatus(status) {
+        const key = typeof status === 'string'
+          ? status.trim().toLowerCase().replace(/\s+/g, '_')
+          : '';
+        return key === 'approved' || key === 'ordered' || key === 'completed';
       }
 
       function buildRequestMeta(request, type) {
