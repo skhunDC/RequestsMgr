@@ -201,30 +201,69 @@ function listRequests(request) {
   return withErrorHandling_('listRequests', request && request.cid, request, () => {
     ensureSetup_();
     const type = normalizeType_(request && request.type);
+    const scope = normalizeScope_(request && request.scope);
     const def = REQUEST_TYPES[type];
     const pageSize = clamp_(Number(request && request.pageSize) || 15, 1, MAX_PAGE_SIZE);
     const startIndex = Number(request && request.nextToken) || 0;
 
-    const cacheKey = [CACHE_KEYS.REQUESTS_PREFIX, type, 'all'].join(':');
     const cache = CacheService.getScriptCache();
+    const allCacheKey = [CACHE_KEYS.REQUESTS_PREFIX, type, 'all'].join(':');
     let records = [];
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      records = JSON.parse(cached);
-    } else {
+    let hasAllCache = false;
+    const cachedAll = cache.get(allCacheKey);
+    if (cachedAll) {
+      try {
+        const parsed = JSON.parse(cachedAll);
+        if (Array.isArray(parsed)) {
+          records = parsed;
+          hasAllCache = true;
+        } else {
+          cache.remove(allCacheKey);
+        }
+      } catch (err) {
+        cache.remove(allCacheKey);
+      }
+    }
+
+    if (!hasAllCache) {
       const sheet = getSheet_(def.sheetName, def.headers);
       const rows = readTable_(sheet, def.headers);
       records = rows
         .map(row => buildClientRequest_(type, row))
         .sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
-      cache.put(cacheKey, JSON.stringify(records), CACHE_TTLS.REQUESTS);
+      cache.put(allCacheKey, JSON.stringify(records), CACHE_TTLS.REQUESTS);
     }
 
-    const slice = records.slice(startIndex, startIndex + pageSize);
-    const nextToken = startIndex + slice.length < records.length ? String(startIndex + slice.length) : '';
+    const userEmail = normalizeEmail_(getActiveUserEmail_());
+    let scopedRecords = records;
+    if (scope === 'mine') {
+      const mineCacheKey = [CACHE_KEYS.REQUESTS_PREFIX, type, userEmail || ''].join(':');
+      const cachedMine = cache.get(mineCacheKey);
+      if (cachedMine) {
+        try {
+          const parsedMine = JSON.parse(cachedMine);
+          if (Array.isArray(parsedMine)) {
+            scopedRecords = parsedMine;
+          } else {
+            cache.remove(mineCacheKey);
+            scopedRecords = records.filter(record => normalizeEmail_(record.requester) === userEmail);
+          }
+        } catch (err) {
+          cache.remove(mineCacheKey);
+          scopedRecords = records.filter(record => normalizeEmail_(record.requester) === userEmail);
+        }
+      } else {
+        scopedRecords = records.filter(record => normalizeEmail_(record.requester) === userEmail);
+      }
+      cache.put(mineCacheKey, JSON.stringify(scopedRecords), CACHE_TTLS.REQUESTS);
+    }
+
+    const slice = scopedRecords.slice(startIndex, startIndex + pageSize);
+    const nextToken = startIndex + slice.length < scopedRecords.length ? String(startIndex + slice.length) : '';
     return {
       ok: true,
       type,
+      scope,
       requests: slice,
       nextToken
     };
@@ -629,6 +668,11 @@ function normalizeType_(type) {
     throw new Error('Unsupported request type.');
   }
   return value;
+}
+
+function normalizeScope_(scope) {
+  const value = String(scope || '').trim().toLowerCase();
+  return value === 'mine' ? 'mine' : 'all';
 }
 
 function invalidateRequestCache_(type, key) {
