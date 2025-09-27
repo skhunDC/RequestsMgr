@@ -60,6 +60,10 @@
       max-width: 40rem;
     }
 
+    .hero-copy {
+      text-align: center;
+    }
+
     nav.tab-nav {
       display: flex;
       gap: 0.5rem;
@@ -454,17 +458,18 @@
       }
 
       header {
-        text-align: left;
         align-items: center;
         flex-direction: row;
-        justify-content: space-between;
+        justify-content: center;
+        gap: clamp(1.5rem, 5vw, 3rem);
       }
 
       header .hero-copy {
         display: flex;
         flex-direction: column;
         gap: 0.35rem;
-        align-items: flex-start;
+        align-items: center;
+        text-align: center;
       }
 
       header p {
