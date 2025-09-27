@@ -379,69 +379,6 @@
       transform: translateY(-50%) scale(1.05);
     }
 
-    .catalog-suggestions {
-      position: absolute;
-      top: calc(100% + 0.35rem);
-      left: 0;
-      width: 100%;
-      max-height: 240px;
-      overflow-y: auto;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      box-shadow: 0 18px 36px -24px rgba(23, 32, 42, 0.55);
-      padding: 0.35rem 0;
-      display: none;
-      z-index: 20;
-    }
-
-    .catalog-suggestions.open {
-      display: block;
-    }
-
-    .catalog-suggestion,
-    .catalog-suggestion-empty {
-      width: 100%;
-      padding: 0.65rem 1rem;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.2rem;
-    }
-
-    .catalog-suggestion {
-      border: none;
-      background: transparent;
-      text-align: left;
-      cursor: pointer;
-      color: inherit;
-      font: inherit;
-    }
-
-    .catalog-suggestion:focus-visible {
-      outline: none;
-    }
-
-    .catalog-suggestion:hover,
-    .catalog-suggestion.active {
-      background: rgba(11, 87, 208, 0.08);
-    }
-
-    .catalog-suggestion span.primary {
-      font-weight: 600;
-      font-size: 0.98rem;
-    }
-
-    .catalog-suggestion span.meta {
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-
-    .catalog-suggestion-empty {
-      color: var(--muted);
-      font-size: 0.85rem;
-    }
-
     datalist option {
       font-size: 0.95rem;
     }
@@ -748,11 +685,8 @@
                       spellcheck="false"
                       list="catalogOptions"
                       aria-autocomplete="list"
-                      aria-expanded="false"
-                      aria-controls="catalogSuggestions"
                     >
                     <button type="button" id="catalogClearButton" class="catalog-clear" aria-label="Clear selected catalog item">×</button>
-                    <div id="catalogSuggestions" class="catalog-suggestions" role="listbox" aria-label="Catalog suggestions" aria-hidden="true"></div>
                     <datalist id="catalogOptions"></datalist>
                   </div>
                 </div>
@@ -1015,10 +949,7 @@
           nextToken: '',
           loading: false,
           search: '',
-          fullyLoaded: false,
-          suggestionsOpen: false,
-          visibleSuggestions: [],
-          activeSuggestion: -1
+          fullyLoaded: false
         }
       };
 
@@ -1041,8 +972,7 @@
           catalogSku: document.getElementById('catalogSkuField'),
           catalogList: document.getElementById('catalogList'),
           catalogMore: document.getElementById('catalogMoreButton'),
-          catalogClear: document.getElementById('catalogClearButton'),
-          catalogSuggestions: document.getElementById('catalogSuggestions')
+          catalogClear: document.getElementById('catalogClearButton')
         },
         it: {
           form: document.getElementById('itForm'),
@@ -1143,24 +1073,10 @@
         });
         dom.supplies.catalogSearch.addEventListener('focus', () => {
           ensureFullCatalogLoaded();
-          setCatalogSuggestionsOpen(true, { resetActive: true });
           updateCatalogSearchAffordances();
         });
         dom.supplies.catalogSearch.addEventListener('click', () => {
           ensureFullCatalogLoaded();
-          setCatalogSuggestionsOpen(true);
-        });
-        dom.supplies.catalogSearch.addEventListener('blur', () => {
-          window.setTimeout(() => {
-            const active = document.activeElement;
-            const withinCombobox =
-              active === dom.supplies.catalogSearch ||
-              (dom.supplies.catalogClear && active === dom.supplies.catalogClear) ||
-              (dom.supplies.catalogSuggestions && active instanceof Node && dom.supplies.catalogSuggestions.contains(active));
-            if (!withinCombobox) {
-              setCatalogSuggestionsOpen(false, { resetActive: true });
-            }
-          }, 120);
         });
         const handleCatalogSearchInput = () => {
           const rawValue = dom.supplies.catalogSearch.value || '';
@@ -1176,11 +1092,9 @@
             renderCatalog();
           }
           updateCatalogSearchAffordances();
-          setCatalogSuggestionsOpen(true);
         };
         dom.supplies.catalogSearch.addEventListener('input', handleCatalogSearchInput);
         dom.supplies.catalogSearch.addEventListener('change', handleCatalogSearchInput);
-        dom.supplies.catalogSearch.addEventListener('keydown', handleCatalogSearchKeydown);
         if (dom.supplies.catalogClear) {
           dom.supplies.catalogClear.addEventListener('click', () => {
             dom.supplies.catalogSearch.value = '';
@@ -1188,23 +1102,8 @@
             selectCatalogSku('', { updateSearch: false, preserveDescription: true });
             renderCatalog();
             updateCatalogSearchAffordances();
-            setCatalogSuggestionsOpen(true, { resetActive: true });
             dom.supplies.catalogSearch.focus();
           });
-        }
-        if (dom.supplies.catalogSuggestions) {
-          dom.supplies.catalogSuggestions.addEventListener('mousedown', evt => {
-            const target = evt.target instanceof Element ? evt.target.closest('.catalog-suggestion') : null;
-            if (target) {
-              evt.preventDefault();
-            }
-          });
-          dom.supplies.catalogSuggestions.addEventListener('touchstart', evt => {
-            const target = evt.target instanceof Element ? evt.target.closest('.catalog-suggestion') : null;
-            if (target) {
-              evt.preventDefault();
-            }
-          }, { passive: false });
         }
         dom.supplies.more.addEventListener('click', () => {
           if (!state.loading.supplies && state.nextTokens.supplies) {
@@ -1841,7 +1740,6 @@
         const searchValue = state.catalog.search || '';
         dom.supplies.catalogSearch.value = searchValue;
         updateCatalogSearchAffordances();
-        renderCatalogSuggestions();
         updateCatalogControls();
 
         if (!state.catalog.items.length) {
@@ -1954,7 +1852,6 @@
             card.appendChild(badge);
           }
           const handleSelect = () => {
-            setCatalogSuggestionsOpen(false, { resetActive: true });
             selectCatalogSku(item.sku);
             renderCatalog();
           };
@@ -1978,121 +1875,6 @@
         }
       }
 
-      function renderCatalogSuggestions() {
-        const container = dom.supplies.catalogSuggestions;
-        if (!container) {
-          return;
-        }
-        if (!state.catalog.suggestionsOpen) {
-          container.textContent = '';
-          container.classList.remove('open');
-          container.setAttribute('aria-hidden', 'true');
-          state.catalog.visibleSuggestions = [];
-          return;
-        }
-        container.textContent = '';
-        container.classList.add('open');
-        container.setAttribute('aria-hidden', 'false');
-        const normalizedSearch = (dom.supplies.catalogSearch.value || '').trim().toLowerCase();
-        let suggestions = state.catalog.items.slice();
-        if (normalizedSearch) {
-          suggestions = suggestions.filter(item => {
-            const haystack = `${item.description} ${item.category || ''} ${item.sku}`.toLowerCase();
-            return haystack.indexOf(normalizedSearch) !== -1;
-          });
-        } else {
-          const popular = state.catalog.items.filter(item => Number(item.usageCount) > 0);
-          if (popular.length) {
-            suggestions = popular;
-          }
-        }
-        const limit = 8;
-        suggestions = suggestions.slice(0, limit);
-        state.catalog.visibleSuggestions = suggestions;
-        if (!suggestions.length) {
-          const empty = document.createElement('div');
-          empty.className = 'catalog-suggestion-empty';
-          empty.textContent = state.catalog.loading
-            ? 'Loading catalog…'
-            : 'Keep typing to search the catalog.';
-          container.appendChild(empty);
-          state.catalog.activeSuggestion = -1;
-          return;
-        }
-        if (state.catalog.activeSuggestion >= suggestions.length) {
-          state.catalog.activeSuggestion = -1;
-        }
-        suggestions.forEach((item, index) => {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'catalog-suggestion';
-          if (index === state.catalog.activeSuggestion) {
-            button.classList.add('active');
-          }
-          button.setAttribute('role', 'option');
-          button.setAttribute('aria-selected', index === state.catalog.activeSuggestion ? 'true' : 'false');
-          button.dataset.index = String(index);
-          button.dataset.sku = item.sku;
-          const primary = document.createElement('span');
-          primary.className = 'primary';
-          primary.textContent = item.description;
-          button.appendChild(primary);
-          const meta = document.createElement('span');
-          meta.className = 'meta';
-          meta.textContent = item.category ? `${item.category} • ${item.sku}` : item.sku;
-          button.appendChild(meta);
-          button.addEventListener('mouseenter', () => {
-            setActiveCatalogSuggestion(index);
-          });
-          button.addEventListener('focus', () => {
-            setActiveCatalogSuggestion(index);
-          });
-          button.addEventListener('click', () => {
-            setCatalogSuggestionsOpen(false, { resetActive: true });
-            selectCatalogSku(item.sku);
-            renderCatalog();
-            updateCatalogSearchAffordances();
-          });
-          container.appendChild(button);
-        });
-      }
-
-      function setCatalogSuggestionsOpen(open, options) {
-        const container = dom.supplies.catalogSuggestions;
-        if (!container) {
-          state.catalog.suggestionsOpen = false;
-          return;
-        }
-        const resetActive = Boolean(options && options.resetActive);
-        state.catalog.suggestionsOpen = Boolean(open);
-        if (resetActive) {
-          state.catalog.activeSuggestion = -1;
-        }
-        dom.supplies.catalogSearch.setAttribute('aria-expanded', state.catalog.suggestionsOpen ? 'true' : 'false');
-        container.classList.toggle('open', state.catalog.suggestionsOpen);
-        container.setAttribute('aria-hidden', state.catalog.suggestionsOpen ? 'false' : 'true');
-        if (state.catalog.suggestionsOpen) {
-          renderCatalogSuggestions();
-        } else {
-          state.catalog.visibleSuggestions = [];
-          container.textContent = '';
-        }
-      }
-
-      function setActiveCatalogSuggestion(index) {
-        state.catalog.activeSuggestion = typeof index === 'number' ? index : -1;
-        const container = dom.supplies.catalogSuggestions;
-        if (!container) {
-          return;
-        }
-        const buttons = Array.from(container.querySelectorAll('.catalog-suggestion'));
-        buttons.forEach((button, idx) => {
-          const isActive = idx === state.catalog.activeSuggestion;
-          button.classList.toggle('active', isActive);
-          button.setAttribute('aria-selected', isActive ? 'true' : 'false');
-        });
-      }
-
       function updateCatalogSearchAffordances() {
         if (!dom.supplies.catalogClear) {
           return;
@@ -2100,55 +1882,6 @@
         const hasValue = Boolean(dom.supplies.catalogSearch.value);
         const hasSelection = Boolean(dom.supplies.catalogSku.value);
         dom.supplies.catalogClear.classList.toggle('visible', hasValue || hasSelection);
-      }
-
-      function handleCatalogSearchKeydown(evt) {
-        const key = evt.key;
-        if (key === 'ArrowDown' || key === 'ArrowUp') {
-          if (!state.catalog.suggestionsOpen) {
-            setCatalogSuggestionsOpen(true, { resetActive: true });
-          }
-          if (!state.catalog.visibleSuggestions.length) {
-            return;
-          }
-          evt.preventDefault();
-          const maxIndex = state.catalog.visibleSuggestions.length - 1;
-          let nextIndex = state.catalog.activeSuggestion;
-          if (key === 'ArrowDown') {
-            nextIndex = nextIndex >= maxIndex ? 0 : nextIndex + 1;
-          } else {
-            nextIndex = nextIndex <= 0 ? maxIndex : nextIndex - 1;
-          }
-          setActiveCatalogSuggestion(nextIndex);
-          const container = dom.supplies.catalogSuggestions;
-          if (container) {
-            const buttons = container.querySelectorAll('.catalog-suggestion');
-            const active = buttons[nextIndex];
-            if (active && active.scrollIntoView) {
-              active.scrollIntoView({ block: 'nearest' });
-            }
-          }
-          return;
-        }
-        if (key === 'Enter') {
-          if (state.catalog.suggestionsOpen && state.catalog.activeSuggestion > -1) {
-            const item = state.catalog.visibleSuggestions[state.catalog.activeSuggestion];
-            if (item) {
-              evt.preventDefault();
-              setCatalogSuggestionsOpen(false, { resetActive: true });
-              selectCatalogSku(item.sku);
-              renderCatalog();
-              updateCatalogSearchAffordances();
-            }
-          }
-          return;
-        }
-        if (key === 'Escape') {
-          if (state.catalog.suggestionsOpen) {
-            evt.preventDefault();
-            setCatalogSuggestionsOpen(false, { resetActive: true });
-          }
-        }
       }
 
       function selectCatalogSku(sku, options) {
