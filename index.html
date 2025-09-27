@@ -95,13 +95,96 @@
       box-shadow: 0 12px 24px -18px rgba(23, 32, 42, 0.3);
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0;
     }
 
     h2 {
       margin: 0;
       font-size: 1.15rem;
       font-weight: 600;
+    }
+
+    .card-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 0;
+      text-align: left;
+      color: inherit;
+    }
+
+    .card-toggle-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .card-subtitle {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .card-chevron {
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 999px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease;
+    }
+
+    .card-chevron::before {
+      content: '';
+      border-style: solid;
+      border-width: 0.35rem 0.35rem 0 0;
+      border-color: var(--muted);
+      display: inline-block;
+      width: 0.5rem;
+      height: 0.5rem;
+      transform: rotate(45deg);
+    }
+
+    .card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .card.stack-enabled .card-toggle {
+      cursor: pointer;
+    }
+
+    .card.stack-enabled .card-chevron {
+      opacity: 1;
+    }
+
+    .card:not(.stack-enabled) .card-toggle {
+      cursor: default;
+    }
+
+    .card:not(.stack-enabled) .card-chevron {
+      display: none;
+    }
+
+    .card.stack-enabled.collapsed .card-body {
+      display: none;
+    }
+
+    .card.stack-enabled.collapsed .card-chevron {
+      transform: rotate(-90deg);
     }
 
     .form-grid {
@@ -411,140 +494,175 @@
   <main>
     <div class="tab-panel active" data-tab-panel="supplies">
       <section class="card" id="suppliesFormCard">
-        <div>
-          <h2>New supplies request</h2>
-          <p class="meta">Use the catalog to quickly fill in the item details before submitting.</p>
+        <button type="button" class="card-toggle" aria-expanded="true">
+          <span class="card-toggle-text">
+            <span class="card-title">New supplies request</span>
+            <span class="card-subtitle meta">Use the catalog to quickly fill in the item details before submitting.</span>
+          </span>
+          <span class="card-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="card-body">
+          <form id="suppliesForm" class="form-grid" novalidate>
+            <label class="full-width">
+              <span>Description</span>
+              <textarea id="suppliesDescription" name="description" autocomplete="off" required></textarea>
+            </label>
+            <label>
+              <span>Quantity</span>
+              <input id="suppliesQty" name="qty" type="number" min="1" step="1" required>
+            </label>
+            <label class="full-width">
+              <span>Notes (optional)</span>
+              <textarea id="suppliesNotes" name="notes" autocomplete="off"></textarea>
+            </label>
+            <label>
+              <span>Suggested item</span>
+              <select id="catalogSelect"></select>
+            </label>
+            <div class="inline-buttons full-width">
+              <button type="submit" id="suppliesSubmitButton">Submit request</button>
+              <button type="button" id="suppliesResetButton" class="secondary">Reset</button>
+            </div>
+          </form>
         </div>
-        <form id="suppliesForm" class="form-grid" novalidate>
-          <label class="full-width">
-            <span>Description</span>
-            <textarea id="suppliesDescription" name="description" autocomplete="off" required></textarea>
-          </label>
-          <label>
-            <span>Quantity</span>
-            <input id="suppliesQty" name="qty" type="number" min="1" step="1" required>
-          </label>
-          <label class="full-width">
-            <span>Notes (optional)</span>
-            <textarea id="suppliesNotes" name="notes" autocomplete="off"></textarea>
-          </label>
-          <label>
-            <span>Suggested item</span>
-            <select id="catalogSelect"></select>
-          </label>
-          <div class="inline-buttons full-width">
-            <button type="submit" id="suppliesSubmitButton">Submit request</button>
-            <button type="button" id="suppliesResetButton" class="secondary">Reset</button>
-          </div>
-        </form>
       </section>
 
       <section class="card" id="suppliesRequestsCard">
-        <div>
-          <h2>Supplies requests</h2>
-          <p class="meta">Track order status and approvals in one place.</p>
+        <button type="button" class="card-toggle" aria-expanded="false">
+          <span class="card-toggle-text">
+            <span class="card-title">Supplies requests</span>
+            <span class="card-subtitle meta">Track order status and approvals in one place.</span>
+          </span>
+          <span class="card-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="card-body">
+          <div id="suppliesRequestsList" class="list" role="list"></div>
+          <button type="button" id="suppliesMoreButton" class="load-more secondary">Load more</button>
         </div>
-        <div id="suppliesRequestsList" class="list" role="list"></div>
-        <button type="button" id="suppliesMoreButton" class="load-more secondary">Load more</button>
       </section>
 
       <section class="card" id="catalogCard">
-        <div>
-          <h2>Catalog</h2>
-          <p class="meta">Tap an item to autofill the request form.</p>
+        <button type="button" class="card-toggle" aria-expanded="false">
+          <span class="card-toggle-text">
+            <span class="card-title">Catalog</span>
+            <span class="card-subtitle meta">Tap an item to autofill the request form.</span>
+          </span>
+          <span class="card-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="card-body">
+          <div id="catalogList" class="list" role="list"></div>
+          <button type="button" id="catalogMoreButton" class="load-more secondary">Load more</button>
         </div>
-        <div id="catalogList" class="list" role="list"></div>
-        <button type="button" id="catalogMoreButton" class="load-more secondary">Load more</button>
       </section>
     </div>
 
     <div class="tab-panel" data-tab-panel="it">
       <section class="card" id="itFormCard">
-        <div>
-          <h2>New IT request</h2>
-          <p class="meta">Report technology issues or access needs for quick routing.</p>
+        <button type="button" class="card-toggle" aria-expanded="true">
+          <span class="card-toggle-text">
+            <span class="card-title">New IT request</span>
+            <span class="card-subtitle meta">Report technology issues or access needs for quick routing.</span>
+          </span>
+          <span class="card-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="card-body">
+          <form id="itForm" class="form-grid" novalidate>
+            <label class="full-width">
+              <span>Issue summary</span>
+              <textarea id="itIssue" name="issue" autocomplete="off" required></textarea>
+            </label>
+            <label>
+              <span>Device or system</span>
+              <input id="itDevice" name="device" type="text" autocomplete="off">
+            </label>
+            <label>
+              <span>Impact</span>
+              <select id="itImpact" name="impact">
+                <option value="low">Low</option>
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </label>
+            <label class="full-width">
+              <span>Additional details</span>
+              <textarea id="itDetails" name="details" autocomplete="off"></textarea>
+            </label>
+            <div class="inline-buttons full-width">
+              <button type="submit" id="itSubmitButton">Submit request</button>
+              <button type="button" id="itResetButton" class="secondary">Reset</button>
+            </div>
+          </form>
         </div>
-        <form id="itForm" class="form-grid" novalidate>
-          <label class="full-width">
-            <span>Issue summary</span>
-            <textarea id="itIssue" name="issue" autocomplete="off" required></textarea>
-          </label>
-          <label>
-            <span>Device or system</span>
-            <input id="itDevice" name="device" type="text" autocomplete="off">
-          </label>
-          <label>
-            <span>Impact</span>
-            <select id="itImpact" name="impact">
-              <option value="low">Low</option>
-              <option value="normal">Normal</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-            </select>
-          </label>
-          <label class="full-width">
-            <span>Additional details</span>
-            <textarea id="itDetails" name="details" autocomplete="off"></textarea>
-          </label>
-          <div class="inline-buttons full-width">
-            <button type="submit" id="itSubmitButton">Submit request</button>
-            <button type="button" id="itResetButton" class="secondary">Reset</button>
-          </div>
-        </form>
       </section>
 
       <section class="card" id="itRequestsCard">
-        <div>
-          <h2>IT queue</h2>
-          <p class="meta">Monitor progress and close items when resolved.</p>
+        <button type="button" class="card-toggle" aria-expanded="false">
+          <span class="card-toggle-text">
+            <span class="card-title">IT queue</span>
+            <span class="card-subtitle meta">Monitor progress and close items when resolved.</span>
+          </span>
+          <span class="card-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="card-body">
+          <div id="itRequestsList" class="list" role="list"></div>
+          <button type="button" id="itMoreButton" class="load-more secondary">Load more</button>
         </div>
-        <div id="itRequestsList" class="list" role="list"></div>
-        <button type="button" id="itMoreButton" class="load-more secondary">Load more</button>
       </section>
     </div>
 
     <div class="tab-panel" data-tab-panel="maintenance">
       <section class="card" id="maintenanceFormCard">
-        <div>
-          <h2>New maintenance request</h2>
-          <p class="meta">Share location details so facilities can prioritize the work.</p>
+        <button type="button" class="card-toggle" aria-expanded="true">
+          <span class="card-toggle-text">
+            <span class="card-title">New maintenance request</span>
+            <span class="card-subtitle meta">Share location details so facilities can prioritize the work.</span>
+          </span>
+          <span class="card-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="card-body">
+          <form id="maintenanceForm" class="form-grid" novalidate>
+            <label>
+              <span>Location</span>
+              <input id="maintenanceLocation" name="location" type="text" autocomplete="off" required>
+            </label>
+            <label class="full-width">
+              <span>Issue description</span>
+              <textarea id="maintenanceIssue" name="issue" autocomplete="off" required></textarea>
+            </label>
+            <label>
+              <span>Urgency</span>
+              <select id="maintenanceUrgency" name="urgency">
+                <option value="low">Low</option>
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </label>
+            <label class="full-width">
+              <span>Access notes (optional)</span>
+              <textarea id="maintenanceAccessNotes" name="accessNotes" autocomplete="off"></textarea>
+            </label>
+            <div class="inline-buttons full-width">
+              <button type="submit" id="maintenanceSubmitButton">Submit request</button>
+              <button type="button" id="maintenanceResetButton" class="secondary">Reset</button>
+            </div>
+          </form>
         </div>
-        <form id="maintenanceForm" class="form-grid" novalidate>
-          <label>
-            <span>Location</span>
-            <input id="maintenanceLocation" name="location" type="text" autocomplete="off" required>
-          </label>
-          <label class="full-width">
-            <span>Issue description</span>
-            <textarea id="maintenanceIssue" name="issue" autocomplete="off" required></textarea>
-          </label>
-          <label>
-            <span>Urgency</span>
-            <select id="maintenanceUrgency" name="urgency">
-              <option value="low">Low</option>
-              <option value="normal">Normal</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-            </select>
-          </label>
-          <label class="full-width">
-            <span>Access notes (optional)</span>
-            <textarea id="maintenanceAccessNotes" name="accessNotes" autocomplete="off"></textarea>
-          </label>
-          <div class="inline-buttons full-width">
-            <button type="submit" id="maintenanceSubmitButton">Submit request</button>
-            <button type="button" id="maintenanceResetButton" class="secondary">Reset</button>
-          </div>
-        </form>
       </section>
 
       <section class="card" id="maintenanceRequestsCard">
-        <div>
-          <h2>Maintenance pipeline</h2>
-          <p class="meta">See outstanding work orders and update when finished.</p>
+        <button type="button" class="card-toggle" aria-expanded="false">
+          <span class="card-toggle-text">
+            <span class="card-title">Maintenance pipeline</span>
+            <span class="card-subtitle meta">See outstanding work orders and update when finished.</span>
+          </span>
+          <span class="card-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="card-body">
+          <div id="maintenanceRequestsList" class="list" role="list"></div>
+          <button type="button" id="maintenanceMoreButton" class="load-more secondary">Load more</button>
         </div>
-        <div id="maintenanceRequestsList" class="list" role="list"></div>
-        <button type="button" id="maintenanceMoreButton" class="load-more secondary">Load more</button>
       </section>
     </div>
   </main>
@@ -608,6 +726,11 @@
           items: [],
           nextToken: '',
           loading: false
+        },
+        openCards: {
+          supplies: 'suppliesFormCard',
+          it: 'itFormCard',
+          maintenance: 'maintenanceFormCard'
         }
       };
 
@@ -652,10 +775,56 @@
         }
       };
 
+      const CARD_ORDER = {
+        supplies: ['suppliesFormCard', 'suppliesRequestsCard', 'catalogCard'],
+        it: ['itFormCard', 'itRequestsCard'],
+        maintenance: ['maintenanceFormCard', 'maintenanceRequestsCard']
+      };
+
+      const cards = {};
+      Object.entries(CARD_ORDER).forEach(([type, ids]) => {
+        cards[type] = ids.map(id => {
+          const el = document.getElementById(id);
+          return {
+            id,
+            el,
+            toggle: el ? el.querySelector('.card-toggle') : null,
+            body: el ? el.querySelector('.card-body') : null
+          };
+        });
+      });
+
+      const stackQuery = window.matchMedia('(max-width: 719px)');
+
+      Object.entries(cards).forEach(([type, group]) => {
+        group.forEach(({ toggle, id }) => {
+          if (!toggle) {
+            return;
+          }
+          toggle.addEventListener('click', () => {
+            if (!stackQuery.matches) {
+              return;
+            }
+            if (state.openCards[type] === id) {
+              return;
+            }
+            state.openCards[type] = id;
+            syncCardStack();
+          });
+        });
+      });
+
+      if (typeof stackQuery.addEventListener === 'function') {
+        stackQuery.addEventListener('change', syncCardStack);
+      } else if (typeof stackQuery.addListener === 'function') {
+        stackQuery.addListener(syncCardStack);
+      }
+
       const initialSessionEmail = SESSION && SESSION.email ? String(SESSION.email) : '';
 
       attachNavHandlers();
       attachFormHandlers();
+      syncCardStack();
       REQUEST_KEYS.forEach(type => {
         hydrateFormFromCache(type);
         renderForm(type);
@@ -669,6 +838,36 @@
         REQUEST_KEYS.forEach(type => {
           state.loaded[type] = true;
           renderRequests(type);
+        });
+      }
+
+      function syncCardStack() {
+        const stacked = stackQuery.matches;
+        Object.entries(cards).forEach(([type, group]) => {
+          if (!state.openCards[type] && CARD_ORDER[type] && CARD_ORDER[type].length) {
+            state.openCards[type] = CARD_ORDER[type][0];
+          }
+          const activeId = state.openCards[type];
+          group.forEach(({ id, el, toggle, body }) => {
+            const isActive = !stacked || id === activeId;
+            if (el) {
+              el.classList.toggle('stack-enabled', stacked);
+              el.classList.toggle('collapsed', stacked && !isActive);
+            }
+            if (toggle) {
+              toggle.setAttribute('aria-expanded', String(isActive));
+              if (stacked) {
+                toggle.removeAttribute('aria-disabled');
+                toggle.tabIndex = 0;
+              } else {
+                toggle.setAttribute('aria-disabled', 'true');
+                toggle.tabIndex = -1;
+              }
+            }
+            if (body) {
+              body.hidden = stacked && !isActive;
+            }
+          });
         });
       }
 
@@ -783,6 +982,10 @@
         dom.panels.forEach(panel => {
           panel.classList.toggle('active', panel.getAttribute('data-tab-panel') === type);
         });
+        if (!state.openCards[type] && CARD_ORDER[type] && CARD_ORDER[type].length) {
+          state.openCards[type] = CARD_ORDER[type][0];
+        }
+        syncCardStack();
         ensureRequestsLoaded(type);
         scheduleWarmCache();
       }
