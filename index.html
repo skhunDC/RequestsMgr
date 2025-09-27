@@ -27,10 +27,13 @@
       margin: 0;
       background: var(--surface-alt);
       color: var(--text);
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
     header {
-      padding: 1.5rem 1rem 0.75rem;
+      padding: clamp(1.25rem, 6vw, 1.75rem) clamp(1rem, 6vw, 2.25rem) clamp(0.75rem, 4vw, 1.25rem);
       text-align: center;
     }
 
@@ -56,13 +59,18 @@
     nav.tab-nav {
       display: flex;
       gap: 0.5rem;
-      padding: 0 1rem 0.75rem;
+      padding: 0 clamp(0.75rem, 6vw, 2rem) clamp(0.75rem, 4vw, 1.25rem);
       overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    nav.tab-nav::-webkit-scrollbar {
+      display: none;
     }
 
     main {
-      padding: 0 1rem 2.5rem;
-      max-width: 720px;
+      padding: 0 clamp(0.75rem, 6vw, 2rem) 2.5rem;
+      width: min(100%, 720px);
       margin: 0 auto;
     }
 
@@ -79,7 +87,7 @@
     section.card {
       background: var(--surface);
       border-radius: 16px;
-      padding: 1.25rem;
+      padding: clamp(1rem, 5vw, 1.5rem);
       box-shadow: 0 12px 24px -18px rgba(23, 32, 42, 0.3);
       display: flex;
       flex-direction: column;
@@ -183,8 +191,8 @@
     }
 
     .tab-nav button {
-      flex: 1 1 0;
-      min-width: 140px;
+      flex: 1 1 auto;
+      min-width: 0;
       padding: 0.65rem 1rem;
       border-radius: 999px;
       border: 1px solid var(--border);
@@ -313,6 +321,42 @@
       min-width: 200px;
       text-align: center;
     }
+
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton {
+        animation: none;
+      }
+    }
+
+    @media (min-width: 600px) {
+      body {
+        font-size: 17px;
+      }
+
+      .tab-panel {
+        gap: 1.5rem;
+      }
+
+      nav.tab-nav {
+        justify-content: center;
+      }
+    }
+
+    @media (min-width: 960px) {
+      main {
+        width: min(100%, 980px);
+      }
+
+      .tab-panel.active {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+      }
+
+      .tab-panel.active section.card {
+        height: 100%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -321,6 +365,8 @@
       class="logo"
       src="https://www.dublincleaners.com/wp-content/uploads/2024/12/Dublin-Logos-stacked.png"
       alt="Dublin Cleaners logo"
+      loading="lazy"
+      decoding="async"
       width="150"
     >
     <h1>Request Manager</h1>
@@ -481,6 +527,9 @@
       const hasServer = typeof google !== 'undefined' && google.script && google.script.run;
       const server = hasServer ? google.script.run : null;
       const REQUEST_KEYS = ['supplies', 'it', 'maintenance'];
+      const PERSIST_DELAY = 240;
+      const persistTimers = {};
+      let warmScheduled = false;
       const FORM_TEMPLATES = {
         supplies: { description: '', qty: 1, notes: '' },
         it: { issue: '', device: '', impact: 'normal', details: '' },
@@ -704,6 +753,7 @@
           panel.classList.toggle('active', panel.getAttribute('data-tab-panel') === type);
         });
         ensureRequestsLoaded(type);
+        scheduleWarmCache();
       }
 
       function ensureRequestsLoaded(type) {
@@ -711,6 +761,26 @@
           return;
         }
         loadRequests(type, { append: false });
+      }
+
+      function scheduleWarmCache() {
+        if (!hasServer || warmScheduled) {
+          return;
+        }
+        warmScheduled = true;
+        const idle = typeof window.requestIdleCallback === 'function'
+          ? window.requestIdleCallback
+          : callback => setTimeout(() => callback({ didTimeout: false }), 600);
+        idle(() => {
+          const others = REQUEST_KEYS.filter(tab => tab !== state.activeTab);
+          others.forEach((type, index) => {
+            setTimeout(() => {
+              if (!state.loaded[type]) {
+                loadRequests(type, { append: false });
+              }
+            }, index * 220);
+          });
+        });
       }
 
       function handleSubmit(event, type) {
@@ -781,7 +851,7 @@
       function resetForm(type) {
         state.forms[type] = Object.assign({}, FORM_TEMPLATES[type]);
         renderForm(type);
-        persistForm(type);
+        persistForm(type, { immediate: true });
       }
 
       function renderForm(type) {
@@ -1082,12 +1152,34 @@
         state.forms[type] = Object.assign({}, state.forms[type], partial);
       }
 
-      function persistForm(type) {
+      function persistForm(type, options) {
+        const immediate = options && options.immediate;
+        if (immediate) {
+          flushPersist(type);
+          return;
+        }
+        clearTimeout(persistTimers[type]);
+        persistTimers[type] = setTimeout(() => {
+          flushPersist(type);
+        }, PERSIST_DELAY);
+      }
+
+      function flushPersist(type) {
         try {
           localStorage.setItem(LOCAL_KEYS[type], JSON.stringify(state.forms[type]));
         } catch (err) {
           // ignore storage errors
         }
+      }
+
+      function flushAllPersists() {
+        REQUEST_KEYS.forEach(type => {
+          if (persistTimers[type]) {
+            clearTimeout(persistTimers[type]);
+            persistTimers[type] = null;
+          }
+          flushPersist(type);
+        });
       }
 
       function hydrateFormFromCache(type) {
@@ -1103,6 +1195,13 @@
           // ignore cache issues
         }
       }
+
+      window.addEventListener('beforeunload', flushAllPersists);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          flushAllPersists();
+        }
+      });
 
       function toggleRequestsSkeleton(type, active) {
         if (!active || state.requests[type].length) {
