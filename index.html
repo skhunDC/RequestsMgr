@@ -1136,7 +1136,7 @@
 
           const meta = document.createElement('span');
           meta.className = 'meta';
-          meta.textContent = buildRequestMeta(request);
+          meta.textContent = buildRequestMeta(request, type);
           item.appendChild(meta);
 
           const status = document.createElement('span');
@@ -1158,6 +1158,23 @@
           }
 
           if (type === 'supplies') {
+            const submittedLine = document.createElement('span');
+            submittedLine.className = 'detail-line';
+            submittedLine.textContent = `Submitted by: ${request.requester || 'Unknown requester'}`;
+            item.appendChild(submittedLine);
+
+            const decisionLine = document.createElement('span');
+            decisionLine.className = 'detail-line';
+            const approverName = request.approver || 'Not recorded';
+            if (stateKey === 'denied' || stateKey === 'declined') {
+              decisionLine.textContent = `Denied by: ${approverName}`;
+            } else if (stateKey === 'approved' || stateKey === 'ordered' || stateKey === 'completed') {
+              decisionLine.textContent = `Approved by: ${approverName}`;
+            } else {
+              decisionLine.textContent = 'Approval decision pending';
+            }
+            item.appendChild(decisionLine);
+
             const buttonRow = document.createElement('div');
             buttonRow.className = 'inline-buttons';
             let hasButtons = false;
@@ -1261,7 +1278,7 @@
           .updateRequestStatus(payload);
       }
 
-      function buildRequestMeta(request) {
+      function buildRequestMeta(request, type) {
         const parts = [];
         if (request.ts) {
           try {
@@ -1270,10 +1287,10 @@
             parts.push(request.ts);
           }
         }
-        if (request.requester) {
+        if (type !== 'supplies' && request.requester) {
           parts.push(request.requester);
         }
-        if (request.approver && request.status !== 'pending') {
+        if (type !== 'supplies' && request.approver && request.status !== 'pending') {
           parts.push(`by ${request.approver}`);
         }
         return parts.join(' • ');
