@@ -35,25 +35,29 @@
     header {
       padding: clamp(1.25rem, 6vw, 1.75rem) clamp(1rem, 6vw, 2.25rem) clamp(0.75rem, 4vw, 1.25rem);
       text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      align-items: center;
     }
 
     header img.logo {
-      width: 150px;
+      width: clamp(120px, 32vw, 150px);
       height: auto;
       display: block;
-      margin: 0 auto 0.75rem;
     }
 
     header h1 {
       margin: 0;
-      font-size: 1.5rem;
+      font-size: clamp(1.35rem, 4.5vw, 1.75rem);
       font-weight: 600;
     }
 
     header p {
-      margin: 0.25rem 0 0;
+      margin: 0;
       color: var(--muted);
-      font-size: 0.95rem;
+      font-size: clamp(0.9rem, 3.5vw, 1rem);
+      max-width: 40rem;
     }
 
     nav.tab-nav {
@@ -342,15 +346,40 @@
       }
     }
 
+    @media (min-width: 720px) {
+      main {
+        width: min(100%, 900px);
+      }
+
+      header {
+        text-align: left;
+        align-items: center;
+        flex-direction: row;
+        justify-content: space-between;
+      }
+
+      header .hero-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        align-items: flex-start;
+      }
+
+      header p {
+        max-width: 28rem;
+      }
+    }
+
     @media (min-width: 960px) {
       main {
-        width: min(100%, 980px);
+        width: min(100%, 1080px);
       }
 
       .tab-panel.active {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         gap: 1.5rem;
+        align-items: stretch;
       }
 
       .tab-panel.active section.card {
@@ -369,8 +398,10 @@
       decoding="async"
       width="150"
     >
-    <h1>Request Manager</h1>
-    <p>Submit and track supplies, IT, and maintenance needs from one workspace.</p>
+    <div class="hero-copy">
+      <h1>Request Manager</h1>
+      <p>Submit and track supplies, IT, and maintenance needs from one workspace.</p>
+    </div>
   </header>
   <nav class="tab-nav" aria-label="Request types">
     <button type="button" data-tab-trigger="supplies" class="active">Supplies</button>
