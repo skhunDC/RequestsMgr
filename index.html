@@ -315,7 +315,7 @@
       gap: 0.75rem;
     }
 
-    .catalog-picker {
+    .catalog-combobox {
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
@@ -341,58 +341,8 @@
       -webkit-appearance: none;
     }
 
-    .catalog-suggestions {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .catalog-suggestions[hidden] {
-      display: none;
-    }
-
-    .catalog-suggestion {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.2rem;
-      padding: 0.65rem 0.75rem;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: inherit;
-      text-align: left;
-      transition: border 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-      cursor: pointer;
-    }
-
-    .catalog-suggestion .label {
+    datalist option {
       font-size: 0.95rem;
-      font-weight: 600;
-    }
-
-    .catalog-suggestion .meta {
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-
-    .catalog-suggestion .meta.usage {
-      color: var(--accent-strong);
-      font-weight: 500;
-    }
-
-    .catalog-suggestion:hover,
-    .catalog-suggestion:focus {
-      border-color: rgba(11, 87, 208, 0.4);
-      background: rgba(11, 87, 208, 0.05);
-      box-shadow: 0 6px 12px -10px rgba(11, 87, 208, 0.4);
-      outline: none;
-    }
-
-    .catalog-suggestion.selected {
-      border-color: rgba(11, 87, 208, 0.65);
-      background: rgba(11, 87, 208, 0.08);
-      box-shadow: 0 0 0 1px rgba(11, 87, 208, 0.35);
     }
 
     .input-helper {
@@ -686,7 +636,7 @@
             <label class="full-width">
               <span>Catalog item</span>
               <div class="catalog-field">
-                <div class="catalog-picker" role="group" aria-label="Catalog quick pick">
+                <div class="catalog-combobox" role="group" aria-label="Catalog search">
                   <div class="catalog-search">
                     <input
                       id="catalogSearch"
@@ -695,18 +645,12 @@
                       placeholder="Search by name, category, or SKU"
                       autocomplete="off"
                       spellcheck="false"
-                      aria-controls="catalogSuggestionList"
+                      list="catalogOptions"
                     >
+                    <datalist id="catalogOptions"></datalist>
                   </div>
-                  <div
-                    id="catalogSuggestionList"
-                    class="catalog-suggestions"
-                    role="listbox"
-                    aria-label="Top catalog matches"
-                    hidden
-                  ></div>
                 </div>
-                <select id="catalogSelect" name="catalogSku" class="visually-hidden" tabindex="-1" aria-hidden="true"></select>
+                <input id="catalogSkuField" name="catalogSku" type="hidden">
               </div>
               <span class="input-helper custom-item-alert">Can't find it? Enter a Custom Item below.</span>
             </label>
@@ -984,8 +928,8 @@
           list: document.getElementById('suppliesRequestsList'),
           more: document.getElementById('suppliesMoreButton'),
           catalogSearch: document.getElementById('catalogSearch'),
-          catalogSelect: document.getElementById('catalogSelect'),
-          catalogSuggestions: document.getElementById('catalogSuggestionList'),
+          catalogOptions: document.getElementById('catalogOptions'),
+          catalogSku: document.getElementById('catalogSkuField'),
           catalogList: document.getElementById('catalogList'),
           catalogMore: document.getElementById('catalogMoreButton')
         },
@@ -1077,7 +1021,7 @@
               }
             }
             setFormState('supplies', { description: value, catalogSku: matchedSku });
-            dom.supplies.catalogSelect.value = matchedSku;
+            dom.supplies.catalogSku.value = matchedSku;
           } else {
             setFormState('supplies', { description: value });
           }
@@ -1089,31 +1033,22 @@
         dom.supplies.catalogSearch.addEventListener('focus', () => {
           ensureFullCatalogLoaded();
         });
-        dom.supplies.catalogSearch.addEventListener('input', () => {
-          state.catalog.search = dom.supplies.catalogSearch.value || '';
+        const handleCatalogSearchInput = () => {
+          const rawValue = dom.supplies.catalogSearch.value || '';
+          state.catalog.search = rawValue;
           ensureFullCatalogLoaded();
+          const option = findCatalogOption(rawValue);
+          if (option) {
+            selectCatalogSku(option.dataset ? option.dataset.sku || '' : '', { searchValue: rawValue, updateSearch: false });
+          } else {
+            selectCatalogSku('', { searchValue: rawValue, updateSearch: false, preserveDescription: true });
+          }
           if (state.catalog.items.length) {
             renderCatalog();
           }
-        });
-        dom.supplies.catalogSelect.addEventListener('focus', () => {
-          ensureFullCatalogLoaded();
-        });
-        dom.supplies.catalogSelect.addEventListener('change', () => {
-          const option = dom.supplies.catalogSelect.options[dom.supplies.catalogSelect.selectedIndex];
-          const sku = option ? option.value : '';
-          const existingDescription = state.forms.supplies.description || '';
-          const description = option && option.dataset ? (option.dataset.description || '') : '';
-          const nextDescription = sku ? description : existingDescription;
-          syncingCatalogToDescription = true;
-          dom.supplies.description.value = nextDescription;
-          syncingCatalogToDescription = false;
-          setFormState('supplies', { catalogSku: sku, description: nextDescription });
-          persistForm('supplies');
-          if (state.catalog.items.length) {
-            renderCatalog();
-          }
-        });
+        };
+        dom.supplies.catalogSearch.addEventListener('input', handleCatalogSearchInput);
+        dom.supplies.catalogSearch.addEventListener('change', handleCatalogSearchInput);
         dom.supplies.more.addEventListener('click', () => {
           if (!state.loading.supplies && state.nextTokens.supplies) {
             loadRequests('supplies', { append: true });
@@ -1294,6 +1229,9 @@
 
       function resetForm(type) {
         state.forms[type] = Object.assign({}, FORM_TEMPLATES[type]);
+        if (type === 'supplies') {
+          state.catalog.search = '';
+        }
         renderForm(type);
         if (type === 'supplies' && state.catalog.items.length) {
           renderCatalog();
@@ -1304,7 +1242,7 @@
       function renderForm(type) {
         const formState = state.forms[type];
         if (type === 'supplies') {
-          dom.supplies.catalogSelect.value = formState.catalogSku || '';
+          dom.supplies.catalogSku.value = formState.catalogSku || '';
           dom.supplies.location.value = formState.location || '';
           dom.supplies.qty.value = formState.qty || 1;
           dom.supplies.description.value = formState.description || '';
@@ -1739,22 +1677,13 @@
 
       function renderCatalog() {
         dom.supplies.catalogList.textContent = '';
-        dom.supplies.catalogSelect.textContent = '';
+        if (dom.supplies.catalogOptions) {
+          dom.supplies.catalogOptions.textContent = '';
+        }
         let selectedSku = state.forms.supplies.catalogSku || '';
         const searchValue = state.catalog.search || '';
         dom.supplies.catalogSearch.value = searchValue;
         updateCatalogControls();
-
-        updateCatalogSuggestions([], selectedSku);
-
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        if (state.catalog.items.length) {
-          defaultOption.textContent = searchValue.trim() ? 'Select a match' : 'Search or choose an item';
-        } else {
-          defaultOption.textContent = state.catalog.loading ? 'Loading catalog…' : 'Catalog unavailable';
-        }
-        dom.supplies.catalogSelect.appendChild(defaultOption);
 
         if (!state.catalog.items.length) {
           dom.supplies.catalogSearch.disabled = !state.catalog.loading;
@@ -1766,25 +1695,21 @@
             empty.textContent = hasServer ? 'No catalog items found.' : 'Catalog requires Google Apps Script.';
             dom.supplies.catalogList.appendChild(empty);
           }
-          dom.supplies.catalogSelect.disabled = true;
           return;
         }
 
         dom.supplies.catalogSearch.disabled = false;
 
         const descriptionValue = (state.forms.supplies.description || '').trim();
-        let shouldPersist = false;
         if (!selectedSku && descriptionValue) {
           const match = state.catalog.items.find(item => item.description.toLowerCase() === descriptionValue.toLowerCase());
           if (match) {
+            selectCatalogSku(match.sku, { updateSearch: false });
             selectedSku = match.sku;
-            setFormState('supplies', { catalogSku: match.sku, description: match.description });
-            syncingCatalogToDescription = true;
-            dom.supplies.description.value = match.description;
-            syncingCatalogToDescription = false;
-            shouldPersist = true;
           }
         }
+
+        dom.supplies.catalogSku.value = selectedSku;
 
         const normalizedSearch = searchValue.trim().toLowerCase();
         let filteredItems = state.catalog.items.slice();
@@ -1793,8 +1718,9 @@
             const haystack = `${item.description} ${item.category} ${item.sku}`.toLowerCase();
             return haystack.indexOf(normalizedSearch) !== -1;
           });
-          if (selectedSku && !filteredItems.some(item => item.sku === selectedSku)) {
-            const selectedItem = state.catalog.items.find(item => item.sku === selectedSku);
+          const skuToHighlight = state.forms.supplies.catalogSku || '';
+          if (skuToHighlight && !filteredItems.some(item => item.sku === skuToHighlight)) {
+            const selectedItem = findCatalogItem(skuToHighlight);
             if (selectedItem) {
               filteredItems.unshift(selectedItem);
             }
@@ -1802,7 +1728,6 @@
         }
 
         if (!filteredItems.length) {
-          updateCatalogSuggestions([], selectedSku);
           const empty = document.createElement('p');
           empty.className = 'empty';
           if (normalizedSearch) {
@@ -1813,31 +1738,36 @@
             empty.textContent = hasServer ? 'No catalog items found.' : 'Catalog requires Google Apps Script.';
           }
           dom.supplies.catalogList.appendChild(empty);
-          dom.supplies.catalogSelect.disabled = true;
           return;
         }
-
-        updateCatalogSuggestions(filteredItems, selectedSku);
 
         const popularItems = state.catalog.items.filter(item => Number(item.usageCount) > 0);
         const topRank = Math.min(5, popularItems.length);
         const topSkuSet = new Set(popularItems.slice(0, topRank).map(item => item.sku));
 
+        if (dom.supplies.catalogOptions) {
+          const datalistFragment = document.createDocumentFragment();
+          const limit = 25;
+          const datalistItems = filteredItems.slice(0, limit);
+          if (selectedSku) {
+            const selectedItem = findCatalogItem(selectedSku);
+            if (selectedItem && !datalistItems.some(entry => entry.sku === selectedSku)) {
+              datalistItems.unshift(selectedItem);
+            }
+          }
+          datalistItems.slice(0, limit).forEach(item => {
+            const option = document.createElement('option');
+            option.value = formatCatalogOptionValue(item, topSkuSet.has(item.sku));
+            option.dataset.sku = item.sku;
+            option.dataset.description = item.description;
+            option.dataset.category = item.category || '';
+            datalistFragment.appendChild(option);
+          });
+          dom.supplies.catalogOptions.appendChild(datalistFragment);
+        }
+
         const fragment = document.createDocumentFragment();
         filteredItems.forEach(item => {
-          const option = document.createElement('option');
-          option.value = item.sku;
-          const categoryLabel = item.category ? ` · ${item.category}` : '';
-          const label = `${item.description}${categoryLabel}`;
-          option.textContent = topSkuSet.has(item.sku) && Number(item.usageCount) > 0 ? `★ ${label}` : label;
-          option.dataset.description = item.description;
-          option.dataset.category = item.category || '';
-          option.dataset.usageCount = String(item.usageCount || 0);
-          if (item.sku === selectedSku) {
-            option.selected = true;
-          }
-          dom.supplies.catalogSelect.appendChild(option);
-
           const card = document.createElement('article');
           card.className = 'catalog-item';
           if (item.sku === selectedSku) {
@@ -1866,6 +1796,7 @@
           }
           const handleSelect = () => {
             selectCatalogSku(item.sku);
+            renderCatalog();
           };
           card.addEventListener('click', () => {
             handleSelect();
@@ -1879,77 +1810,57 @@
           fragment.appendChild(card);
         });
         dom.supplies.catalogList.appendChild(fragment);
-        dom.supplies.catalogSelect.disabled = false;
-        dom.supplies.catalogSelect.value = selectedSku || '';
         if (state.catalog.loading && !state.catalog.fullyLoaded) {
           const loading = document.createElement('p');
           loading.className = 'meta';
           loading.textContent = 'Loading remaining catalog items…';
           dom.supplies.catalogList.appendChild(loading);
         }
-        if (shouldPersist) {
+      }
+
+      function selectCatalogSku(sku, options) {
+        const opts = options || {};
+        const item = sku ? findCatalogItem(sku) : null;
+        const shouldUpdateSearch = opts.updateSearch !== false;
+        const searchValue = 'searchValue' in opts
+          ? opts.searchValue
+          : item
+            ? formatCatalogOptionValue(item, false)
+            : '';
+        if (shouldUpdateSearch) {
+          state.catalog.search = searchValue;
+          dom.supplies.catalogSearch.value = searchValue;
+        }
+        const preserveDescription = Boolean(opts.preserveDescription);
+        const nextDescription = item && !preserveDescription ? item.description : dom.supplies.description.value;
+        if (item && !preserveDescription) {
+          syncingCatalogToDescription = true;
+          dom.supplies.description.value = item.description;
+          syncingCatalogToDescription = false;
+        }
+        dom.supplies.catalogSku.value = sku || '';
+        setFormState('supplies', { catalogSku: sku || '', description: nextDescription });
+        if (opts.persist !== false) {
           persistForm('supplies');
         }
       }
 
-      function updateCatalogSuggestions(items, selectedSku) {
-        const container = dom.supplies.catalogSuggestions;
-        if (!container) {
-          return;
+      function formatCatalogOptionValue(item, highlight) {
+        if (!item) {
+          return '';
         }
-        container.textContent = '';
-        let suggestions = Array.isArray(items) ? items.slice(0, 3) : [];
-        if (selectedSku) {
-          const selectedItem = (Array.isArray(items) ? items : []).find(entry => entry.sku === selectedSku) || findCatalogItem(selectedSku);
-          if (selectedItem && !suggestions.some(entry => entry.sku === selectedSku)) {
-            suggestions.unshift(selectedItem);
-          }
-        }
-        suggestions = suggestions.slice(0, 3);
-        if (!suggestions.length) {
-          container.hidden = true;
-          container.setAttribute('aria-hidden', 'true');
-          return;
-        }
-        const fragment = document.createDocumentFragment();
-        suggestions.forEach(item => {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'catalog-suggestion';
-          if (item.sku === selectedSku) {
-            button.classList.add('selected');
-          }
-          button.setAttribute('role', 'option');
-          button.setAttribute('aria-selected', item.sku === selectedSku ? 'true' : 'false');
-          button.addEventListener('click', () => {
-            selectCatalogSku(item.sku);
-          });
-          const label = document.createElement('span');
-          label.className = 'label';
-          label.textContent = item.description;
-          button.appendChild(label);
-          const meta = document.createElement('span');
-          meta.className = 'meta';
-          meta.textContent = item.category ? `${item.category} • ${item.sku}` : item.sku;
-          button.appendChild(meta);
-          if (Number(item.usageCount) > 0) {
-            const usage = document.createElement('span');
-            usage.className = 'meta usage';
-            usage.textContent = item.usageCount === 1 ? 'Requested 1 time' : `Requested ${item.usageCount} times`;
-            button.appendChild(usage);
-          }
-          fragment.appendChild(button);
-        });
-        container.hidden = false;
-        container.setAttribute('aria-hidden', 'false');
-        container.appendChild(fragment);
+        const prefix = highlight ? '★ ' : '';
+        const categoryLabel = item.category ? ` · ${item.category}` : '';
+        return `${prefix}${item.description}${categoryLabel} — ${item.sku}`;
       }
 
-      function selectCatalogSku(sku) {
-        dom.supplies.catalogSelect.value = sku || '';
-        dom.supplies.catalogSelect.dispatchEvent(new Event('change'));
+      function findCatalogOption(value) {
+        if (!dom.supplies.catalogOptions) {
+          return null;
+        }
+        const options = Array.from(dom.supplies.catalogOptions.querySelectorAll('option'));
+        return options.find(option => option.value === value) || null;
       }
-
       function findCatalogItem(sku) {
         if (!sku) {
           return null;
@@ -2138,7 +2049,7 @@
           dom.supplies.location.disabled = disabled;
           dom.supplies.qty.disabled = disabled;
           dom.supplies.notes.disabled = disabled;
-          dom.supplies.catalogSelect.disabled = disabled;
+          dom.supplies.catalogSearch.disabled = disabled;
           dom.supplies.reset.disabled = disabled;
         } else if (type === 'it') {
           dom.it.submit.disabled = disabled;
