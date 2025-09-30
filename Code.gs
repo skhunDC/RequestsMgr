@@ -2,6 +2,7 @@
 
 const SCRIPT_PROP_SHEET_ID = 'SUPPLIES_TRACKING_SHEET_ID';
 const SCRIPT_PROP_SETUP_VERSION = 'SUPPLIES_TRACKING_SETUP_VERSION';
+const SCRIPT_PROP_STATUS_EMAILS = 'SUPPLIES_TRACKING_STATUS_EMAILS';
 const CURRENT_SETUP_VERSION = '2';
 const MAX_PAGE_SIZE = 50;
 
@@ -128,10 +129,11 @@ const CACHE_KEYS = {
   CATALOG: 'catalog:v2',
   CATALOG_USAGE: 'catalog-usage:v1',
   REQUESTS_PREFIX: 'requests',
-  RID_PREFIX: 'rid'
+  RID_PREFIX: 'rid',
+  STATUS_EMAILS: 'status-emails:v1'
 };
 
-const AUTHORIZED_STATUS_EMAILS = Object.freeze([
+const DEFAULT_STATUS_APPROVER_EMAILS = Object.freeze([
   'skhun@dublincleaners.com',
   'ss.sku@protonmail.com',
   'rbown@dublincleaners.com',
@@ -144,7 +146,8 @@ const AUTHORIZED_STATUS_EMAILS = Object.freeze([
 const CACHE_TTLS = {
   CATALOG: 300,
   REQUESTS: 180,
-  RID: 300
+  RID: 300,
+  STATUS_EMAILS: 300
 };
 
 function getRequiredSheetDefinitions_() {
@@ -162,10 +165,17 @@ function getRequiredSheetDefinitions_() {
 function doGet() {
   ensureSetup_();
   const template = HtmlService.createTemplateFromFile('index');
-  const email = getActiveUserEmail_();
+  const auth = getStatusAuthContext_();
   template.session = {
-    email,
-    canManageStatuses: isAuthorizedStatusActor_(email)
+    email: auth.email,
+    canManageStatuses: auth.authorized,
+    statusAuth: {
+      email: auth.email,
+      authorized: auth.authorized,
+      reason: auth.reason,
+      allowlistSource: auth.allowlistSource,
+      allowlistSize: auth.allowlistSize
+    }
   };
   return template.evaluate().setTitle('Request Manager');
 }
@@ -452,10 +462,8 @@ function updateRequestStatus(request) {
       throw new Error('Request sheet is missing an approver column.');
     }
     const etaCol = headerMap.eta;
-    const approverEmail = getActiveUserEmail_();
-    if (!isAuthorizedStatusActor_(approverEmail)) {
-      throw new Error('You are not authorized to update requests.');
-    }
+    const statusAuth = assertAuthorizedStatusActor_();
+    const approverEmail = statusAuth.email;
 
     withLock_(() => {
       const lastRow = sheet.getLastRow();
@@ -772,9 +780,115 @@ function invalidateRequestCache_(type, key) {
   cache.remove(cacheKey);
 }
 
+function getAuthorizedStatusEmails_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(CACHE_KEYS.STATUS_EMAILS);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (parsed && Array.isArray(parsed.emails)) {
+        return parsed;
+      }
+    } catch (err) {
+      cache.remove(CACHE_KEYS.STATUS_EMAILS);
+    }
+  }
+
+  const props = PropertiesService.getScriptProperties();
+  const raw = props.getProperty(SCRIPT_PROP_STATUS_EMAILS);
+  let emails = [];
+  let allowlistSource = 'default';
+
+  if (raw) {
+    const parsedEmails = parseEmailList_(raw);
+    if (parsedEmails.length) {
+      emails = parsedEmails.slice();
+      allowlistSource = 'script_property';
+    }
+  }
+
+  if (!emails.length) {
+    emails = DEFAULT_STATUS_APPROVER_EMAILS.slice();
+  } else {
+    DEFAULT_STATUS_APPROVER_EMAILS.forEach(email => {
+      if (emails.indexOf(email) === -1) {
+        emails.push(email);
+      }
+    });
+  }
+
+  const ownerEmail = normalizeEmail_(Session.getEffectiveUser().getEmail());
+  if (ownerEmail && emails.indexOf(ownerEmail) === -1) {
+    emails.push(ownerEmail);
+  }
+
+  const normalized = emails.map(normalizeEmail_).filter(Boolean);
+  const uniqueEmails = Array.from(new Set(normalized));
+  const payload = { emails: uniqueEmails, allowlistSource };
+  cache.put(CACHE_KEYS.STATUS_EMAILS, JSON.stringify(payload), CACHE_TTLS.STATUS_EMAILS);
+  return payload;
+}
+
+function parseEmailList_(value) {
+  if (!value) {
+    return [];
+  }
+  const trimmed = String(value).trim();
+  if (!trimmed) {
+    return [];
+  }
+  let entries = [];
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      entries = parsed.slice();
+    } else if (typeof parsed === 'string') {
+      entries = [parsed];
+    }
+  } catch (err) {
+    entries = trimmed.split(/[\n,;]+/);
+  }
+  return entries.map(normalizeEmail_).filter(Boolean);
+}
+
+function getStatusAuthContext_() {
+  const allowlist = getAuthorizedStatusEmails_();
+  const email = getActiveUserEmail_();
+  const authorized = Boolean(email) && allowlist.emails.indexOf(email) !== -1;
+  let reason = 'authorized';
+  if (!email) {
+    reason = 'missing_email';
+  } else if (!authorized) {
+    reason = 'not_listed';
+  }
+  return {
+    email,
+    authorized,
+    reason,
+    allowlistSource: allowlist.allowlistSource,
+    allowlistSize: allowlist.emails.length
+  };
+}
+
+function assertAuthorizedStatusActor_() {
+  const context = getStatusAuthContext_();
+  if (!context.email) {
+    throw new Error('We could not confirm your Google Account email. Sign in with an authorized account or ask an administrator to configure SUPPLIES_TRACKING_STATUS_EMAILS.');
+  }
+  if (!context.authorized) {
+    const account = context.email || 'This account';
+    throw new Error(`${account} is not authorized to update requests. Ask an administrator to update the approver allowlist (SUPPLIES_TRACKING_STATUS_EMAILS).`);
+  }
+  return context;
+}
+
 function isAuthorizedStatusActor_(email) {
   const normalized = normalizeEmail_(email);
-  return normalized && AUTHORIZED_STATUS_EMAILS.indexOf(normalized) !== -1;
+  if (!normalized) {
+    return false;
+  }
+  const allowlist = getAuthorizedStatusEmails_();
+  return allowlist.emails.indexOf(normalized) !== -1;
 }
 
 function parsePositiveInteger_(value) {

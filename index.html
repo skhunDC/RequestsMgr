@@ -94,6 +94,45 @@
       display: flex;
     }
 
+    .notice {
+      width: min(100%, 720px);
+      margin: 0 auto clamp(0.75rem, 4vw, 1.2rem);
+      padding: clamp(0.85rem, 4vw, 1.2rem);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(11, 87, 208, 0.08);
+      color: inherit;
+      font-size: clamp(1rem, 3.6vw, 1.1rem);
+    }
+
+    .notice[hidden] {
+      display: none !important;
+    }
+
+    .notice[data-variant="warning"] {
+      border-color: rgba(217, 48, 37, 0.35);
+      background: rgba(217, 48, 37, 0.08);
+    }
+
+    .notice[data-variant="info"] {
+      border-color: rgba(11, 87, 208, 0.35);
+      background: rgba(11, 87, 208, 0.08);
+    }
+
+    .notice strong {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    .notice p {
+      margin: 0;
+    }
+
+    .notice p + p {
+      margin-top: 0.35rem;
+    }
+
     section.card {
       background: var(--surface);
       border-radius: 16px;
@@ -733,6 +772,7 @@
     <button type="button" data-tab-trigger="it">IT</button>
     <button type="button" data-tab-trigger="maintenance">Maintenance</button>
   </nav>
+  <div id="statusAuthNotice" class="notice" hidden></div>
   <main>
     <div class="tab-panel active" data-tab-panel="supplies">
       <section class="card" id="suppliesFormCard">
@@ -1047,6 +1087,7 @@
       const dom = {
         tabButtons: Array.from(document.querySelectorAll('[data-tab-trigger]')),
         panels: Array.from(document.querySelectorAll('[data-tab-panel]')),
+        statusNotice: document.getElementById('statusAuthNotice'),
         toast: document.getElementById('toast'),
         supplies: {
           form: document.getElementById('suppliesForm'),
@@ -1099,7 +1140,9 @@
       const initialSessionEmail = SESSION && SESSION.email ? String(SESSION.email) : '';
       const canManageStatuses = Boolean(SESSION && SESSION.canManageStatuses);
       const requiresRequesterName = !initialSessionEmail;
+      const statusAuth = SESSION && SESSION.statusAuth ? SESSION.statusAuth : null;
 
+      renderStatusAuthNotice(statusAuth);
       configureRequesterNameRequirement();
       attachNavHandlers();
       attachFormHandlers();
@@ -1120,6 +1163,50 @@
           state.loaded[type] = true;
           renderRequests(type);
         });
+      }
+
+      function renderStatusAuthNotice(auth) {
+        const notice = dom.statusNotice;
+        if (!notice) {
+          return;
+        }
+        while (notice.firstChild) {
+          notice.removeChild(notice.firstChild);
+        }
+        delete notice.dataset.variant;
+        notice.hidden = true;
+        if (!auth) {
+          return;
+        }
+        if (!auth.authorized) {
+          notice.dataset.variant = 'warning';
+          const title = document.createElement('strong');
+          title.textContent = 'Approver access unavailable';
+          notice.appendChild(title);
+          const message = document.createElement('p');
+          if (auth.reason === 'missing_email') {
+            message.textContent = 'We could not confirm your Google Account email. Sign in with an authorized account before approving requests.';
+          } else {
+            const label = auth.email ? auth.email : 'This account';
+            message.textContent = `${label} is not on the approver allowlist.`;
+          }
+          notice.appendChild(message);
+          const hint = document.createElement('p');
+          hint.textContent = 'An administrator can add approver emails via the SUPPLIES_TRACKING_STATUS_EMAILS script property or by updating the default allowlist.';
+          notice.appendChild(hint);
+          notice.hidden = false;
+          return;
+        }
+        if (auth.allowlistSource === 'script_property') {
+          notice.dataset.variant = 'info';
+          const title = document.createElement('strong');
+          title.textContent = 'Managed approver list active';
+          notice.appendChild(title);
+          const message = document.createElement('p');
+          message.textContent = 'Approver permissions are being served from the SUPPLIES_TRACKING_STATUS_EMAILS script property fallback.';
+          notice.appendChild(message);
+          notice.hidden = false;
+        }
       }
 
       function attachNavHandlers() {
