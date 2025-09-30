@@ -133,6 +133,40 @@
       margin-top: 0.35rem;
     }
 
+    .approver-notice {
+      margin-top: 0.75rem;
+      padding: clamp(0.75rem, 3.6vw, 1rem);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(11, 87, 208, 0.08);
+      font-size: clamp(0.95rem, 3.4vw, 1.05rem);
+      color: inherit;
+    }
+
+    .approver-notice[hidden] {
+      display: none !important;
+    }
+
+    .approver-notice[data-variant="warning"] {
+      border-color: rgba(217, 48, 37, 0.35);
+      background: rgba(217, 48, 37, 0.08);
+    }
+
+    .approver-notice strong {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    .approver-notice p {
+      margin: 0;
+      color: inherit;
+    }
+
+    .approver-notice p + p {
+      margin-top: 0.35rem;
+    }
+
     section.card {
       background: var(--surface);
       border-radius: 16px;
@@ -847,6 +881,12 @@
             <button type="submit" id="suppliesSubmitButton">Submit request</button>
             <button type="button" id="suppliesResetButton" class="secondary">Reset</button>
           </div>
+          <div
+            class="approver-notice"
+            data-approver-notice="supplies"
+            role="alert"
+            hidden
+          ></div>
         </form>
         <aside class="notice-block" role="note" aria-label="Supply request approval process">
           <h3>Supply request approvals</h3>
@@ -934,6 +974,12 @@
               <button type="submit" id="itSubmitButton">Submit request</button>
               <button type="button" id="itResetButton" class="secondary">Reset</button>
             </div>
+            <div
+              class="approver-notice"
+              data-approver-notice="it"
+              role="alert"
+              hidden
+            ></div>
           </form>
         </div>
       </section>
@@ -999,6 +1045,12 @@
               <button type="submit" id="maintenanceSubmitButton">Submit request</button>
               <button type="button" id="maintenanceResetButton" class="secondary">Reset</button>
             </div>
+            <div
+              class="approver-notice"
+              data-approver-notice="maintenance"
+              role="alert"
+              hidden
+            ></div>
           </form>
         </div>
       </section>
@@ -1106,7 +1158,8 @@
           catalogSku: document.getElementById('catalogSkuField'),
           catalogList: document.getElementById('catalogList'),
           catalogMore: document.getElementById('catalogMoreButton'),
-          catalogClear: document.getElementById('catalogClearButton')
+          catalogClear: document.getElementById('catalogClearButton'),
+          approverNotice: document.querySelector('[data-approver-notice="supplies"]')
         },
         it: {
           form: document.getElementById('itForm'),
@@ -1120,7 +1173,8 @@
           submit: document.getElementById('itSubmitButton'),
           reset: document.getElementById('itResetButton'),
           list: document.getElementById('itRequestsList'),
-          more: document.getElementById('itMoreButton')
+          more: document.getElementById('itMoreButton'),
+          approverNotice: document.querySelector('[data-approver-notice="it"]')
         },
         maintenance: {
           form: document.getElementById('maintenanceForm'),
@@ -1133,7 +1187,8 @@
           submit: document.getElementById('maintenanceSubmitButton'),
           reset: document.getElementById('maintenanceResetButton'),
           list: document.getElementById('maintenanceRequestsList'),
-          more: document.getElementById('maintenanceMoreButton')
+          more: document.getElementById('maintenanceMoreButton'),
+          approverNotice: document.querySelector('[data-approver-notice="maintenance"]')
         }
       };
 
@@ -1165,39 +1220,62 @@
         });
       }
 
+      function clearApproverNotices() {
+        REQUEST_KEYS.forEach(type => {
+          const container = dom[type] && dom[type].approverNotice;
+          if (!container) {
+            return;
+          }
+          while (container.firstChild) {
+            container.removeChild(container.firstChild);
+          }
+          delete container.dataset.variant;
+          container.hidden = true;
+        });
+      }
+
+      function renderApproverUnavailable(auth) {
+        const messageText = auth && auth.reason === 'missing_email'
+          ? 'We could not confirm your Google Account email. Sign in with an authorized account before approving requests.'
+          : `${auth && auth.email ? auth.email : 'This account'} is not on the approver allowlist.`;
+        const hintText = 'An administrator can add approver emails via the SUPPLIES_TRACKING_STATUS_EMAILS script property or by updating the default allowlist.';
+        REQUEST_KEYS.forEach(type => {
+          const container = dom[type] && dom[type].approverNotice;
+          if (!container) {
+            return;
+          }
+          container.dataset.variant = 'warning';
+          const title = document.createElement('strong');
+          title.textContent = 'Approver access unavailable';
+          container.appendChild(title);
+          const message = document.createElement('p');
+          message.textContent = messageText;
+          container.appendChild(message);
+          const hint = document.createElement('p');
+          hint.textContent = hintText;
+          container.appendChild(hint);
+          container.hidden = false;
+        });
+      }
+
       function renderStatusAuthNotice(auth) {
         const notice = dom.statusNotice;
-        if (!notice) {
-          return;
+        if (notice) {
+          while (notice.firstChild) {
+            notice.removeChild(notice.firstChild);
+          }
+          delete notice.dataset.variant;
+          notice.hidden = true;
         }
-        while (notice.firstChild) {
-          notice.removeChild(notice.firstChild);
-        }
-        delete notice.dataset.variant;
-        notice.hidden = true;
+        clearApproverNotices();
         if (!auth) {
           return;
         }
         if (!auth.authorized) {
-          notice.dataset.variant = 'warning';
-          const title = document.createElement('strong');
-          title.textContent = 'Approver access unavailable';
-          notice.appendChild(title);
-          const message = document.createElement('p');
-          if (auth.reason === 'missing_email') {
-            message.textContent = 'We could not confirm your Google Account email. Sign in with an authorized account before approving requests.';
-          } else {
-            const label = auth.email ? auth.email : 'This account';
-            message.textContent = `${label} is not on the approver allowlist.`;
-          }
-          notice.appendChild(message);
-          const hint = document.createElement('p');
-          hint.textContent = 'An administrator can add approver emails via the SUPPLIES_TRACKING_STATUS_EMAILS script property or by updating the default allowlist.';
-          notice.appendChild(hint);
-          notice.hidden = false;
+          renderApproverUnavailable(auth);
           return;
         }
-        if (auth.allowlistSource === 'script_property') {
+        if (auth.allowlistSource === 'script_property' && notice) {
           notice.dataset.variant = 'info';
           const title = document.createElement('strong');
           title.textContent = 'Managed approver list active';
