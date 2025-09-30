@@ -416,6 +416,95 @@
       background: var(--surface-alt);
     }
 
+    .request-item {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 0.7rem 0.85rem;
+      gap: 0.4rem;
+      line-height: 1.45;
+    }
+
+    .request-item-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .request-item-title {
+      font-size: clamp(1rem, 3.6vw, 1.15rem);
+      font-weight: 600;
+      flex: 1 1 160px;
+      display: inline-flex;
+    }
+
+    .request-item .status {
+      margin-left: auto;
+      font-size: clamp(0.85rem, 2.9vw, 0.95rem);
+      padding: 0.3rem 0.65rem;
+    }
+
+    .request-item .urgency-badge {
+      margin-left: 0;
+      font-size: clamp(0.75rem, 2.8vw, 0.9rem);
+      padding: 0.25rem 0.6rem;
+    }
+
+    .request-item-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 0.75rem;
+      align-items: center;
+    }
+
+    .request-item-info .meta,
+    .request-item-info .detail-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: clamp(0.85rem, 3vw, 0.95rem);
+      color: var(--muted);
+      padding: 0.1rem 0;
+    }
+
+    .request-item-footer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.75rem;
+      align-items: center;
+      margin-top: 0.2rem;
+    }
+
+    .request-item-footer > .inline-buttons,
+    .request-item-footer > .supplies-actions {
+      flex: 1 1 100%;
+    }
+
+    .request-item-footer .supplies-actions {
+      margin-top: 0;
+    }
+
+    .request-item-footer .supplies-actions .inline-buttons {
+      gap: 0.5rem;
+    }
+
+    .request-item .eta-field {
+      margin: 0;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.4rem;
+      max-width: none;
+    }
+
+    .request-item .eta-field span {
+      font-size: clamp(0.85rem, 2.9vw, 0.95rem);
+    }
+
+    .request-item .eta-field input[type="date"] {
+      width: auto;
+      min-width: 0;
+    }
+
     .catalog-field {
       display: flex;
       flex-direction: column;
@@ -544,7 +633,6 @@
       background: rgba(11, 87, 208, 0.08);
     }
 
-    .request-item strong,
     .catalog-item strong {
       font-size: clamp(1.05rem, 3.8vw, 1.2rem);
     }
@@ -705,7 +793,7 @@
     .list {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.6rem;
     }
 
     .load-more {
@@ -1707,23 +1795,22 @@
           item.dataset.requestType = type;
           item.dataset.requestId = request.id;
 
-          const title = document.createElement('strong');
-          title.textContent = request.summary || 'Request';
-          item.appendChild(title);
+          const head = document.createElement('div');
+          head.className = 'request-item-head';
 
-          const meta = document.createElement('span');
-          meta.className = 'meta';
-          meta.textContent = buildRequestMeta(request, type);
-          item.appendChild(meta);
+          const title = document.createElement('strong');
+          title.className = 'request-item-title';
+          title.textContent = request.summary || 'Request';
+          head.appendChild(title);
 
           if ((type === 'it' || type === 'maintenance') && request.fields) {
             const urgencyKey = normalizeUrgency(request.fields.urgency);
             if (urgencyKey) {
               const urgencyBadge = document.createElement('span');
-              urgencyBadge.className = 'urgency-badge';
+              urgencyBadge.className = 'urgency-badge request-urgency';
               urgencyBadge.dataset.urgency = urgencyKey;
               urgencyBadge.textContent = formatUrgencyLabel(urgencyKey);
-              item.appendChild(urgencyBadge);
+              head.appendChild(urgencyBadge);
             }
           }
 
@@ -1733,7 +1820,44 @@
           const stateKey = statusValue.replace(/\s+/g, '_');
           status.dataset.state = stateKey;
           status.textContent = formatStatus(stateKey);
-          item.appendChild(status);
+          head.appendChild(status);
+          item.appendChild(head);
+
+          const info = document.createElement('div');
+          info.className = 'request-item-info';
+
+          const meta = document.createElement('span');
+          meta.className = 'meta';
+          meta.textContent = buildRequestMeta(request, type);
+          info.appendChild(meta);
+
+          if (Array.isArray(request.details)) {
+            request.details.forEach(detail => {
+              if (!detail) return;
+              const line = document.createElement('span');
+              line.className = 'detail-line';
+              line.textContent = detail;
+              info.appendChild(line);
+            });
+          }
+
+          const submittedLine = document.createElement('span');
+          submittedLine.className = 'detail-line';
+          submittedLine.textContent = `Submitted by: ${request.requester || 'Unknown requester'}`;
+          info.appendChild(submittedLine);
+
+          const statusLineText = buildStatusActorLine(type, stateKey, request.approver);
+          if (statusLineText) {
+            const statusLine = document.createElement('span');
+            statusLine.className = 'detail-line';
+            statusLine.textContent = statusLineText;
+            info.appendChild(statusLine);
+          }
+
+          item.appendChild(info);
+
+          const footer = document.createElement('div');
+          footer.className = 'request-item-footer';
 
           if (type === 'supplies') {
             const etaWrapper = document.createElement('label');
@@ -1771,30 +1895,7 @@
               });
             }
             etaWrapper.appendChild(etaInput);
-            item.appendChild(etaWrapper);
-          }
-
-          if (Array.isArray(request.details)) {
-            request.details.forEach(detail => {
-              if (!detail) return;
-              const line = document.createElement('span');
-              line.className = 'detail-line';
-              line.textContent = detail;
-              item.appendChild(line);
-            });
-          }
-
-          const submittedLine = document.createElement('span');
-          submittedLine.className = 'detail-line';
-          submittedLine.textContent = `Submitted by: ${request.requester || 'Unknown requester'}`;
-          item.appendChild(submittedLine);
-
-          const statusLineText = buildStatusActorLine(type, stateKey, request.approver);
-          if (statusLineText) {
-            const statusLine = document.createElement('span');
-            statusLine.className = 'detail-line';
-            statusLine.textContent = statusLineText;
-            item.appendChild(statusLine);
+            footer.appendChild(etaWrapper);
           }
 
           if (type === 'supplies' && canManageStatuses) {
@@ -1823,7 +1924,7 @@
               const controls = document.createElement('div');
               controls.className = 'supplies-actions';
               controls.appendChild(buttonRow);
-              item.appendChild(controls);
+              footer.appendChild(controls);
             }
           } else if (canManageStatuses && (stateKey === 'pending' || stateKey === 'in_progress')) {
             const actions = document.createElement('div');
@@ -1851,7 +1952,11 @@
             denied.addEventListener('click', () => handleUpdateStatus(type, request.id, 'denied'));
             actions.appendChild(denied);
 
-            item.appendChild(actions);
+            footer.appendChild(actions);
+          }
+
+          if (footer.childElementCount) {
+            item.appendChild(footer);
           }
 
           fragment.appendChild(item);
