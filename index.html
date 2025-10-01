@@ -34,17 +34,40 @@
 
     header {
       padding: clamp(1.25rem, 6vw, 1.75rem) clamp(1rem, 6vw, 2.25rem) clamp(0.75rem, 4vw, 1.25rem);
-      text-align: center;
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
-      align-items: center;
+      gap: clamp(1rem, 5vw, 1.75rem);
+      align-items: stretch;
+    }
+
+    header .hero-inner {
+      width: min(100%, 1080px);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(1.25rem, 5vw, 2rem);
+      align-items: stretch;
+    }
+
+    .hero-intro {
+      display: flex;
+      flex-direction: column;
+      gap: clamp(0.85rem, 3.8vw, 1.2rem);
+      align-items: flex-start;
     }
 
     header img.logo {
       width: clamp(104px, 28vw, 120px);
       height: auto;
       display: block;
+    }
+
+    .hero-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      text-align: left;
+      align-items: flex-start;
     }
 
     header h1 {
@@ -60,8 +83,157 @@
       max-width: 40rem;
     }
 
-    .hero-copy {
-      text-align: center;
+    .hero-dashboard {
+      background: var(--surface);
+      border-radius: 16px;
+      border: 1px solid rgba(14, 31, 53, 0.08);
+      padding: clamp(1rem, 4vw, 1.5rem);
+      box-shadow: 0 12px 24px -18px rgba(13, 34, 78, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(1rem, 4vw, 1.5rem);
+    }
+
+    .hero-dashboard header,
+    .hero-dashboard .dashboard-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .hero-dashboard h2 {
+      margin: 0;
+      font-size: clamp(1.1rem, 3.7vw, 1.4rem);
+      font-weight: 600;
+    }
+
+    .hero-dashboard .dashboard-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem clamp(0.75rem, 3vw, 1.5rem);
+      font-size: clamp(0.95rem, 3.4vw, 1.05rem);
+    }
+
+    .hero-dashboard .dashboard-summary span {
+      display: flex;
+      align-items: baseline;
+      gap: 0.35rem;
+      color: var(--muted);
+    }
+
+    .hero-dashboard .dashboard-summary strong {
+      font-size: clamp(1.2rem, 4vw, 1.4rem);
+      color: var(--text);
+    }
+
+    .dashboard-body {
+      display: grid;
+      gap: clamp(1rem, 4vw, 1.5rem);
+    }
+
+    .dashboard-grid {
+      display: grid;
+      gap: clamp(0.75rem, 3vw, 1.25rem);
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+
+    .dashboard-card {
+      border: 1px solid rgba(14, 31, 53, 0.06);
+      border-radius: 14px;
+      padding: clamp(0.85rem, 3.5vw, 1.1rem);
+      background: var(--surface-alt);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .dashboard-card h3 {
+      margin: 0;
+      font-size: clamp(1.05rem, 3.4vw, 1.25rem);
+      font-weight: 600;
+    }
+
+    .dashboard-card .metric-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .dashboard-card .metric {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      color: var(--muted);
+      font-size: clamp(0.85rem, 3vw, 0.95rem);
+    }
+
+    .dashboard-card .metric strong {
+      font-size: clamp(1.4rem, 4.8vw, 1.8rem);
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .dashboard-card .metric.highlight strong {
+      color: var(--accent);
+    }
+
+    .dashboard-visual {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .dashboard-visual canvas {
+      width: min(220px, 100%);
+      height: auto;
+      aspect-ratio: 1 / 1;
+    }
+
+    .dashboard-legend {
+      width: 100%;
+      display: grid;
+      gap: 0.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: clamp(0.85rem, 3vw, 0.95rem);
+      color: var(--muted);
+    }
+
+    .legend-item .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-flex;
+    }
+
+    .legend-item .swatch[data-type="supplies"] {
+      background: var(--accent);
+    }
+
+    .legend-item .swatch[data-type="it"] {
+      background: var(--success);
+    }
+
+    .legend-item .swatch[data-type="maintenance"] {
+      background: #f29900;
+    }
+
+    .legend-item strong,
+    .legend-item .legend-value {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .dashboard-empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.9rem, 3.2vw, 1rem);
     }
 
     nav.tab-nav {
@@ -70,7 +242,7 @@
       padding: 0 clamp(0.75rem, 6vw, 1.35rem) clamp(0.75rem, 4vw, 1rem);
       overflow-x: auto;
       scrollbar-width: none;
-      width: min(100%, 720px);
+      width: min(100%, 1080px);
       margin: 0 auto;
     }
 
@@ -754,22 +926,26 @@
       }
 
       header {
-        align-items: center;
+        padding-bottom: clamp(1.5rem, 4vw, 2.5rem);
+      }
+
+      header .hero-inner {
         flex-direction: row;
-        justify-content: center;
+        align-items: flex-start;
+        justify-content: space-between;
         gap: clamp(1.5rem, 5vw, 3rem);
       }
 
-      header .hero-copy {
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-        align-items: center;
-        text-align: center;
+      .hero-intro {
+        flex: 1 1 42%;
+      }
+
+      .hero-dashboard {
+        flex: 1 1 58%;
       }
 
       header p {
-        max-width: 28rem;
+        max-width: 32rem;
       }
     }
 
@@ -793,17 +969,106 @@
 </head>
 <body>
   <header>
-    <img
-      class="logo"
-      src="https://www.dublincleaners.com/wp-content/uploads/2024/12/Dublin-Logos-stacked.png"
-      alt="Dublin Cleaners logo"
-      loading="lazy"
-      decoding="async"
-      width="150"
-    >
-    <div class="hero-copy">
-      <h1>Request Manager</h1>
-      <p>Submit and track Supplies, Technology, and Maintenance needs from one Workspace.</p>
+    <div class="hero-inner">
+      <div class="hero-intro">
+        <img
+          class="logo"
+          src="https://www.dublincleaners.com/wp-content/uploads/2024/12/Dublin-Logos-stacked.png"
+          alt="Dublin Cleaners logo"
+          loading="lazy"
+          decoding="async"
+          width="150"
+        >
+        <div class="hero-copy">
+          <h1>Request Manager</h1>
+          <p>Submit and track Supplies, Technology, and Maintenance needs from one Workspace.</p>
+        </div>
+      </div>
+      <section
+        class="hero-dashboard"
+        id="heroDashboard"
+        aria-label="Request activity dashboard"
+        aria-live="polite"
+      >
+        <div class="dashboard-header">
+          <h2>Live request dashboard</h2>
+          <div class="dashboard-summary">
+            <span>
+              <strong data-dashboard-total="all">—</strong>
+              total requests
+            </span>
+            <span>
+              <strong data-dashboard-outstanding="all">—</strong>
+              awaiting approval/completion
+            </span>
+          </div>
+          <p class="meta" id="dashboardUpdatedAt">Awaiting data…</p>
+        </div>
+        <div class="dashboard-body">
+          <div class="dashboard-grid">
+            <article class="dashboard-card" data-dashboard-card="supplies">
+              <h3>Supplies</h3>
+              <div class="metric-group">
+                <span class="metric">
+                  <strong data-dashboard-total="supplies">—</strong>
+                  Total requests
+                </span>
+                <span class="metric highlight">
+                  <strong data-dashboard-outstanding="supplies">—</strong>
+                  Awaiting approval/completion
+                </span>
+              </div>
+            </article>
+            <article class="dashboard-card" data-dashboard-card="it">
+              <h3>IT</h3>
+              <div class="metric-group">
+                <span class="metric">
+                  <strong data-dashboard-total="it">—</strong>
+                  Total requests
+                </span>
+                <span class="metric highlight">
+                  <strong data-dashboard-outstanding="it">—</strong>
+                  Awaiting approval/completion
+                </span>
+              </div>
+            </article>
+            <article class="dashboard-card" data-dashboard-card="maintenance">
+              <h3>Maintenance</h3>
+              <div class="metric-group">
+                <span class="metric">
+                  <strong data-dashboard-total="maintenance">—</strong>
+                  Total requests
+                </span>
+                <span class="metric highlight">
+                  <strong data-dashboard-outstanding="maintenance">—</strong>
+                  Awaiting approval/completion
+                </span>
+              </div>
+            </article>
+          </div>
+          <div class="dashboard-visual">
+            <canvas id="dashboardPie" width="220" height="220" role="img" aria-label="Outstanding requests by type"></canvas>
+            <div class="dashboard-legend">
+              <div class="legend-item" data-dashboard-legend="supplies">
+                <span class="swatch" data-type="supplies"></span>
+                <span>Supplies</span>
+                <span class="legend-value" data-dashboard-outstanding-legend="supplies">—</span>
+              </div>
+              <div class="legend-item" data-dashboard-legend="it">
+                <span class="swatch" data-type="it"></span>
+                <span>IT</span>
+                <span class="legend-value" data-dashboard-outstanding-legend="it">—</span>
+              </div>
+              <div class="legend-item" data-dashboard-legend="maintenance">
+                <span class="swatch" data-type="maintenance"></span>
+                <span>Maintenance</span>
+                <span class="legend-value" data-dashboard-outstanding-legend="maintenance">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="dashboard-empty" id="dashboardEmptyMessage" hidden>No requests yet.</p>
+      </section>
     </div>
   </header>
   <nav class="tab-nav" aria-label="Request types">
@@ -1084,10 +1349,19 @@
       const hasServer = typeof google !== 'undefined' && google.script && google.script.run;
       const server = hasServer ? google.script.run : null;
       const REQUEST_KEYS = ['supplies', 'it', 'maintenance'];
+      const DASHBOARD_COLORS = {
+        supplies: '#0b57d0',
+        it: '#0f9d58',
+        maintenance: '#f29900'
+      };
+      const DASHBOARD_REFRESH_INTERVAL = 60000;
+      const DASHBOARD_DEBOUNCE = 500;
       const PERSIST_DELAY = 240;
       const persistTimers = {};
       let warmScheduled = false;
       let syncingCatalogToDescription = false;
+      let dashboardAutoRefreshId = null;
+      let dashboardDeferredRefreshId = null;
       const FORM_TEMPLATES = {
         supplies: { description: '', qty: 1, notes: '', catalogSku: '', location: '', requesterName: '' },
         it: { location: '', issue: '', device: '', urgency: 'normal', details: '', requesterName: '' },
@@ -1138,6 +1412,15 @@
           loading: false,
           search: '',
           fullyLoaded: false
+        },
+        dashboard: {
+          loading: false,
+          metrics: makeEmptyDashboardMetrics(),
+          totals: {
+            totalRequests: 0,
+            outstandingRequests: 0
+          },
+          generatedAt: ''
         }
       };
 
@@ -1194,6 +1477,24 @@
           list: document.getElementById('maintenanceRequestsList'),
           more: document.getElementById('maintenanceMoreButton'),
           approverNotice: document.querySelector('[data-approver-notice="maintenance"]')
+        },
+        dashboard: {
+          container: document.getElementById('heroDashboard'),
+          updatedAt: document.getElementById('dashboardUpdatedAt'),
+          empty: document.getElementById('dashboardEmptyMessage'),
+          pie: document.getElementById('dashboardPie'),
+          metrics: REQUEST_KEYS.reduce((acc, type) => {
+            acc[type] = {
+              total: document.querySelector(`[data-dashboard-total="${type}"]`),
+              outstanding: document.querySelector(`[data-dashboard-outstanding="${type}"]`),
+              legend: document.querySelector(`[data-dashboard-outstanding-legend="${type}"]`)
+            };
+            return acc;
+          }, {}),
+          overall: {
+            total: document.querySelector('[data-dashboard-total="all"]'),
+            outstanding: document.querySelector('[data-dashboard-outstanding="all"]')
+          }
         }
       };
 
@@ -1214,7 +1515,10 @@
         renderForm(type);
       });
       setActiveTab(state.activeTab);
+      renderDashboard();
       if (hasServer) {
+        loadDashboardMetrics({ silent: false });
+        startDashboardAutoRefresh();
         loadCatalog({ append: false, fetchAll: true });
         ensureRequestsLoaded('supplies');
       } else {
@@ -1223,6 +1527,287 @@
           state.loaded[type] = true;
           renderRequests(type);
         });
+        showDashboardOfflineMessage();
+      }
+
+      function loadDashboardMetrics(options) {
+        if (!server) {
+          state.dashboard.loading = false;
+          renderDashboard();
+          return;
+        }
+        const silent = Boolean(options && options.silent);
+        if (!silent) {
+          state.dashboard.loading = true;
+          renderDashboard();
+        }
+        const payload = { cid: makeCid() };
+        server
+          .withSuccessHandler(response => {
+            state.dashboard.loading = false;
+            if (!response || !response.ok) {
+              if (!silent) {
+                handleError(response, 'getDashboardMetrics', payload);
+              } else {
+                console.error('[RequestManager]', 'getDashboardMetrics', response);
+              }
+              return;
+            }
+            const metrics = makeEmptyDashboardMetrics();
+            REQUEST_KEYS.forEach(type => {
+              const entry = response.metrics && response.metrics[type] ? response.metrics[type] : null;
+              const total = entry && Number(entry.total);
+              const outstanding = entry && Number(entry.outstanding);
+              metrics[type] = {
+                total: Number.isFinite(total) && total > 0 ? total : 0,
+                outstanding: Number.isFinite(outstanding) && outstanding > 0 ? outstanding : 0
+              };
+            });
+            state.dashboard.metrics = metrics;
+            const totals = response.totals || {};
+            const totalRequests = Number(totals.totalRequests);
+            const outstandingRequests = Number(totals.outstandingRequests);
+            state.dashboard.totals = {
+              totalRequests: Number.isFinite(totalRequests) && totalRequests >= 0
+                ? totalRequests
+                : REQUEST_KEYS.reduce((sum, type) => sum + metrics[type].total, 0),
+              outstandingRequests: Number.isFinite(outstandingRequests) && outstandingRequests >= 0
+                ? outstandingRequests
+                : REQUEST_KEYS.reduce((sum, type) => sum + metrics[type].outstanding, 0)
+            };
+            state.dashboard.generatedAt = typeof response.generatedAt === 'string' ? response.generatedAt : '';
+            renderDashboard();
+          })
+          .withFailureHandler(err => {
+            state.dashboard.loading = false;
+            if (!silent) {
+              handleError(err, 'getDashboardMetrics', payload);
+            } else {
+              console.error('[RequestManager]', 'getDashboardMetrics', err);
+            }
+            renderDashboard();
+          })
+          .getDashboardMetrics(payload);
+      }
+
+      function renderDashboard() {
+        const container = dom.dashboard && dom.dashboard.container;
+        if (!container) {
+          return;
+        }
+        const loading = Boolean(state.dashboard.loading);
+        const metrics = state.dashboard.metrics || makeEmptyDashboardMetrics();
+        const totals = state.dashboard.totals || { totalRequests: 0, outstandingRequests: 0 };
+        container.setAttribute('aria-busy', loading ? 'true' : 'false');
+        if (dom.dashboard.overall.total) {
+          dom.dashboard.overall.total.textContent = loading ? '…' : formatDashboardCount(totals.totalRequests || 0);
+        }
+        if (dom.dashboard.overall.outstanding) {
+          dom.dashboard.overall.outstanding.textContent = loading ? '…' : formatDashboardCount(totals.outstandingRequests || 0);
+        }
+        REQUEST_KEYS.forEach(type => {
+          const elements = dom.dashboard.metrics[type];
+          const entry = metrics[type] || { total: 0, outstanding: 0 };
+          const totalLabel = loading ? '…' : formatDashboardCount(entry.total);
+          const outstandingLabel = loading ? '…' : formatDashboardCount(entry.outstanding);
+          if (elements) {
+            if (elements.total) {
+              elements.total.textContent = totalLabel;
+            }
+            if (elements.outstanding) {
+              elements.outstanding.textContent = outstandingLabel;
+            }
+            if (elements.legend) {
+              elements.legend.textContent = loading ? '…' : outstandingLabel;
+            }
+          }
+        });
+        updateDashboardEmptyState(metrics, loading);
+        updateDashboardTimestamp();
+        drawDashboardPie();
+      }
+
+      function updateDashboardEmptyState(metrics, loading) {
+        const empty = dom.dashboard && dom.dashboard.empty;
+        if (!empty) {
+          return;
+        }
+        if (!hasServer) {
+          empty.hidden = false;
+          empty.textContent = 'Connect to Google Apps Script to load live data.';
+          return;
+        }
+        const hasRequests = REQUEST_KEYS.some(type => {
+          const entry = metrics[type] || { total: 0 };
+          return Number(entry.total) > 0;
+        });
+        if (!hasRequests) {
+          empty.hidden = false;
+          empty.textContent = loading && !state.dashboard.generatedAt ? 'Loading dashboard…' : 'No requests yet.';
+          return;
+        }
+        empty.hidden = true;
+      }
+
+      function updateDashboardTimestamp() {
+        const label = dom.dashboard && dom.dashboard.updatedAt;
+        if (!label) {
+          return;
+        }
+        if (!hasServer) {
+          label.textContent = 'Offline preview';
+          return;
+        }
+        if (state.dashboard.loading && !state.dashboard.generatedAt) {
+          label.textContent = 'Loading…';
+          return;
+        }
+        if (!state.dashboard.generatedAt) {
+          label.textContent = 'Awaiting data…';
+          return;
+        }
+        const timestamp = new Date(state.dashboard.generatedAt);
+        if (!Number.isNaN(timestamp.getTime())) {
+          label.textContent = `Updated ${timestamp.toLocaleString()}`;
+        } else {
+          label.textContent = 'Updated moments ago';
+        }
+      }
+
+      function drawDashboardPie() {
+        const canvas = dom.dashboard && dom.dashboard.pie;
+        if (!canvas || typeof canvas.getContext !== 'function') {
+          return;
+        }
+        const rect = canvas.getBoundingClientRect();
+        const displayWidth = rect.width || canvas.width || 220;
+        const displayHeight = rect.height || canvas.height || 220;
+        const ratio = window.devicePixelRatio || 1;
+        const targetWidth = Math.max(1, Math.round(displayWidth * ratio));
+        const targetHeight = Math.max(1, Math.round(displayHeight * ratio));
+        if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+        }
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          return;
+        }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        if (ratio !== 1) {
+          ctx.scale(ratio, ratio);
+        }
+        ctx.clearRect(0, 0, displayWidth, displayHeight);
+        const metrics = state.dashboard.metrics || makeEmptyDashboardMetrics();
+        const values = REQUEST_KEYS.map(type => {
+          const entry = metrics[type] || { outstanding: 0 };
+          const value = Number(entry.outstanding);
+          return Number.isFinite(value) && value > 0 ? value : 0;
+        });
+        const total = values.reduce((sum, value) => sum + value, 0);
+        const centerX = displayWidth / 2;
+        const centerY = displayHeight / 2;
+        const radius = Math.max(10, Math.min(centerX, centerY) - 6);
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#eef2f7';
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#d7dce1';
+        ctx.stroke();
+        if (!total) {
+          return;
+        }
+        let startAngle = -Math.PI / 2;
+        values.forEach((value, index) => {
+          if (!value) {
+            return;
+          }
+          const type = REQUEST_KEYS[index];
+          const endAngle = startAngle + (value / total) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.arc(centerX, centerY, radius, startAngle, endAngle, false);
+          ctx.closePath();
+          ctx.fillStyle = DASHBOARD_COLORS[type] || '#0b57d0';
+          ctx.fill();
+          startAngle = endAngle;
+        });
+        const innerRadius = Math.max(radius * 0.55, radius - 44);
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.fillStyle = '#202731';
+        ctx.font = '600 16px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(formatDashboardCount(total), centerX, centerY - 8);
+        ctx.font = '500 12px "Segoe UI", sans-serif';
+        ctx.fillStyle = '#5c6774';
+        ctx.fillText('outstanding', centerX, centerY + 10);
+      }
+
+      function formatDashboardCount(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) {
+          return '0';
+        }
+        return number.toLocaleString();
+      }
+
+      function makeEmptyDashboardMetrics() {
+        return REQUEST_KEYS.reduce((acc, type) => {
+          acc[type] = { total: 0, outstanding: 0 };
+          return acc;
+        }, {});
+      }
+
+      function requestDashboardRefresh(delay) {
+        if (!hasServer) {
+          return;
+        }
+        const wait = typeof delay === 'number' && delay >= 0 ? delay : DASHBOARD_DEBOUNCE;
+        if (dashboardDeferredRefreshId) {
+          window.clearTimeout(dashboardDeferredRefreshId);
+        }
+        dashboardDeferredRefreshId = window.setTimeout(() => {
+          dashboardDeferredRefreshId = null;
+          loadDashboardMetrics({ silent: true });
+        }, wait);
+      }
+
+      function startDashboardAutoRefresh() {
+        if (!hasServer) {
+          return;
+        }
+        stopDashboardAutoRefresh();
+        dashboardAutoRefreshId = window.setInterval(() => {
+          loadDashboardMetrics({ silent: true });
+        }, DASHBOARD_REFRESH_INTERVAL);
+      }
+
+      function stopDashboardAutoRefresh() {
+        if (dashboardAutoRefreshId) {
+          window.clearInterval(dashboardAutoRefreshId);
+          dashboardAutoRefreshId = null;
+        }
+        if (dashboardDeferredRefreshId) {
+          window.clearTimeout(dashboardDeferredRefreshId);
+          dashboardDeferredRefreshId = null;
+        }
+      }
+
+      function showDashboardOfflineMessage() {
+        const empty = dom.dashboard && dom.dashboard.empty;
+        if (empty) {
+          empty.hidden = false;
+          empty.textContent = 'Connect to Google Apps Script to load live data.';
+        }
+        const label = dom.dashboard && dom.dashboard.updatedAt;
+        if (label) {
+          label.textContent = 'Offline preview';
+        }
       }
 
       function clearApproverNotices() {
@@ -1532,6 +2117,7 @@
             resetForm(type);
             state.requests[type].unshift(response.request);
             renderRequests(type);
+            requestDashboardRefresh(DASHBOARD_DEBOUNCE);
           })
           .withFailureHandler(err => {
             disableForm(type, false);
@@ -1897,6 +2483,7 @@
               renderRequests(type);
             }
             showToast('Request updated');
+            requestDashboardRefresh(DASHBOARD_DEBOUNCE);
           })
           .withFailureHandler(err => {
             interactive.forEach(element => { element.disabled = false; });
@@ -1951,6 +2538,7 @@
             }
             const updatedEta = getRequestEta(updated);
             showToast(updatedEta ? 'ETA updated' : 'ETA cleared');
+            requestDashboardRefresh(DASHBOARD_DEBOUNCE);
           })
           .withFailureHandler(err => {
             input.disabled = false;
@@ -2431,10 +3019,19 @@
         }
       }
 
-      window.addEventListener('beforeunload', flushAllPersists);
+      window.addEventListener('beforeunload', () => {
+        stopDashboardAutoRefresh();
+        flushAllPersists();
+      });
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
           flushAllPersists();
+          stopDashboardAutoRefresh();
+        } else if (document.visibilityState === 'visible') {
+          if (hasServer) {
+            requestDashboardRefresh(0);
+            startDashboardAutoRefresh();
+          }
         }
       });
 
