@@ -804,17 +804,27 @@
       margin: 0;
       flex-direction: row;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.3rem;
       max-width: none;
+      flex: 0 0 auto;
+      padding: 0.1rem 0.35rem;
     }
 
     .request-item .eta-field span {
       font-size: clamp(0.85rem, 2.9vw, 0.95rem);
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
     }
 
     .request-item .eta-field input[type="date"] {
-      width: auto;
+      width: min(38vw, 130px);
       min-width: 0;
+      min-height: 32px;
+      height: 32px;
+      padding: 0.2rem 0.5rem;
+      font-size: clamp(0.82rem, 2.4vw, 0.95rem);
+      border-radius: 8px;
     }
 
     .catalog-field {
@@ -992,12 +1002,17 @@
       display: flex;
       flex-direction: column;
       gap: 0.35rem;
-      max-width: 220px;
+      width: min(100%, 160px);
+      max-width: 160px;
     }
 
     .eta-field span {
       font-size: clamp(0.9rem, 3.2vw, 1rem);
       font-weight: 600;
+    }
+
+    .eta-field input[type="date"] {
+      width: min(100%, 140px);
     }
 
     @media (max-width: 520px) {
@@ -1294,6 +1309,7 @@
             <span class="card-title">New supplies request</span>
             <span class="card-subtitle meta">Use the catalog to quickly fill in the item details before submitting.</span>
           </div>
+          <button type="button" id="catalogScrollButton" class="card-header-action">Full Catalog</button>
         </div>
         <div class="card-body">
           <form id="suppliesForm" class="form-grid" novalidate>
@@ -1381,6 +1397,7 @@
             <span class="card-title">Supplies requests</span>
             <span class="card-subtitle meta">Track order status and approvals in one place.</span>
           </div>
+          <button type="button" id="catalogScrollButton" class="card-header-action">Full Catalog</button>
         </div>
         <div class="card-body">
           <div id="suppliesRequestsList" class="list" role="list"></div>
