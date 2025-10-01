@@ -15,6 +15,18 @@
       --muted: #5c6774;
       --accent: #0b57d0;
       --accent-strong: #0a47ac;
+      --supplies-color: #0b57d0;
+      --supplies-color-strong: #0a47ac;
+      --supplies-soft: rgba(11, 87, 208, 0.12);
+      --supplies-outline: rgba(11, 87, 208, 0.32);
+      --it-color: #0f9d58;
+      --it-color-strong: #0b8043;
+      --it-soft: rgba(15, 157, 88, 0.12);
+      --it-outline: rgba(15, 157, 88, 0.28);
+      --maintenance-color: #f29900;
+      --maintenance-color-strong: #c77700;
+      --maintenance-soft: rgba(242, 153, 0, 0.14);
+      --maintenance-outline: rgba(242, 153, 0, 0.3);
       --success: #0f9d58;
       --danger: #d93025;
     }
@@ -469,10 +481,10 @@
       border-radius: 999px;
       padding: 0.8rem 1.35rem;
       font-weight: 600;
-      background: var(--accent);
-      color: #fff;
+      background: var(--button-bg, var(--accent));
+      color: var(--button-fg, #fff);
       min-height: 48px;
-      transition: background 0.2s ease;
+      transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
       font-size: clamp(1.05rem, 4vw, 1.2rem);
     }
 
@@ -482,40 +494,90 @@
     }
 
     button:not([disabled]):hover {
-      background: var(--accent-strong);
+      background: var(--button-hover-bg, var(--accent-strong));
     }
 
     button.secondary {
-      background: var(--surface-alt);
-      color: var(--accent);
+      --button-bg: var(--surface-alt);
+      --button-hover-bg: #e9eef7;
+      --button-fg: var(--accent);
+      background: var(--button-bg);
+      color: var(--button-fg);
       border: 1px solid var(--border);
     }
 
-    button.secondary:hover:not([disabled]) {
-      background: #e9eef7;
-    }
-
     .tab-nav button {
+      --tab-color: var(--accent);
+      --tab-color-strong: var(--accent-strong);
+      --tab-soft: rgba(11, 87, 208, 0.12);
+      --tab-border: rgba(11, 87, 208, 0.32);
+      --button-bg: var(--surface);
+      --button-hover-bg: var(--tab-soft);
+      --button-fg: var(--tab-color);
       flex: 1 1 0;
       min-width: 0;
       padding: 0.65rem 1rem;
       border-radius: 999px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--muted);
+      border: 1px solid var(--tab-border);
+      background: var(--button-bg);
+      color: var(--button-fg);
       font-weight: 600;
       font-size: clamp(0.95rem, 3.5vw, 1.05rem);
       text-align: center;
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
     .tab-nav button:not(.active):hover {
-      background: #eef2f9;
+      background: var(--tab-soft);
     }
 
     .tab-nav button.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
+      --button-bg: var(--tab-color);
+      --button-hover-bg: var(--tab-color-strong);
+      --button-fg: #fff;
+      border-color: var(--tab-color);
+      color: var(--button-fg);
+      box-shadow: 0 10px 20px -14px rgba(0, 0, 0, 0.4);
+    }
+
+    .tab-nav button:focus-visible {
+      outline-color: var(--tab-color);
+    }
+
+    .tab-nav button[data-tab-trigger="supplies"] {
+      --tab-color: var(--supplies-color);
+      --tab-color-strong: var(--supplies-color-strong);
+      --tab-soft: var(--supplies-soft);
+      --tab-border: var(--supplies-outline);
+    }
+
+    .tab-nav button[data-tab-trigger="it"] {
+      --tab-color: var(--it-color);
+      --tab-color-strong: var(--it-color-strong);
+      --tab-soft: var(--it-soft);
+      --tab-border: var(--it-outline);
+    }
+
+    .tab-nav button[data-tab-trigger="maintenance"] {
+      --tab-color: var(--maintenance-color);
+      --tab-color-strong: var(--maintenance-color-strong);
+      --tab-soft: var(--maintenance-soft);
+      --tab-border: var(--maintenance-outline);
+    }
+
+    #suppliesSubmitButton {
+      --button-bg: var(--supplies-color);
+      --button-hover-bg: var(--supplies-color-strong);
+    }
+
+    #itSubmitButton {
+      --button-bg: var(--it-color);
+      --button-hover-bg: var(--it-color-strong);
+    }
+
+    #maintenanceSubmitButton {
+      --button-bg: var(--maintenance-color);
+      --button-hover-bg: var(--maintenance-color-strong);
     }
 
     .inline-buttons {
