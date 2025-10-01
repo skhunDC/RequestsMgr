@@ -787,6 +787,111 @@
       margin-top: 0.2rem;
     }
 
+    .request-notes {
+      margin-top: 0.4rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .request-notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem;
+      font-size: clamp(0.85rem, 3vw, 0.95rem);
+    }
+
+    .request-notes-title {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .request-notes-count {
+      color: var(--muted);
+    }
+
+    .request-notes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .request-notes-empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.82rem, 2.6vw, 0.92rem);
+    }
+
+    .request-note {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.55rem 0.65rem;
+      background: var(--surface-alt);
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .request-note-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+      color: var(--muted);
+      font-size: clamp(0.78rem, 2.6vw, 0.88rem);
+    }
+
+    .request-note-body {
+      margin: 0;
+      color: var(--text);
+      font-size: clamp(0.85rem, 3vw, 0.95rem);
+      white-space: pre-wrap;
+    }
+
+    .request-note-dot {
+      color: var(--muted);
+    }
+
+    .request-note-form {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.6rem 0.65rem;
+      background: rgba(11, 87, 208, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .request-note-form textarea {
+      min-height: 72px;
+      resize: vertical;
+      padding: 0.5rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: clamp(0.85rem, 2.8vw, 0.95rem);
+      font-family: inherit;
+    }
+
+    .request-note-form textarea:focus {
+      border-color: var(--accent);
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .request-note-helper {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.78rem, 2.6vw, 0.88rem);
+    }
+
+    .request-note-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
     .request-item-footer > .inline-buttons,
     .request-item-footer > .supplies-actions {
       flex: 1 1 100%;
@@ -1579,6 +1684,7 @@
         it: '#0f9d58',
         maintenance: '#f29900'
       };
+      const NOTE_SUPPORTED_TYPES = new Set(['it', 'maintenance']);
       const DASHBOARD_REFRESH_INTERVAL = 60000;
       const DASHBOARD_DEBOUNCE = 500;
       const PERSIST_DELAY = 240;
@@ -1615,6 +1721,10 @@
           supplies: [],
           it: [],
           maintenance: []
+        },
+        noteDrafts: {
+          it: {},
+          maintenance: {}
         },
         nextTokens: {
           supplies: '',
@@ -2575,6 +2685,13 @@ function renderApproverUnavailable(auth) {
 
           item.appendChild(info);
 
+          if (supportsNotes(type)) {
+            const notesSection = buildRequestNotesSection(request, type);
+            if (notesSection) {
+              item.appendChild(notesSection);
+            }
+          }
+
           const footer = document.createElement('div');
           footer.className = 'request-item-footer';
 
@@ -2730,6 +2847,56 @@ function renderApproverUnavailable(auth) {
             handleError(err, 'updateRequestStatus', payload);
           })
           .updateRequestStatus(payload);
+      }
+
+      function handleAddNote(type, request, textarea, submitButton) {
+        if (!canManageStatuses) {
+          showToast('You are not authorized to add notes.');
+          return;
+        }
+        const currentValue = textarea.value || '';
+        setNoteDraft(type, request.id, currentValue);
+        const trimmed = currentValue.trim();
+        if (!trimmed) {
+          showToast('Add a note before submitting.');
+          return;
+        }
+        if (!server) {
+          showToast('Connect to Google Apps Script to add notes.');
+          return;
+        }
+        const payload = {
+          cid: makeCid(),
+          clientRequestId: makeClientRequestId(type),
+          type,
+          requestId: request.id,
+          note: trimmed
+        };
+        textarea.disabled = true;
+        submitButton.disabled = true;
+        server
+          .withSuccessHandler(response => {
+            textarea.disabled = false;
+            submitButton.disabled = false;
+            if (!response || !response.ok || !response.request) {
+              handleError(response, 'addRequestNote', payload);
+              return;
+            }
+            const updated = response.request;
+            const index = state.requests[type].findIndex(entry => entry.id === updated.id);
+            if (index >= 0) {
+              state.requests[type][index] = updated;
+            }
+            clearNoteDraft(type, request.id);
+            renderRequests(type);
+            showToast('Note added');
+          })
+          .withFailureHandler(err => {
+            textarea.disabled = false;
+            submitButton.disabled = false;
+            handleError(err, 'addRequestNote', payload);
+          })
+          .addRequestNote(payload);
       }
 
       function handleUpdateEta(type, request, etaValue, input, previousEta) {
@@ -3374,6 +3541,52 @@ function renderApproverUnavailable(auth) {
         }
       }
 
+      function supportsNotes(type) {
+        return NOTE_SUPPORTED_TYPES.has(type);
+      }
+
+      function getNoteDraft(type, requestId) {
+        if (!supportsNotes(type)) {
+          return '';
+        }
+        const drafts = state.noteDrafts[type];
+        if (!drafts) {
+          return '';
+        }
+        return drafts[requestId] || '';
+      }
+
+      function setNoteDraft(type, requestId, value) {
+        if (!supportsNotes(type)) {
+          return;
+        }
+        if (!state.noteDrafts[type]) {
+          state.noteDrafts[type] = {};
+        }
+        state.noteDrafts[type][requestId] = value;
+      }
+
+      function clearNoteDraft(type, requestId) {
+        if (!supportsNotes(type)) {
+          return;
+        }
+        const drafts = state.noteDrafts[type];
+        if (drafts && Object.prototype.hasOwnProperty.call(drafts, requestId)) {
+          delete drafts[requestId];
+        }
+      }
+
+      function formatNoteTimestamp(ts) {
+        if (!ts) {
+          return 'Unknown time';
+        }
+        const parsed = new Date(ts);
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toLocaleString();
+        }
+        return ts;
+      }
+
       function buildStatusActorLine(type, statusKey, approver) {
         const actorName = approver ? approver : 'Not recorded';
         switch (statusKey) {
@@ -3393,6 +3606,144 @@ function renderApproverUnavailable(auth) {
           default:
             return `Status: ${formatStatus(statusKey)}${approver ? ` by ${actorName}` : ''}`;
         }
+      }
+
+      function buildRequestNotesSection(request, type) {
+        const notes = Array.isArray(request.notes) ? request.notes : [];
+        const wrapper = document.createElement('section');
+        wrapper.className = 'request-notes';
+
+        const header = document.createElement('div');
+        header.className = 'request-notes-header';
+
+        const title = document.createElement('span');
+        title.className = 'request-notes-title';
+        title.textContent = 'Notes';
+        header.appendChild(title);
+
+        const count = document.createElement('span');
+        count.className = 'request-notes-count';
+        if (notes.length) {
+          count.textContent = `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`;
+        } else {
+          count.textContent = 'No notes yet';
+        }
+        header.appendChild(count);
+
+        wrapper.appendChild(header);
+
+        const list = document.createElement('div');
+        list.className = 'request-notes-list';
+        if (notes.length) {
+          notes.forEach(note => {
+            const entry = buildRequestNoteEntry(note);
+            list.appendChild(entry);
+          });
+        } else {
+          const empty = document.createElement('p');
+          empty.className = 'request-notes-empty';
+          empty.textContent = 'No notes yet.';
+          list.appendChild(empty);
+        }
+        wrapper.appendChild(list);
+
+        if (canManageStatuses) {
+          const form = document.createElement('form');
+          form.className = 'request-note-form';
+          form.noValidate = true;
+
+          const textarea = document.createElement('textarea');
+          textarea.placeholder = 'Add a note for this request…';
+          textarea.value = getNoteDraft(type, request.id);
+          textarea.addEventListener('input', () => {
+            setNoteDraft(type, request.id, textarea.value);
+          });
+          if (!server) {
+            textarea.disabled = true;
+          }
+          form.appendChild(textarea);
+
+          if (!server) {
+            const helper = document.createElement('p');
+            helper.className = 'request-note-helper';
+            helper.textContent = 'Connect to Google Apps Script to add notes.';
+            form.appendChild(helper);
+          }
+
+          const actions = document.createElement('div');
+          actions.className = 'request-note-actions';
+
+          const submit = document.createElement('button');
+          submit.type = 'submit';
+          submit.className = 'secondary';
+          submit.textContent = 'Add note';
+          if (!server) {
+            submit.disabled = true;
+          }
+          actions.appendChild(submit);
+          form.appendChild(actions);
+
+          form.addEventListener('submit', event => {
+            event.preventDefault();
+            handleAddNote(type, request, textarea, submit);
+          });
+
+          wrapper.appendChild(form);
+        }
+
+        return wrapper;
+      }
+
+      function buildRequestNoteEntry(note) {
+        const entry = document.createElement('article');
+        entry.className = 'request-note';
+
+        const meta = document.createElement('div');
+        meta.className = 'request-note-meta';
+
+        const actorText = typeof note.actor === 'string' ? note.actor.trim() : '';
+        if (actorText) {
+          const actor = document.createElement('span');
+          actor.textContent = actorText;
+          meta.appendChild(actor);
+        }
+
+        const timestampRaw = typeof note.ts === 'string' ? note.ts : '';
+        const timestampLabel = timestampRaw ? formatNoteTimestamp(timestampRaw) : '';
+        if (timestampLabel) {
+          if (meta.childElementCount) {
+            meta.appendChild(makeMetaDot());
+          }
+          const time = document.createElement('time');
+          time.className = 'request-note-ts';
+          time.dateTime = timestampRaw;
+          time.textContent = timestampLabel;
+          meta.appendChild(time);
+        }
+
+        if (!meta.childElementCount) {
+          meta.textContent = 'Note';
+        }
+
+        entry.appendChild(meta);
+
+        const bodyText = typeof note.note === 'string' ? note.note : '';
+        if (bodyText) {
+          const body = document.createElement('p');
+          body.className = 'request-note-body';
+          body.textContent = bodyText;
+          entry.appendChild(body);
+        }
+
+        return entry;
+      }
+
+      function makeMetaDot() {
+        const dot = document.createElement('span');
+        dot.className = 'request-note-dot';
+        dot.textContent = '•';
+        dot.setAttribute('aria-hidden', 'true');
+        return dot;
       }
 
       function disableForm(type, disabled) {
