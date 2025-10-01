@@ -1674,7 +1674,6 @@
           catalogMore: document.getElementById('catalogMoreButton'),
           catalogClear: document.getElementById('catalogClearButton'),
           catalogCard: document.getElementById('catalogCard'),
-          catalogJump: document.getElementById('catalogScrollButton'),
           approverNotice: document.querySelector('[data-approver-notice="supplies"]')
         },
         it: {
@@ -2202,12 +2201,6 @@
             loadCatalog({ append: false, fetchAll: true });
           }
         });
-        if (dom.supplies.catalogJump && dom.supplies.catalogCard) {
-          dom.supplies.catalogJump.addEventListener('click', () => {
-            dom.supplies.catalogCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          });
-        }
-
         dom.it.form.addEventListener('submit', evt => handleSubmit(evt, 'it'));
         dom.it.reset.addEventListener('click', () => {
           resetForm('it');
