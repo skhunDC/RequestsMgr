@@ -3,13 +3,14 @@
 const SCRIPT_PROP_SHEET_ID = 'SUPPLIES_TRACKING_SHEET_ID';
 const SCRIPT_PROP_SETUP_VERSION = 'SUPPLIES_TRACKING_SETUP_VERSION';
 const SCRIPT_PROP_STATUS_EMAILS = 'SUPPLIES_TRACKING_STATUS_EMAILS';
-const CURRENT_SETUP_VERSION = '3';
+const CURRENT_SETUP_VERSION = '4';
 const MAX_PAGE_SIZE = 50;
 
 const SHEETS = {
   CATALOG: 'Catalog',
   LOGS: 'Logs',
-  STATUS_LOG: 'StatusLog'
+  STATUS_LOG: 'StatusLog',
+  REQUEST_NOTES: 'RequestNotes'
 };
 
 const LOCATION_OPTIONS = ['Plant', 'Short North', 'South Dublin', 'Muirfield', 'Morse Rd.', 'Granville', 'Newark'];
@@ -130,6 +131,7 @@ const REQUEST_TYPES = {
 
 const LOG_HEADERS = ['ts', 'actor', 'fn', 'cid', 'message', 'stack', 'context'];
 const STATUS_LOG_HEADERS = ['ts', 'type', 'requestId', 'actor', 'status'];
+const REQUEST_NOTE_HEADERS = ['ts', 'type', 'requestId', 'actor', 'note'];
 
 const CACHE_KEYS = {
   CATALOG: 'catalog:v3',
@@ -160,6 +162,51 @@ const CACHE_TTLS = {
 let runtimeCatalogItems_ = null;
 let runtimeCatalogDescriptionIndex_ = null;
 
+function supportsRequestNotes_(type) {
+  return type === 'it' || type === 'maintenance';
+}
+
+function getRequestNotesMap_(type) {
+  if (!supportsRequestNotes_(type)) {
+    return {};
+  }
+  const sheet = getSheet_(SHEETS.REQUEST_NOTES, REQUEST_NOTE_HEADERS);
+  const rows = readTable_(sheet, REQUEST_NOTE_HEADERS);
+  const map = {};
+  rows.forEach(entry => {
+    const entryType = String(entry && entry.type || '').trim().toLowerCase();
+    if (entryType !== type) {
+      return;
+    }
+    const requestId = String(entry && entry.requestId || '').trim();
+    const noteText = sanitizeString_(entry && entry.note);
+    if (!requestId || !noteText) {
+      return;
+    }
+    let tsValue = '';
+    const rawTs = entry && entry.ts;
+    if (rawTs instanceof Date && !isNaN(rawTs.getTime())) {
+      tsValue = toIsoString_(rawTs);
+    } else {
+      tsValue = sanitizeString_(rawTs);
+    }
+    const rawActor = sanitizeString_(entry && entry.actor);
+    const actor = normalizeEmail_(rawActor) || rawActor;
+    if (!Array.isArray(map[requestId])) {
+      map[requestId] = [];
+    }
+    map[requestId].push({
+      ts: tsValue,
+      actor,
+      note: noteText
+    });
+  });
+  Object.keys(map).forEach(requestId => {
+    map[requestId].sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')));
+  });
+  return map;
+}
+
 function getRequiredSheetDefinitions_() {
   const definitions = {};
   Object.keys(REQUEST_TYPES).forEach(type => {
@@ -169,6 +216,7 @@ function getRequiredSheetDefinitions_() {
   definitions[SHEETS.CATALOG] = ['sku', 'description', 'category', 'estimatedCost', 'supplier', 'archived'];
   definitions[SHEETS.LOGS] = LOG_HEADERS.slice();
   definitions[SHEETS.STATUS_LOG] = STATUS_LOG_HEADERS.slice();
+  definitions[SHEETS.REQUEST_NOTES] = REQUEST_NOTE_HEADERS.slice();
   return definitions;
 }
 
@@ -347,8 +395,13 @@ function getAllRequestsForType_(type) {
   }
   const sheet = getSheet_(def.sheetName, def.headers);
   const rows = readTable_(sheet, def.headers);
+  const notesMap = getRequestNotesMap_(type);
   const records = rows
-    .map(row => buildClientRequest_(type, row))
+    .map(row => {
+      const record = buildClientRequest_(type, row);
+      record.notes = Array.isArray(notesMap[record.id]) ? notesMap[record.id] : [];
+      return record;
+    })
     .sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
   cache.put(cacheKey, JSON.stringify(records), CACHE_TTLS.REQUESTS);
   return records;
@@ -614,6 +667,75 @@ function updateRequestStatus(request) {
     return {
       ok: true,
       request: updatedRecord
+    };
+  });
+}
+
+function addRequestNote(request) {
+  return withErrorHandling_('addRequestNote', request && request.cid, request, () => {
+    ensureSetup_();
+    const rid = String(request && request.clientRequestId || '').trim();
+    if (!rid) {
+      throw new Error('clientRequestId is required.');
+    }
+    const type = normalizeType_(request && request.type);
+    if (!supportsRequestNotes_(type)) {
+      throw new Error('Notes are supported for IT and maintenance requests only.');
+    }
+    const requestId = String(request && request.requestId || '').trim();
+    if (!requestId) {
+      throw new Error('requestId is required.');
+    }
+    const noteText = sanitizeString_(request && request.note);
+    if (!noteText) {
+      throw new Error('Note text is required.');
+    }
+
+    const cache = CacheService.getScriptCache();
+    const ridKey = [CACHE_KEYS.RID_PREFIX, rid].join(':');
+    const cached = cache.get(ridKey);
+    if (cached) {
+      return {
+        ok: true,
+        request: JSON.parse(cached)
+      };
+    }
+
+    const statusAuth = assertAuthorizedStatusActor_();
+    const actorEmail = statusAuth.email;
+
+    const existingRecords = getAllRequestsForType_(type);
+    const existing = existingRecords.find(entry => entry.id === requestId);
+    if (!existing) {
+      throw new Error('Request not found.');
+    }
+
+    const notesSheet = getSheet_(SHEETS.REQUEST_NOTES, REQUEST_NOTE_HEADERS);
+    const entry = [
+      toIsoString_(new Date()),
+      type,
+      requestId,
+      actorEmail,
+      noteText
+    ];
+    withLock_(() => {
+      notesSheet.appendRow(entry);
+    });
+
+    invalidateRequestCache_(type, 'all');
+    invalidateRequestCache_(type, normalizeEmail_(existing.requester));
+
+    const updatedRecords = getAllRequestsForType_(type);
+    const updated = updatedRecords.find(entry => entry.id === requestId);
+    if (!updated) {
+      throw new Error('Request not found.');
+    }
+
+    cache.put(ridKey, JSON.stringify(updated), CACHE_TTLS.RID);
+
+    return {
+      ok: true,
+      request: updated
     };
   });
 }
@@ -1206,7 +1328,8 @@ function buildClientRequest_(type, row) {
     status: String(row.status || 'pending').toLowerCase() || 'pending',
     approver: String(row.approver || ''),
     type,
-    fields
+    fields,
+    notes: []
   };
   if (Object.prototype.hasOwnProperty.call(fields, 'eta')) {
     fields.eta = formatDateForDisplay_(fields.eta);
