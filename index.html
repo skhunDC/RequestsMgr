@@ -49,49 +49,53 @@
       align-items: stretch;
     }
 
-    .hero-intro {
-      display: flex;
-      flex-direction: column;
-      gap: clamp(0.85rem, 3.8vw, 1.2rem);
-      align-items: flex-start;
-    }
-
-    header img.logo {
-      width: clamp(104px, 28vw, 120px);
-      height: auto;
-      display: block;
-    }
-
-    .hero-copy {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      text-align: left;
-      align-items: flex-start;
-    }
-
-    header h1 {
-      margin: 0;
-      font-size: clamp(1.45rem, 5vw, 2rem);
-      font-weight: 600;
-    }
-
-    header p {
-      margin: 0;
-      color: var(--muted);
-      font-size: clamp(1rem, 3.9vw, 1.1rem);
-      max-width: 40rem;
-    }
-
     .hero-dashboard {
       background: var(--surface);
       border-radius: 16px;
       border: 1px solid rgba(14, 31, 53, 0.08);
-      padding: clamp(1rem, 4vw, 1.5rem);
+      padding: clamp(1rem, 4vw, 1.65rem);
       box-shadow: 0 12px 24px -18px rgba(13, 34, 78, 0.35);
       display: flex;
       flex-direction: column;
-      gap: clamp(1rem, 4vw, 1.5rem);
+      gap: clamp(1rem, 4vw, 1.75rem);
+      width: clamp(280px, 92vw, 900px);
+      margin: 0 auto;
+      background-image: radial-gradient(circle at top left, rgba(11, 87, 208, 0.12), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(15, 157, 88, 0.1), transparent 60%);
+    }
+
+    .dashboard-identity {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: clamp(0.85rem, 4vw, 1.75rem);
+    }
+
+    .dashboard-identity .dashboard-logo {
+      width: clamp(88px, 22vw, 132px);
+      height: auto;
+      flex: 0 0 auto;
+    }
+
+    .dashboard-identity-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-width: min(240px, 100%);
+    }
+
+    .dashboard-identity h1 {
+      margin: 0;
+      font-size: clamp(1.55rem, 4.8vw, 2.25rem);
+      font-weight: 600;
+    }
+
+    .dashboard-identity p {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 3.8vw, 1.1rem);
+      max-width: 40rem;
     }
 
     .hero-dashboard header,
@@ -1018,22 +1022,20 @@
       }
 
       header .hero-inner {
-        flex-direction: row;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: clamp(1.5rem, 5vw, 3rem);
-      }
-
-      .hero-intro {
-        flex: 1 1 42%;
+        align-items: stretch;
+        justify-content: center;
       }
 
       .hero-dashboard {
-        flex: 1 1 58%;
+        width: clamp(360px, 78vw, 960px);
       }
 
-      header p {
-        max-width: 32rem;
+      .dashboard-identity {
+        flex-wrap: nowrap;
+      }
+
+      .dashboard-identity-copy {
+        min-width: 0;
       }
     }
 
@@ -1058,26 +1060,26 @@
 <body>
   <header>
     <div class="hero-inner">
-      <div class="hero-intro">
-        <img
-          class="logo"
-          src="https://www.dublincleaners.com/wp-content/uploads/2024/12/Dublin-Logos-stacked.png"
-          alt="Dublin Cleaners logo"
-          loading="lazy"
-          decoding="async"
-          width="150"
-        >
-        <div class="hero-copy">
-          <h1>Request Manager</h1>
-          <p>Submit and track Supplies, Technology, and Maintenance needs from one Workspace.</p>
-        </div>
-      </div>
       <section
         class="hero-dashboard"
         id="heroDashboard"
         aria-label="Request activity dashboard"
         aria-live="polite"
       >
+        <div class="dashboard-identity">
+          <img
+            class="dashboard-logo"
+            src="https://www.dublincleaners.com/wp-content/uploads/2024/12/Dublin-Logos-stacked.png"
+            alt="Dublin Cleaners logo"
+            loading="lazy"
+            decoding="async"
+            width="150"
+          >
+          <div class="dashboard-identity-copy">
+            <h1>Request Manager</h1>
+            <p>Submit and track Supplies, Technology, and Maintenance needs from one Workspace.</p>
+          </div>
+        </div>
         <div class="dashboard-header">
           <h2>Live request dashboard</h2>
           <div class="dashboard-summary">
