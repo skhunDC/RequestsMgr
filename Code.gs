@@ -3,7 +3,7 @@
 const SCRIPT_PROP_SHEET_ID = 'SUPPLIES_TRACKING_SHEET_ID';
 const SCRIPT_PROP_SETUP_VERSION = 'SUPPLIES_TRACKING_SETUP_VERSION';
 const SCRIPT_PROP_STATUS_EMAILS = 'SUPPLIES_TRACKING_STATUS_EMAILS';
-const CURRENT_SETUP_VERSION = '2';
+const CURRENT_SETUP_VERSION = '3';
 const MAX_PAGE_SIZE = 50;
 
 const SHEETS = {
@@ -126,7 +126,7 @@ const LOG_HEADERS = ['ts', 'actor', 'fn', 'cid', 'message', 'stack', 'context'];
 const STATUS_LOG_HEADERS = ['ts', 'type', 'requestId', 'actor', 'status'];
 
 const CACHE_KEYS = {
-  CATALOG: 'catalog:v2',
+  CATALOG: 'catalog:v3',
   CATALOG_USAGE: 'catalog-usage:v1',
   REQUESTS_PREFIX: 'requests',
   RID_PREFIX: 'rid',
@@ -156,7 +156,7 @@ function getRequiredSheetDefinitions_() {
     const def = REQUEST_TYPES[type];
     definitions[def.sheetName] = def.headers.slice();
   });
-  definitions[SHEETS.CATALOG] = ['sku', 'description', 'category', 'archived'];
+  definitions[SHEETS.CATALOG] = ['sku', 'description', 'category', 'estimatedCost', 'supplier', 'archived'];
   definitions[SHEETS.LOGS] = LOG_HEADERS.slice();
   definitions[SHEETS.STATUS_LOG] = STATUS_LOG_HEADERS.slice();
   return definitions;
@@ -193,9 +193,9 @@ function listCatalog(request) {
     if (cached) {
       items = JSON.parse(cached);
     } else {
-      const sheet = getSheet_(SHEETS.CATALOG, ['sku', 'description', 'category', 'archived']);
+      const sheet = getSheet_(SHEETS.CATALOG, ['sku', 'description', 'category', 'estimatedCost', 'supplier', 'archived']);
       const usageCounts = getCatalogUsageCounts_();
-      items = readTable_(sheet, ['sku', 'description', 'category', 'archived'])
+      items = readTable_(sheet, ['sku', 'description', 'category', 'estimatedCost', 'supplier', 'archived'])
         .filter(row => !row.archived)
         .map(row => {
           const description = sanitizeString_(row.description);
@@ -205,6 +205,8 @@ function listCatalog(request) {
             sku: sanitizeString_(row.sku),
             description,
             category: sanitizeString_(row.category),
+            estimatedCost: sanitizeString_(row.estimatedCost),
+            supplier: sanitizeString_(row.supplier),
             usageCount
           };
         })
@@ -619,9 +621,9 @@ function ensureSetup_() {
     const catalog = ss.getSheetByName(SHEETS.CATALOG);
     if (catalog.getLastRow() <= 1) {
       const defaults = [
-        ['SKU-001', 'Copy Paper 8.5x11 (case)', 'Office', false],
-        ['SKU-014', 'Nitrile Gloves (box)', 'Cleaning', false],
-        ['SKU-027', 'Poly Garment Bags (roll)', 'Operations', false]
+        ['SKU-001', 'Copy Paper 8.5x11 (case)', 'Office', '', '', false],
+        ['SKU-014', 'Nitrile Gloves (box)', 'Cleaning', '', '', false],
+        ['SKU-027', 'Poly Garment Bags (roll)', 'Operations', '', '', false]
       ];
       catalog.getRange(2, 1, defaults.length, defaults[0].length).setValues(defaults);
     }
