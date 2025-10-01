@@ -258,42 +258,44 @@ function getCatalogUsageCounts_() {
   return counts;
 }
 
+function getAllRequestsForType_(type) {
+  const def = REQUEST_TYPES[type];
+  if (!def) {
+    throw new Error('Unsupported request type.');
+  }
+  const cache = CacheService.getScriptCache();
+  const cacheKey = [CACHE_KEYS.REQUESTS_PREFIX, type, 'all'].join(':');
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+      cache.remove(cacheKey);
+    } catch (err) {
+      cache.remove(cacheKey);
+    }
+  }
+  const sheet = getSheet_(def.sheetName, def.headers);
+  const rows = readTable_(sheet, def.headers);
+  const records = rows
+    .map(row => buildClientRequest_(type, row))
+    .sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
+  cache.put(cacheKey, JSON.stringify(records), CACHE_TTLS.REQUESTS);
+  return records;
+}
+
 function listRequests(request) {
   return withErrorHandling_('listRequests', request && request.cid, request, () => {
     ensureSetup_();
     const type = normalizeType_(request && request.type);
     const scope = normalizeScope_(request && request.scope);
-    const def = REQUEST_TYPES[type];
     const pageSize = clamp_(Number(request && request.pageSize) || 15, 1, MAX_PAGE_SIZE);
     const startIndex = Number(request && request.nextToken) || 0;
 
     const cache = CacheService.getScriptCache();
-    const allCacheKey = [CACHE_KEYS.REQUESTS_PREFIX, type, 'all'].join(':');
-    let records = [];
-    let hasAllCache = false;
-    const cachedAll = cache.get(allCacheKey);
-    if (cachedAll) {
-      try {
-        const parsed = JSON.parse(cachedAll);
-        if (Array.isArray(parsed)) {
-          records = parsed;
-          hasAllCache = true;
-        } else {
-          cache.remove(allCacheKey);
-        }
-      } catch (err) {
-        cache.remove(allCacheKey);
-      }
-    }
-
-    if (!hasAllCache) {
-      const sheet = getSheet_(def.sheetName, def.headers);
-      const rows = readTable_(sheet, def.headers);
-      records = rows
-        .map(row => buildClientRequest_(type, row))
-        .sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
-      cache.put(allCacheKey, JSON.stringify(records), CACHE_TTLS.REQUESTS);
-    }
+    const records = getAllRequestsForType_(type);
 
     const userEmail = normalizeEmail_(getActiveUserEmail_());
     let scopedRecords = records;
@@ -327,6 +329,38 @@ function listRequests(request) {
       scope,
       requests: slice,
       nextToken
+    };
+  });
+}
+
+function getDashboardMetrics(request) {
+  return withErrorHandling_('getDashboardMetrics', request && request.cid, request, () => {
+    ensureSetup_();
+    const metrics = {};
+    let totalRequests = 0;
+    let outstandingRequests = 0;
+    Object.keys(REQUEST_TYPES).forEach(type => {
+      const records = getAllRequestsForType_(type);
+      const total = records.length;
+      const outstanding = records.reduce((count, record) => {
+        const status = String(record && record.status || '').trim().toLowerCase();
+        if (status === 'approved' || status === 'completed') {
+          return count;
+        }
+        return count + 1;
+      }, 0);
+      metrics[type] = { total, outstanding };
+      totalRequests += total;
+      outstandingRequests += outstanding;
+    });
+    return {
+      ok: true,
+      metrics,
+      totals: {
+        totalRequests,
+        outstandingRequests
+      },
+      generatedAt: toIsoString_(new Date())
     };
   });
 }
