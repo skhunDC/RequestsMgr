@@ -2046,11 +2046,11 @@
         });
       }
 
-      function renderApproverUnavailable(auth) {
+function renderApproverUnavailable(auth) {
         const messageText = auth && auth.reason === 'missing_email'
-          ? 'We could not confirm your Google Account email. Sign in with an authorized account before approving requests.'
+          ? 'We could not confirm your Google Account email. To Approve a Request, Sign in with an authorized account.'
           : `${auth && auth.email ? auth.email : 'This account'} is not on the approver allowlist.`;
-        const hintText = 'An administrator can add approver emails via the SUPPLIES_TRACKING_STATUS_EMAILS script property or by updating the default allowlist.';
+        const hintText = 'An administrator can add approver emails.';
         REQUEST_KEYS.forEach(type => {
           const container = dom[type] && dom[type].approverNotice;
           if (!container) {
