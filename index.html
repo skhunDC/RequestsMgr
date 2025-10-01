@@ -2878,7 +2878,7 @@
         let filteredItems = state.catalog.items.slice();
         if (normalizedSearch) {
           filteredItems = state.catalog.items.filter(item => {
-            const haystack = `${item.description} ${item.category} ${item.sku}`.toLowerCase();
+            const haystack = `${item.description} ${item.category} ${item.sku} ${item.supplier || ''} ${item.estimatedCost || ''}`.toLowerCase();
             return haystack.indexOf(normalizedSearch) !== -1;
           });
           const skuToHighlight = state.forms.supplies.catalogSku || '';
@@ -2945,6 +2945,18 @@
           meta.className = 'meta';
           meta.textContent = item.category ? `${item.category} • ${item.sku}` : item.sku;
           card.appendChild(meta);
+          if (item.supplier) {
+            const supplier = document.createElement('span');
+            supplier.className = 'meta';
+            supplier.textContent = `Supplier: ${item.supplier}`;
+            card.appendChild(supplier);
+          }
+          if (item.estimatedCost) {
+            const cost = document.createElement('span');
+            cost.className = 'meta';
+            cost.textContent = `Estimated cost: ${item.estimatedCost}`;
+            card.appendChild(cost);
+          }
           if (Number(item.usageCount) > 0) {
             const usage = document.createElement('span');
             usage.className = 'meta usage';
@@ -3024,7 +3036,9 @@
         }
         const prefix = highlight ? '★ ' : '';
         const categoryLabel = item.category ? ` · ${item.category}` : '';
-        return `${prefix}${item.description}${categoryLabel} — ${item.sku}`;
+        const supplierLabel = item.supplier ? ` · ${item.supplier}` : '';
+        const costLabel = item.estimatedCost ? ` (${item.estimatedCost})` : '';
+        return `${prefix}${item.description}${categoryLabel}${supplierLabel} — ${item.sku}${costLabel}`;
       }
 
       function findCatalogOption(value) {
