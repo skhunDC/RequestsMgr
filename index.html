@@ -2511,7 +2511,9 @@
           const footer = document.createElement('div');
           footer.className = 'request-item-footer';
 
-          if (type === 'supplies') {
+          const showEtaField = type === 'supplies' && shouldShowEtaField(stateKey);
+
+          if (showEtaField) {
             const etaWrapper = document.createElement('label');
             etaWrapper.className = 'eta-field';
 
@@ -2717,6 +2719,13 @@
             handleError(err, 'updateRequestEta', payload);
           })
           .updateRequestStatus(payload);
+      }
+
+      function shouldShowEtaField(status) {
+        const key = typeof status === 'string'
+          ? status.trim().toLowerCase().replace(/\s+/g, '_')
+          : '';
+        return key !== 'denied';
       }
 
       function canEditEtaStatus(status) {
