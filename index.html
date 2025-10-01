@@ -45,10 +45,10 @@
     }
 
     header {
-      padding: clamp(1.25rem, 6vw, 1.75rem) clamp(1rem, 6vw, 2.25rem) clamp(0.75rem, 4vw, 1.25rem);
+      padding: clamp(0.85rem, 5vw, 1.25rem) clamp(0.9rem, 5vw, 1.65rem) clamp(0.55rem, 3vw, 0.9rem);
       display: flex;
       flex-direction: column;
-      gap: clamp(1rem, 5vw, 1.75rem);
+      gap: clamp(0.75rem, 3vw, 1.1rem);
       align-items: stretch;
     }
 
@@ -57,7 +57,7 @@
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: clamp(1.25rem, 5vw, 2rem);
+      gap: clamp(0.75rem, 3vw, 1.15rem);
       align-items: stretch;
     }
 
@@ -65,188 +65,158 @@
       background: var(--surface);
       border-radius: 14px;
       border: 1px solid rgba(14, 31, 53, 0.08);
-      padding: clamp(0.6rem, 2.4vw, 1.1rem);
-      box-shadow: 0 10px 20px -18px rgba(13, 34, 78, 0.35);
-      display: flex;
-      flex-direction: column;
-      gap: clamp(0.55rem, 2.4vw, 1rem);
-      width: clamp(260px, 88vw, 640px);
+      padding: clamp(0.75rem, 2.8vw, 1rem);
+      box-shadow: 0 10px 20px -18px rgba(13, 34, 78, 0.25);
+      display: grid;
+      gap: clamp(0.65rem, 2.8vw, 0.9rem);
+      width: min(100%, 720px);
       margin: 0 auto;
-      background-image: radial-gradient(circle at top left, rgba(11, 87, 208, 0.1), transparent 50%),
-        radial-gradient(circle at bottom right, rgba(15, 157, 88, 0.08), transparent 55%);
+      background-image: radial-gradient(circle at top left, rgba(11, 87, 208, 0.06), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(15, 157, 88, 0.06), transparent 60%);
     }
 
-    .dashboard-identity {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      flex-wrap: wrap;
-      gap: clamp(0.45rem, 2.5vw, 1rem);
-    }
-
-    .dashboard-identity .dashboard-logo {
-      width: clamp(68px, 18vw, 105px);
-      height: auto;
-      flex: 0 0 auto;
-    }
-
-    .dashboard-identity-copy {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-      min-width: min(220px, 100%);
-      flex: 1 1 auto;
-      align-items: center;
-      text-align: center;
-    }
-
-    .dashboard-identity h1 {
-      margin: 0;
-      font-size: clamp(1.4rem, 4.2vw, 2rem);
-      font-weight: 600;
-    }
-
-    .dashboard-identity p {
-      margin: 0;
-      color: var(--muted);
-      font-size: clamp(0.95rem, 3.4vw, 1.02rem);
-      max-width: 34rem;
-    }
-
-    .hero-dashboard header,
     .hero-dashboard .dashboard-header {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
+      display: grid;
+      gap: clamp(0.35rem, 2vw, 0.6rem);
     }
 
-    .hero-dashboard h2 {
+    .dashboard-header-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem;
+    }
+
+    .dashboard-title {
       margin: 0;
-      font-size: clamp(1.1rem, 3.7vw, 1.4rem);
+      font-size: clamp(1.05rem, 3.6vw, 1.32rem);
       font-weight: 600;
     }
 
-    .hero-dashboard .dashboard-summary {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem clamp(0.4rem, 2vw, 0.85rem);
-      font-size: clamp(0.85rem, 2.6vw, 0.95rem);
+    .dashboard-header-top .meta {
+      margin-left: auto;
+      font-size: clamp(0.82rem, 2.6vw, 0.95rem);
     }
 
-    .hero-dashboard .dashboard-summary span {
+    .dashboard-summary {
+      display: grid;
+      gap: clamp(0.3rem, 2vw, 0.6rem);
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      font-size: clamp(0.82rem, 2.4vw, 0.92rem);
+    }
+
+    .dashboard-summary span {
       display: flex;
-      align-items: baseline;
-      gap: 0.25rem;
+      flex-direction: column;
+      gap: 0.2rem;
       color: var(--muted);
+      background: var(--surface-alt);
+      border-radius: 10px;
+      border: 1px solid rgba(14, 31, 53, 0.05);
+      padding: 0.5rem 0.65rem;
     }
 
-    .hero-dashboard .dashboard-summary strong {
-      font-size: clamp(1.05rem, 3.6vw, 1.28rem);
+    .dashboard-summary span strong {
+      font-size: clamp(1.2rem, 4vw, 1.45rem);
       color: var(--text);
     }
 
-    .dashboard-body {
+    .dashboard-summary span.highlight strong {
+      color: var(--accent);
+    }
+
+    .dashboard-top {
       display: grid;
-      gap: clamp(0.55rem, 2.4vw, 0.95rem);
+      gap: clamp(0.45rem, 2.2vw, 0.75rem);
+      align-items: start;
     }
 
     .dashboard-grid {
       display: grid;
-      gap: clamp(0.45rem, 2vw, 0.85rem);
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: clamp(0.4rem, 2vw, 0.75rem);
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     }
 
     .dashboard-card {
-      border: 1px solid rgba(14, 31, 53, 0.06);
+      --card-color: var(--accent);
+      --card-color-strong: var(--accent-strong);
+      --card-soft: rgba(11, 87, 208, 0.12);
+      --card-outline: rgba(11, 87, 208, 0.22);
+      border: 1px solid var(--card-outline);
       border-radius: 12px;
-      padding: clamp(0.6rem, 2.4vw, 0.85rem);
-      background: var(--surface-alt);
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
+      padding: clamp(0.55rem, 2vw, 0.8rem);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.78)), var(--card-soft);
+      display: grid;
+      gap: 0.35rem;
+      align-content: start;
+    }
+
+    .dashboard-card[data-dashboard-card="supplies"] {
+      --card-color: var(--supplies-color);
+      --card-color-strong: var(--supplies-color-strong);
+      --card-soft: var(--supplies-soft);
+      --card-outline: var(--supplies-outline);
+    }
+
+    .dashboard-card[data-dashboard-card="it"] {
+      --card-color: var(--it-color);
+      --card-color-strong: var(--it-color-strong);
+      --card-soft: var(--it-soft);
+      --card-outline: var(--it-outline);
+    }
+
+    .dashboard-card[data-dashboard-card="maintenance"] {
+      --card-color: var(--maintenance-color);
+      --card-color-strong: var(--maintenance-color-strong);
+      --card-soft: var(--maintenance-soft);
+      --card-outline: var(--maintenance-outline);
     }
 
     .dashboard-card h3 {
       margin: 0;
-      font-size: clamp(0.98rem, 3.1vw, 1.18rem);
+      font-size: clamp(0.95rem, 3vw, 1.12rem);
       font-weight: 600;
+      color: var(--card-color-strong);
     }
 
     .dashboard-card .metric-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
+      display: grid;
+      gap: 0.35rem;
     }
 
     .dashboard-card .metric {
-      display: flex;
-      flex-direction: column;
-      gap: 0.05rem;
+      display: grid;
+      gap: 0.15rem;
       color: var(--muted);
-      font-size: clamp(0.78rem, 2.5vw, 0.88rem);
+      font-size: clamp(0.76rem, 2.3vw, 0.86rem);
     }
 
     .dashboard-card .metric strong {
-      font-size: clamp(1.25rem, 4.2vw, 1.6rem);
+      font-size: clamp(1.1rem, 3.6vw, 1.45rem);
       font-weight: 600;
       color: var(--text);
     }
 
+    .dashboard-card .metric.highlight {
+      color: var(--card-color);
+    }
+
     .dashboard-card .metric.highlight strong {
-      color: var(--accent);
+      color: var(--card-color-strong);
     }
 
     .dashboard-visual {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.45rem;
+      gap: 0.35rem;
     }
 
     .dashboard-visual canvas {
-      width: min(150px, 100%);
+      width: min(140px, 100%);
       height: auto;
       aspect-ratio: 1 / 1;
-    }
-
-    .dashboard-legend {
-      width: 100%;
-      display: grid;
-      gap: 0.35rem;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      font-size: clamp(0.8rem, 2.6vw, 0.9rem);
-      color: var(--muted);
-    }
-
-    .legend-item .swatch {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      display: inline-flex;
-    }
-
-    .legend-item .swatch[data-type="supplies"] {
-      background: var(--accent);
-    }
-
-    .legend-item .swatch[data-type="it"] {
-      background: var(--success);
-    }
-
-    .legend-item .swatch[data-type="maintenance"] {
-      background: #f29900;
-    }
-
-    .legend-item strong,
-    .legend-item .legend-value {
-      color: var(--text);
-      font-weight: 600;
     }
 
     .dashboard-empty {
@@ -296,9 +266,21 @@
       font-size: clamp(1rem, 3.6vw, 1.1rem);
     }
 
+    @media (min-width: 680px) {
+      .dashboard-top {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+      }
+
+      .dashboard-visual {
+        justify-self: end;
+        align-items: flex-end;
+      }
+    }
+
     @media (min-width: 1024px) {
       .hero-dashboard {
-        width: clamp(320px, 58vw, 840px);
+        width: clamp(420px, 52vw, 760px);
       }
 
       nav.tab-nav,
@@ -1099,7 +1081,7 @@
       }
 
       header {
-        padding-bottom: clamp(1.5rem, 4vw, 2.5rem);
+        padding-bottom: clamp(1.1rem, 3vw, 1.8rem);
       }
 
       header .hero-inner {
@@ -1108,15 +1090,11 @@
       }
 
       .hero-dashboard {
-        width: clamp(340px, 72vw, 820px);
+        width: clamp(420px, 62vw, 760px);
       }
 
-      .dashboard-identity {
-        flex-wrap: nowrap;
-      }
-
-      .dashboard-identity-copy {
-        min-width: 0;
+      .dashboard-summary {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       }
     }
 
@@ -1147,95 +1125,67 @@
         aria-label="Request activity dashboard"
         aria-live="polite"
       >
-        <div class="dashboard-identity">
-          <img
-            class="dashboard-logo"
-            src="https://www.dublincleaners.com/wp-content/uploads/2024/12/Dublin-Logos-stacked.png"
-            alt="Dublin Cleaners logo"
-            loading="lazy"
-            decoding="async"
-            width="150"
-          >
-          <div class="dashboard-identity-copy">
-            <h1>Request Manager</h1>
-            <p>Submit and track Supplies, Technology, and Maintenance needs from one Workspace.</p>
-          </div>
-        </div>
-        <div class="dashboard-header">
-          <div class="dashboard-summary">
-            <span>
-              <strong data-dashboard-total="all">—</strong>
-              total requests
-            </span>
-            <span>
-              <strong data-dashboard-outstanding="all">—</strong>
-              awaiting approval/completion
-            </span>
-          </div>
-          <p class="meta" id="dashboardUpdatedAt">Awaiting data…</p>
-        </div>
-        <div class="dashboard-body">
-          <div class="dashboard-grid">
-            <article class="dashboard-card" data-dashboard-card="supplies">
-              <h3>Supplies</h3>
-              <div class="metric-group">
-                <span class="metric">
-                  <strong data-dashboard-total="supplies">—</strong>
-                  Total requests
-                </span>
-                <span class="metric highlight">
-                  <strong data-dashboard-outstanding="supplies">—</strong>
-                  Awaiting approval/completion
-                </span>
-              </div>
-            </article>
-            <article class="dashboard-card" data-dashboard-card="it">
-              <h3>IT</h3>
-              <div class="metric-group">
-                <span class="metric">
-                  <strong data-dashboard-total="it">—</strong>
-                  Total requests
-                </span>
-                <span class="metric highlight">
-                  <strong data-dashboard-outstanding="it">—</strong>
-                  Awaiting approval/completion
-                </span>
-              </div>
-            </article>
-            <article class="dashboard-card" data-dashboard-card="maintenance">
-              <h3>Maintenance</h3>
-              <div class="metric-group">
-                <span class="metric">
-                  <strong data-dashboard-total="maintenance">—</strong>
-                  Total requests
-                </span>
-                <span class="metric highlight">
-                  <strong data-dashboard-outstanding="maintenance">—</strong>
-                  Awaiting approval/completion
-                </span>
-              </div>
-            </article>
+        <div class="dashboard-top">
+          <div class="dashboard-header">
+            <div class="dashboard-header-top">
+              <h1 class="dashboard-title">Request overview</h1>
+              <p class="meta" id="dashboardUpdatedAt">Awaiting data…</p>
+            </div>
+            <div class="dashboard-summary">
+              <span class="highlight">
+                <strong data-dashboard-outstanding="all">—</strong>
+                awaiting approval/completion
+              </span>
+              <span>
+                <strong data-dashboard-total="all">—</strong>
+                total requests
+              </span>
+            </div>
           </div>
           <div class="dashboard-visual">
             <canvas id="dashboardPie" width="220" height="220" role="img" aria-label="Outstanding requests by type"></canvas>
-            <div class="dashboard-legend">
-              <div class="legend-item" data-dashboard-legend="supplies">
-                <span class="swatch" data-type="supplies"></span>
-                <span>Supplies</span>
-                <span class="legend-value" data-dashboard-outstanding-legend="supplies">—</span>
-              </div>
-              <div class="legend-item" data-dashboard-legend="it">
-                <span class="swatch" data-type="it"></span>
-                <span>IT</span>
-                <span class="legend-value" data-dashboard-outstanding-legend="it">—</span>
-              </div>
-              <div class="legend-item" data-dashboard-legend="maintenance">
-                <span class="swatch" data-type="maintenance"></span>
-                <span>Maintenance</span>
-                <span class="legend-value" data-dashboard-outstanding-legend="maintenance">—</span>
-              </div>
-            </div>
           </div>
+        </div>
+        <div class="dashboard-grid">
+          <article class="dashboard-card" data-dashboard-card="supplies">
+            <h3>Supplies</h3>
+            <div class="metric-group">
+              <span class="metric highlight">
+                <strong data-dashboard-outstanding="supplies">—</strong>
+                Awaiting approval/completion
+              </span>
+              <span class="metric">
+                <strong data-dashboard-total="supplies">—</strong>
+                Total requests
+              </span>
+            </div>
+          </article>
+          <article class="dashboard-card" data-dashboard-card="it">
+            <h3>IT</h3>
+            <div class="metric-group">
+              <span class="metric highlight">
+                <strong data-dashboard-outstanding="it">—</strong>
+                Awaiting approval/completion
+              </span>
+              <span class="metric">
+                <strong data-dashboard-total="it">—</strong>
+                Total requests
+              </span>
+            </div>
+          </article>
+          <article class="dashboard-card" data-dashboard-card="maintenance">
+            <h3>Maintenance</h3>
+            <div class="metric-group">
+              <span class="metric highlight">
+                <strong data-dashboard-outstanding="maintenance">—</strong>
+                Awaiting approval/completion
+              </span>
+              <span class="metric">
+                <strong data-dashboard-total="maintenance">—</strong>
+                Total requests
+              </span>
+            </div>
+          </article>
         </div>
         <p class="dashboard-empty" id="dashboardEmptyMessage" hidden>No requests yet.</p>
       </section>
@@ -1656,8 +1606,7 @@
           metrics: REQUEST_KEYS.reduce((acc, type) => {
             acc[type] = {
               total: document.querySelector(`[data-dashboard-total="${type}"]`),
-              outstanding: document.querySelector(`[data-dashboard-outstanding="${type}"]`),
-              legend: document.querySelector(`[data-dashboard-outstanding-legend="${type}"]`)
+              outstanding: document.querySelector(`[data-dashboard-outstanding="${type}"]`)
             };
             return acc;
           }, {}),
@@ -1786,9 +1735,6 @@
             }
             if (elements.outstanding) {
               elements.outstanding.textContent = outstandingLabel;
-            }
-            if (elements.legend) {
-              elements.legend.textContent = loading ? '…' : outstandingLabel;
             }
           }
         });
