@@ -42,6 +42,12 @@ const REQUEST_TYPES = {
       if (fields.qty) {
         details.push(`Quantity: ${fields.qty}`);
       }
+      if (fields.supplier) {
+        details.push(`Supplier: ${fields.supplier}`);
+      }
+      if (fields.estimatedCost) {
+        details.push(`Estimated cost: ${fields.estimatedCost}`);
+      }
       if (fields.notes) {
         details.push(`Notes: ${fields.notes}`);
       }
@@ -128,6 +134,7 @@ const STATUS_LOG_HEADERS = ['ts', 'type', 'requestId', 'actor', 'status'];
 const CACHE_KEYS = {
   CATALOG: 'catalog:v3',
   CATALOG_USAGE: 'catalog-usage:v1',
+  CATALOG_DESC_INDEX: 'catalog-by-desc:v1',
   REQUESTS_PREFIX: 'requests',
   RID_PREFIX: 'rid',
   STATUS_EMAILS: 'status-emails:v1'
@@ -149,6 +156,9 @@ const CACHE_TTLS = {
   RID: 300,
   STATUS_EMAILS: 300
 };
+
+let runtimeCatalogItems_ = null;
+let runtimeCatalogDescriptionIndex_ = null;
 
 function getRequiredSheetDefinitions_() {
   const definitions = {};
@@ -187,42 +197,7 @@ function listCatalog(request) {
     const pageSize = clamp_(Number(request && request.pageSize) || 20, 1, MAX_PAGE_SIZE);
     const startIndex = fetchAll ? 0 : Number(request && request.nextToken) || 0;
 
-    const cache = CacheService.getScriptCache();
-    let items = [];
-    const cached = cache.get(CACHE_KEYS.CATALOG);
-    if (cached) {
-      items = JSON.parse(cached);
-    } else {
-      const sheet = getSheet_(SHEETS.CATALOG, ['sku', 'description', 'category', 'estimatedCost', 'supplier', 'archived']);
-      const usageCounts = getCatalogUsageCounts_();
-      items = readTable_(sheet, ['sku', 'description', 'category', 'estimatedCost', 'supplier', 'archived'])
-        .filter(row => !row.archived)
-        .map(row => {
-          const description = sanitizeString_(row.description);
-          const usageKey = description.toLowerCase();
-          const usageCount = usageCounts[usageKey] || 0;
-          return {
-            sku: sanitizeString_(row.sku),
-            description,
-            category: sanitizeString_(row.category),
-            estimatedCost: sanitizeString_(row.estimatedCost),
-            supplier: sanitizeString_(row.supplier),
-            usageCount
-          };
-        })
-        .sort((a, b) => {
-          if (b.usageCount !== a.usageCount) {
-            return b.usageCount - a.usageCount;
-          }
-          const categoryCompare = String(a.category || '').localeCompare(String(b.category || ''), undefined, { sensitivity: 'base' });
-          if (categoryCompare !== 0) {
-            return categoryCompare;
-          }
-          return String(a.description || '').localeCompare(String(b.description || ''), undefined, { sensitivity: 'base' });
-        });
-      cache.put(CACHE_KEYS.CATALOG, JSON.stringify(items), CACHE_TTLS.CATALOG);
-    }
-
+    const items = getCatalogItems_();
     const slice = fetchAll ? items : items.slice(startIndex, startIndex + pageSize);
     const nextToken = fetchAll || startIndex + slice.length >= items.length ? '' : String(startIndex + slice.length);
     return {
@@ -231,6 +206,60 @@ function listCatalog(request) {
       nextToken
     };
   });
+}
+
+function getCatalogItems_() {
+  if (Array.isArray(runtimeCatalogItems_)) {
+    return runtimeCatalogItems_;
+  }
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(CACHE_KEYS.CATALOG);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) {
+        runtimeCatalogItems_ = parsed;
+        return parsed;
+      }
+      cache.remove(CACHE_KEYS.CATALOG);
+    } catch (err) {
+      cache.remove(CACHE_KEYS.CATALOG);
+    }
+  }
+  const items = buildCatalogItemsFromSheet_();
+  cache.put(CACHE_KEYS.CATALOG, JSON.stringify(items), CACHE_TTLS.CATALOG);
+  runtimeCatalogItems_ = items;
+  return items;
+}
+
+function buildCatalogItemsFromSheet_() {
+  const sheet = getSheet_(SHEETS.CATALOG, ['sku', 'description', 'category', 'estimatedCost', 'supplier', 'archived']);
+  const usageCounts = getCatalogUsageCounts_();
+  return readTable_(sheet, ['sku', 'description', 'category', 'estimatedCost', 'supplier', 'archived'])
+    .filter(row => !row.archived)
+    .map(row => {
+      const description = sanitizeString_(row.description);
+      const usageKey = description.toLowerCase();
+      const usageCount = usageCounts[usageKey] || 0;
+      return {
+        sku: sanitizeString_(row.sku),
+        description,
+        category: sanitizeString_(row.category),
+        estimatedCost: sanitizeString_(row.estimatedCost),
+        supplier: sanitizeString_(row.supplier),
+        usageCount
+      };
+    })
+    .sort((a, b) => {
+      if (b.usageCount !== a.usageCount) {
+        return b.usageCount - a.usageCount;
+      }
+      const categoryCompare = String(a.category || '').localeCompare(String(b.category || ''), undefined, { sensitivity: 'base' });
+      if (categoryCompare !== 0) {
+        return categoryCompare;
+      }
+      return String(a.description || '').localeCompare(String(b.description || ''), undefined, { sensitivity: 'base' });
+    });
 }
 
 function getCatalogUsageCounts_() {
@@ -258,6 +287,43 @@ function getCatalogUsageCounts_() {
   }, {});
   cache.put(CACHE_KEYS.CATALOG_USAGE, JSON.stringify(counts), CACHE_TTLS.CATALOG);
   return counts;
+}
+
+function getCatalogDescriptionIndex_() {
+  if (runtimeCatalogDescriptionIndex_ && typeof runtimeCatalogDescriptionIndex_ === 'object') {
+    return runtimeCatalogDescriptionIndex_;
+  }
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(CACHE_KEYS.CATALOG_DESC_INDEX);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (parsed && typeof parsed === 'object') {
+        runtimeCatalogDescriptionIndex_ = parsed;
+        return parsed;
+      }
+      cache.remove(CACHE_KEYS.CATALOG_DESC_INDEX);
+    } catch (err) {
+      cache.remove(CACHE_KEYS.CATALOG_DESC_INDEX);
+    }
+  }
+  const items = getCatalogItems_();
+  const index = items.reduce((acc, item) => {
+    const key = sanitizeString_(item && item.description).toLowerCase();
+    if (!key || acc[key]) {
+      return acc;
+    }
+    acc[key] = {
+      supplier: sanitizeString_(item && item.supplier),
+      estimatedCost: sanitizeString_(item && item.estimatedCost),
+      sku: sanitizeString_(item && item.sku),
+      category: sanitizeString_(item && item.category)
+    };
+    return acc;
+  }, {});
+  cache.put(CACHE_KEYS.CATALOG_DESC_INDEX, JSON.stringify(index), CACHE_TTLS.CATALOG);
+  runtimeCatalogDescriptionIndex_ = index;
+  return index;
 }
 
 function getAllRequestsForType_(type) {
@@ -807,6 +873,9 @@ function invalidateCatalogCache_() {
   const cache = CacheService.getScriptCache();
   cache.remove(CACHE_KEYS.CATALOG);
   cache.remove(CACHE_KEYS.CATALOG_USAGE);
+  cache.remove(CACHE_KEYS.CATALOG_DESC_INDEX);
+  runtimeCatalogItems_ = null;
+  runtimeCatalogDescriptionIndex_ = null;
 }
 
 function invalidateRequestCache_(type, key) {
@@ -1096,6 +1165,33 @@ function getFieldNames_(headers) {
   return headers.filter(header => base.indexOf(header) === -1);
 }
 
+function enrichSuppliesFieldsFromCatalog_(fields) {
+  if (!fields) {
+    return;
+  }
+  const descriptionKey = sanitizeString_(fields.description).toLowerCase();
+  if (!descriptionKey) {
+    return;
+  }
+  const index = getCatalogDescriptionIndex_();
+  const match = index[descriptionKey];
+  if (!match) {
+    return;
+  }
+  if (match.supplier && !fields.supplier) {
+    fields.supplier = match.supplier;
+  }
+  if (match.estimatedCost && !fields.estimatedCost) {
+    fields.estimatedCost = match.estimatedCost;
+  }
+  if (match.sku && !fields.catalogSku) {
+    fields.catalogSku = match.sku;
+  }
+  if (match.category && !fields.category) {
+    fields.category = match.category;
+  }
+}
+
 function buildClientRequest_(type, row) {
   const def = REQUEST_TYPES[type];
   const fieldNames = getFieldNames_(def.headers);
@@ -1117,6 +1213,9 @@ function buildClientRequest_(type, row) {
   }
   if (Object.prototype.hasOwnProperty.call(fields, 'urgency')) {
     fields.urgency = normalizeUrgencyValue_(fields.urgency);
+  }
+  if (type === 'supplies') {
+    enrichSuppliesFieldsFromCatalog_(fields);
   }
   record.summary = def.buildSummary(fields);
   record.details = def.buildDetails(fields);

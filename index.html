@@ -679,35 +679,57 @@
 
     .request-item,
     .catalog-item {
+      position: relative;
       display: flex;
       flex-direction: column;
-      gap: 0.35rem;
-      padding: 0.85rem;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--surface-alt);
-    }
-
-    .request-item {
-      background: var(--surface);
-      border-radius: 14px;
-      padding: 0.7rem 0.85rem;
       gap: 0.4rem;
+      padding: 0.7rem 0.85rem;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
       line-height: 1.45;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
     }
 
-    .request-item-head {
+    .catalog-item {
+      cursor: pointer;
+    }
+
+    .catalog-item:hover {
+      border-color: rgba(11, 87, 208, 0.3);
+    }
+
+    .catalog-item:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .request-item-head,
+    .catalog-item-head {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 0.4rem;
     }
 
-    .request-item-title {
+    .request-item-title,
+    .catalog-item-title {
       font-size: clamp(1rem, 3.6vw, 1.15rem);
       font-weight: 600;
       flex: 1 1 160px;
       display: inline-flex;
+    }
+
+    .catalog-item-sku {
+      margin-left: auto;
+      font-size: clamp(0.78rem, 2.8vw, 0.92rem);
+      color: var(--muted);
+      background: var(--surface-alt);
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.55rem;
+      line-height: 1;
+      white-space: nowrap;
     }
 
     .request-item .status {
@@ -722,7 +744,8 @@
       padding: 0.25rem 0.6rem;
     }
 
-    .request-item-info {
+    .request-item-info,
+    .catalog-item-info {
       display: flex;
       flex-wrap: wrap;
       gap: 0.25rem 0.75rem;
@@ -730,7 +753,9 @@
     }
 
     .request-item-info .meta,
-    .request-item-info .detail-line {
+    .catalog-item-info .meta,
+    .request-item-info .detail-line,
+    .catalog-item-info .detail-line {
       display: inline-flex;
       align-items: center;
       gap: 0.3rem;
@@ -901,19 +926,16 @@
     }
 
     .catalog-item.selected {
-      border-color: rgba(11, 87, 208, 0.4);
+      border-color: rgba(11, 87, 208, 0.45);
       background: rgba(11, 87, 208, 0.08);
+      box-shadow: 0 0 0 1px rgba(11, 87, 208, 0.18);
     }
 
-    .catalog-item strong {
-      font-size: clamp(1.05rem, 3.8vw, 1.2rem);
+    .catalog-item-title {
+      font-size: clamp(1rem, 3.6vw, 1.15rem);
     }
 
-    .catalog-item .meta + .meta {
-      margin-top: -0.1rem;
-    }
-
-    .catalog-item .meta.usage {
+    .catalog-item-info .usage {
       color: var(--accent-strong);
       font-weight: 500;
     }
@@ -922,7 +944,8 @@
       display: inline-flex;
       align-items: center;
       gap: 0.25rem;
-      align-self: flex-start;
+      align-self: flex-end;
+      margin-left: auto;
       padding: 0.25rem 0.6rem;
       border-radius: 999px;
       background: rgba(11, 87, 208, 0.12);
@@ -2938,37 +2961,61 @@
           }
           card.tabIndex = 0;
           card.setAttribute('role', 'listitem');
+
+          const head = document.createElement('div');
+          head.className = 'catalog-item-head';
+
           const name = document.createElement('strong');
+          name.className = 'catalog-item-title';
           name.textContent = item.description;
-          card.appendChild(name);
-          const meta = document.createElement('span');
-          meta.className = 'meta';
-          meta.textContent = item.category ? `${item.category} • ${item.sku}` : item.sku;
-          card.appendChild(meta);
-          if (item.supplier) {
-            const supplier = document.createElement('span');
-            supplier.className = 'meta';
-            supplier.textContent = `Supplier: ${item.supplier}`;
-            card.appendChild(supplier);
-          }
-          if (item.estimatedCost) {
-            const cost = document.createElement('span');
-            cost.className = 'meta';
-            cost.textContent = `Estimated cost: ${item.estimatedCost}`;
-            card.appendChild(cost);
-          }
-          if (Number(item.usageCount) > 0) {
-            const usage = document.createElement('span');
-            usage.className = 'meta usage';
-            usage.textContent = item.usageCount === 1 ? 'Requested 1 time' : `Requested ${item.usageCount} times`;
-            card.appendChild(usage);
-          }
+          head.appendChild(name);
+
+          const skuLabel = document.createElement('span');
+          skuLabel.className = 'catalog-item-sku';
+          skuLabel.textContent = item.sku || 'SKU pending';
+          head.appendChild(skuLabel);
+
+          card.appendChild(head);
+
           if (topSkuSet.has(item.sku) && Number(item.usageCount) > 0) {
             const badge = document.createElement('span');
             badge.className = 'catalog-badge';
             badge.textContent = 'Most requested';
             card.appendChild(badge);
           }
+
+          const info = document.createElement('div');
+          info.className = 'catalog-item-info';
+
+          if (item.category) {
+            const category = document.createElement('span');
+            category.className = 'meta';
+            category.textContent = `Category: ${item.category}`;
+            info.appendChild(category);
+          }
+
+          if (item.supplier) {
+            const supplier = document.createElement('span');
+            supplier.className = 'detail-line';
+            supplier.textContent = `Supplier: ${item.supplier}`;
+            info.appendChild(supplier);
+          }
+
+          if (item.estimatedCost) {
+            const cost = document.createElement('span');
+            cost.className = 'detail-line';
+            cost.textContent = `Estimated cost: ${item.estimatedCost}`;
+            info.appendChild(cost);
+          }
+
+          if (Number(item.usageCount) > 0) {
+            const usage = document.createElement('span');
+            usage.className = 'detail-line usage';
+            usage.textContent = item.usageCount === 1 ? 'Requested 1 time' : `Requested ${item.usageCount} times`;
+            info.appendChild(usage);
+          }
+
+          card.appendChild(info);
           const handleSelect = () => {
             selectCatalogSku(item.sku);
             renderCatalog();
