@@ -296,6 +296,22 @@
       font-size: clamp(1rem, 3.6vw, 1.1rem);
     }
 
+    @media (min-width: 1024px) {
+      .hero-dashboard {
+        width: clamp(320px, 58vw, 840px);
+      }
+
+      nav.tab-nav,
+      main,
+      .notice {
+        width: min(100%, 960px);
+      }
+
+      section.card {
+        padding: clamp(1.25rem, 3vw, 2rem);
+      }
+    }
+
     .notice[hidden] {
       display: none !important;
     }
