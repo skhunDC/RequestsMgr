@@ -427,6 +427,21 @@
       gap: 0.35rem;
     }
 
+    .card-header-action {
+      --button-bg: var(--surface);
+      --button-hover-bg: rgba(11, 87, 208, 0.1);
+      --button-fg: var(--supplies-color-strong);
+      border: 1px solid var(--supplies-outline);
+      padding: 0.55rem 1.05rem;
+      min-height: 0;
+      font-size: clamp(0.92rem, 3vw, 1.05rem);
+      line-height: 1.2;
+      margin-left: auto;
+      white-space: nowrap;
+      box-shadow: none;
+      align-self: flex-start;
+    }
+
     .card-title {
       font-size: clamp(1.2rem, 4.4vw, 1.5rem);
       font-weight: 600;
@@ -1166,6 +1181,14 @@
         align-items: stretch;
       }
 
+      .tab-panel.active[data-tab-panel="supplies"] {
+        grid-template-columns: repeat(2, minmax(320px, 1fr));
+      }
+
+      .tab-panel.active[data-tab-panel="supplies"] #catalogCard {
+        grid-column: 1 / -1;
+      }
+
       .tab-panel.active section.card {
         height: 100%;
       }
@@ -1358,6 +1381,7 @@
             <span class="card-title">Supplies requests</span>
             <span class="card-subtitle meta">Track order status and approvals in one place.</span>
           </div>
+          <button type="button" id="catalogScrollButton" class="card-header-action">Full Catalog</button>
         </div>
         <div class="card-body">
           <div id="suppliesRequestsList" class="list" role="list"></div>
@@ -1633,6 +1657,8 @@
           catalogList: document.getElementById('catalogList'),
           catalogMore: document.getElementById('catalogMoreButton'),
           catalogClear: document.getElementById('catalogClearButton'),
+          catalogCard: document.getElementById('catalogCard'),
+          catalogJump: document.getElementById('catalogScrollButton'),
           approverNotice: document.querySelector('[data-approver-notice="supplies"]')
         },
         it: {
@@ -2160,6 +2186,11 @@
             loadCatalog({ append: false, fetchAll: true });
           }
         });
+        if (dom.supplies.catalogJump && dom.supplies.catalogCard) {
+          dom.supplies.catalogJump.addEventListener('click', () => {
+            dom.supplies.catalogCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        }
 
         dom.it.form.addEventListener('submit', evt => handleSubmit(evt, 'it'));
         dom.it.reset.addEventListener('click', () => {
