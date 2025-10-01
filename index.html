@@ -806,6 +806,7 @@
       align-items: center;
       gap: 0.4rem;
       max-width: none;
+      flex: 0 0 auto;
     }
 
     .request-item .eta-field span {
@@ -813,7 +814,7 @@
     }
 
     .request-item .eta-field input[type="date"] {
-      width: auto;
+      width: min(38vw, 130px);
       min-width: 0;
     }
 
@@ -992,12 +993,17 @@
       display: flex;
       flex-direction: column;
       gap: 0.35rem;
-      max-width: 220px;
+      width: min(100%, 160px);
+      max-width: 160px;
     }
 
     .eta-field span {
       font-size: clamp(0.9rem, 3.2vw, 1rem);
       font-weight: 600;
+    }
+
+    .eta-field input[type="date"] {
+      width: min(100%, 140px);
     }
 
     @media (max-width: 520px) {
