@@ -29,6 +29,7 @@
       --maintenance-outline: rgba(242, 153, 0, 0.3);
       --success: #0f9d58;
       --danger: #d93025;
+      --dashboard-pie-size: 260px;
     }
 
     * {
@@ -230,7 +231,8 @@
     }
 
     .dashboard-visual canvas {
-      width: min(100%, clamp(200px, 50vw, 280px));
+      width: clamp(220px, var(--dashboard-pie-size), var(--dashboard-pie-size));
+      max-width: 100%;
       height: auto;
       aspect-ratio: 1 / 1;
     }
@@ -1376,7 +1378,7 @@
             </div>
           </div>
           <div class="dashboard-visual">
-            <canvas id="dashboardPie" width="280" height="280" role="img" aria-label="Outstanding requests by type"></canvas>
+            <canvas id="dashboardPie" width="260" height="260" role="img" aria-label="Outstanding requests by type"></canvas>
           </div>
         </div>
         <div class="dashboard-grid">
