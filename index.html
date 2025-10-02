@@ -1739,6 +1739,7 @@
         it: 'request-manager:it',
         maintenance: 'request-manager:maintenance'
       };
+      const DEVICE_STORAGE_KEY = 'request-manager:device-id';
       const EMPTY_REQUEST_MESSAGES = {
         supplies: 'No supplies requests are pending right now.',
         it: 'No IT tickets are in the queue right now.',
@@ -1753,6 +1754,7 @@
           maintenance: Object.assign({}, FORM_TEMPLATES.maintenance)
         },
         requesterName: '',
+        deviceId: '',
         requests: {
           supplies: [],
           it: [],
@@ -1880,6 +1882,7 @@
       configureRequesterNameRequirement();
       attachNavHandlers();
       attachFormHandlers();
+      ensureDeviceId();
       REQUEST_KEYS.forEach(type => {
         hydrateFormFromCache(type);
       });
@@ -2484,6 +2487,11 @@ function renderApproverUnavailable(auth) {
           handleError({ message: validationError }, `${type}:validation`);
           return;
         }
+        const deviceId = ensureDeviceId();
+        if (!deviceId) {
+          handleError({ message: 'Unable to identify this device. Please enable local storage and try again.' }, `${type}:device`);
+          return;
+        }
         if (!server) {
           showToast('Connect to Google Apps Script to submit requests.');
           return;
@@ -2492,7 +2500,8 @@ function renderApproverUnavailable(auth) {
         const payload = Object.assign({
           cid: makeCid(),
           clientRequestId: makeClientRequestId(type),
-          type
+          type,
+          deviceId
         }, formState);
         if (requiresRequesterName) {
           payload.requesterName = state.requesterName || formState.requesterName || '';
@@ -2505,7 +2514,10 @@ function renderApproverUnavailable(auth) {
               return;
             }
             showToast('Request submitted');
-            resetForm(type);
+            setRequesterName('', { skipPersist: true });
+            REQUEST_KEYS.forEach(key => {
+              resetForm(key, { preserveRequesterName: false });
+            });
             state.requests[type].unshift(response.request);
             renderRequests(type);
             requestDashboardRefresh(DASHBOARD_DEBOUNCE);
@@ -2560,19 +2572,30 @@ function renderApproverUnavailable(auth) {
         }
       }
 
-      function resetForm(type) {
+      function resetForm(type, options) {
+        const opts = options || {};
+        const preserveRequester = opts.preserveRequesterName !== false;
         state.forms[type] = Object.assign({}, FORM_TEMPLATES[type]);
         if (requiresRequesterName) {
-          state.forms[type].requesterName = state.requesterName || '';
+          state.forms[type].requesterName = preserveRequester ? (state.requesterName || '') : '';
         }
         if (type === 'supplies') {
           state.catalog.search = '';
+          if (dom.supplies.catalogSearch) {
+            dom.supplies.catalogSearch.value = '';
+          }
         }
         renderForm(type);
         if (type === 'supplies' && state.catalog.items.length) {
           renderCatalog();
         }
-        persistForm(type, { immediate: true });
+        if (opts.skipPersistenceClear) {
+          if (opts.persistImmediately) {
+            persistForm(type, { immediate: true });
+          }
+        } else {
+          clearPersistedForm(type);
+        }
       }
 
       function renderForm(type) {
@@ -3533,6 +3556,49 @@ function renderApproverUnavailable(auth) {
         });
       }
 
+      function sanitizeDeviceId(value) {
+        return typeof value === 'string' ? value.replace(/[^0-9A-Za-z_-]/g, '').slice(0, 80) : '';
+      }
+
+      function generateDeviceId() {
+        try {
+          if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+            const buffer = new Uint8Array(16);
+            window.crypto.getRandomValues(buffer);
+            return Array.from(buffer, byte => byte.toString(16).padStart(2, '0')).join('');
+          }
+        } catch (err) {
+          // ignore crypto errors
+        }
+        return `dev-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+      }
+
+      function ensureDeviceId() {
+        if (state.deviceId) {
+          return state.deviceId;
+        }
+        let stored = '';
+        try {
+          stored = localStorage.getItem(DEVICE_STORAGE_KEY) || '';
+        } catch (err) {
+          stored = '';
+        }
+        let deviceId = sanitizeDeviceId(stored);
+        if (!deviceId) {
+          deviceId = sanitizeDeviceId(generateDeviceId());
+          if (!deviceId) {
+            return '';
+          }
+          try {
+            localStorage.setItem(DEVICE_STORAGE_KEY, deviceId);
+          } catch (err) {
+            // ignore storage errors
+          }
+        }
+        state.deviceId = deviceId;
+        return deviceId;
+      }
+
       function persistForm(type, options) {
         const immediate = options && options.immediate;
         if (immediate) {
@@ -3548,6 +3614,18 @@ function renderApproverUnavailable(auth) {
       function flushPersist(type) {
         try {
           localStorage.setItem(LOCAL_KEYS[type], JSON.stringify(state.forms[type]));
+        } catch (err) {
+          // ignore storage errors
+        }
+      }
+
+      function clearPersistedForm(type) {
+        if (persistTimers[type]) {
+          clearTimeout(persistTimers[type]);
+          persistTimers[type] = null;
+        }
+        try {
+          localStorage.removeItem(LOCAL_KEYS[type]);
         } catch (err) {
           // ignore storage errors
         }

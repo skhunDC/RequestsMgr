@@ -150,6 +150,12 @@ const CACHE_KEYS = {
   STATUS_EMAILS: 'status-emails:v1'
 };
 
+const DEVICE_RATE_LIMIT = Object.freeze({
+  MAX_REQUESTS: 12,
+  WINDOW_MS: 24 * 60 * 60 * 1000,
+  PROP_PREFIX: 'device-limit'
+});
+
 const DEFAULT_STATUS_APPROVER_EMAILS = Object.freeze([
   'skhun@dublincleaners.com',
   'ss.sku@protonmail.com',
@@ -504,6 +510,11 @@ function createRequest(request) {
     const type = normalizeType_(request && request.type);
     const def = REQUEST_TYPES[type];
 
+    const deviceId = normalizeDeviceId_(request && request.deviceId);
+    if (!deviceId) {
+      throw new Error('Device identifier is required.');
+    }
+
     const cache = CacheService.getScriptCache();
     const ridKey = [CACHE_KEYS.RID_PREFIX, rid].join(':');
     const existing = cache.get(ridKey);
@@ -522,6 +533,7 @@ function createRequest(request) {
     }
     const requesterIdentity = email || requesterName;
     const now = new Date();
+    const nowMs = now.getTime();
     const record = {
       id: uuid_(),
       ts: toIsoString_(now),
@@ -550,9 +562,21 @@ function createRequest(request) {
     });
 
     const sheet = getSheet_(def.sheetName, def.headers);
-    withLock_(() => {
+    const props = PropertiesService.getScriptProperties();
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(5000)) {
+      throw new Error('Could not obtain lock.');
+    }
+    try {
+      const limitState = evaluateDeviceRateLimit_(deviceId, nowMs, props);
+      if (!limitState.allowed) {
+        return limitState.response;
+      }
       sheet.appendRow(rowValues);
-    });
+      commitDeviceRateLimitUsage_(limitState, props, nowMs);
+    } finally {
+      lock.releaseLock();
+    }
 
     const rowObject = Object.assign({}, fields, {
       id: record.id,
@@ -1309,6 +1333,67 @@ function normalizeLocation_(value) {
     throw new Error('Unsupported location.');
   }
   return match;
+}
+
+function normalizeDeviceId_(value) {
+  const text = sanitizeString_(value);
+  if (!text) {
+    return '';
+  }
+  const normalized = text.replace(/[^0-9A-Za-z_-]/g, '').slice(0, 80);
+  return normalized;
+}
+
+function evaluateDeviceRateLimit_(deviceId, nowMs, props) {
+  const key = [DEVICE_RATE_LIMIT.PROP_PREFIX, deviceId].join(':');
+  const raw = props.getProperty(key);
+  let count = 0;
+  let resetAt = nowMs + DEVICE_RATE_LIMIT.WINDOW_MS;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      const parsedResetAt = parsed && parsed.resetAt !== undefined ? Number(parsed.resetAt) : NaN;
+      const parsedCount = parsed && parsed.count !== undefined ? Number(parsed.count) : NaN;
+      if (!isNaN(parsedResetAt) && parsedResetAt > nowMs) {
+        resetAt = parsedResetAt;
+        if (!isNaN(parsedCount) && parsedCount >= 0) {
+          count = parsedCount;
+        }
+      }
+    } catch (err) {
+      count = 0;
+      resetAt = nowMs + DEVICE_RATE_LIMIT.WINDOW_MS;
+    }
+  }
+  if (count >= DEVICE_RATE_LIMIT.MAX_REQUESTS) {
+    return {
+      allowed: false,
+      response: {
+        ok: false,
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: 'This device has reached the maximum of 12 requests in 24 hours. Please try again later.'
+      }
+    };
+  }
+  return {
+    allowed: true,
+    key,
+    count,
+    resetAt
+  };
+}
+
+function commitDeviceRateLimitUsage_(state, props, nowMs) {
+  const baseCount = Number(state && state.count);
+  const nextCount = !isNaN(baseCount) && baseCount >= 0 ? baseCount + 1 : 1;
+  let resetAt = Number(state && state.resetAt);
+  if (isNaN(resetAt) || resetAt <= nowMs) {
+    resetAt = nowMs + DEVICE_RATE_LIMIT.WINDOW_MS;
+  }
+  props.setProperty(state.key, JSON.stringify({
+    count: nextCount,
+    resetAt
+  }));
 }
 
 function withLock_(fn) {
