@@ -15,6 +15,10 @@ const SHEETS = {
 
 const LOCATION_OPTIONS = ['Plant', 'Short North', 'South Dublin', 'Muirfield', 'Morse Rd.', 'Granville', 'Newark'];
 
+const EMAIL_TIMEZONE = 'America/New_York';
+const PRIMARY_NOTIFICATION_EMAIL = 'skhun@dublincleaners.com';
+const EMAIL_SENDER_NAME = 'Request Manager';
+
 const REQUEST_TYPES = {
   supplies: {
     sheetName: 'SuppliesRequests',
@@ -565,11 +569,31 @@ function createRequest(request) {
     }
     invalidateRequestCache_(type, 'all');
 
+    if (type === 'it' || type === 'maintenance') {
+      sendNewRequestNotification_(type, clientRecord);
+    }
+
     return {
       ok: true,
       request: clientRecord
     };
   });
+}
+
+function sendWeeklySuppliesSummary() {
+  const result = withErrorHandling_('sendWeeklySuppliesSummary', '', {}, () => {
+    ensureSetup_();
+    const records = getAllRequestsForType_('supplies');
+    const outstanding = records.filter(record => {
+      const statusKey = toStatusKey_(record.status);
+      return statusKey !== 'approved' && statusKey !== 'denied';
+    });
+    sendSuppliesSummaryEmail_(outstanding);
+    return { ok: true };
+  });
+  if (!result || result.ok !== true) {
+    throw new Error(result && result.message ? result.message : 'Failed to send weekly supplies summary.');
+  }
 }
 
 function updateRequestStatus(request) {
@@ -1280,6 +1304,258 @@ function recordStatusAction_(type, requestId, status, actor) {
   withLock_(() => {
     sheet.appendRow(entry);
   });
+}
+
+function sendNewRequestNotification_(type, record) {
+  if (!record || !record.id) {
+    return;
+  }
+  try {
+    const requestTypeLabel = type === 'it' ? 'IT' : 'Maintenance';
+    const summary = sanitizeString_(record.summary) || `${requestTypeLabel} request`;
+    const subject = `[Request Manager] New ${requestTypeLabel} Request – ${summary}`;
+    const htmlBody = buildNewRequestEmailBody_(type, record);
+    MailApp.sendEmail({
+      to: PRIMARY_NOTIFICATION_EMAIL,
+      subject,
+      htmlBody,
+      name: EMAIL_SENDER_NAME
+    });
+  } catch (err) {
+    logServerError_('sendNewRequestNotification', record && record.id, err, {
+      type,
+      requestId: record && record.id
+    });
+  }
+}
+
+function buildNewRequestEmailBody_(type, record) {
+  const requestTypeLabel = type === 'it' ? 'IT' : 'Maintenance';
+  const title = `New ${requestTypeLabel} Request`;
+  const submittedAt = formatTimestampForEmail_(record && record.ts);
+  const summary = sanitizeString_(record && record.summary);
+  const generalRows = [
+    ['Request ID', record && record.id],
+    ['Submitted', submittedAt],
+    ['Requester', record && record.requester],
+    ['Current Status', formatStatusForEmail_(record && record.status)]
+  ];
+  const detailPairs = getRequestFieldPairsForEmail_(type, record && record.fields);
+  const detailRowsHtml = detailPairs
+    .filter(([label, value]) => sanitizeString_(value))
+    .map(([label, value]) =>
+      `<tr><th style="text-align:left;padding:6px 12px;background:#f5f7fa;width:160px;">${escapeHtml_(label)}</th>` +
+      `<td style="padding:6px 12px;">${escapeHtml_(value)}</td></tr>`
+    )
+    .join('');
+  const generalRowsHtml = generalRows
+    .filter(([label, value]) => sanitizeString_(value))
+    .map(([label, value]) =>
+      `<tr><th style="text-align:left;padding:6px 12px;background:#f5f7fa;width:160px;">${escapeHtml_(label)}</th>` +
+      `<td style="padding:6px 12px;">${escapeHtml_(value)}</td></tr>`
+    )
+    .join('');
+  const trackerUrl = getSpreadsheetUrlSafe_();
+  const detailsSection = detailRowsHtml
+    ? `<table style="border-collapse:collapse;width:100%;margin-top:12px;border:1px solid #d2d6dc;">${detailRowsHtml}</table>`
+    : '<p style="margin:12px 0 0;color:#52606d;">No additional details were provided.</p>';
+  const summarySection = summary
+    ? `<p style="margin:0 0 16px;font-size:16px;color:#243b53;"><strong>Summary:</strong> ${escapeHtml_(summary)}</p>`
+    : '<p style="margin:0 0 16px;font-size:16px;color:#243b53;">A new request has been submitted. Details are below.</p>';
+  return [
+    '<div style="font-family:Arial,Helvetica,sans-serif;color:#102a43;line-height:1.6;">',
+    `<h2 style="margin:0 0 12px;font-size:20px;">${escapeHtml_(title)}</h2>`,
+    summarySection,
+    `<table style="border-collapse:collapse;width:100%;border:1px solid #d2d6dc;">${generalRowsHtml}</table>`,
+    '<h3 style="margin:20px 0 8px;font-size:16px;color:#243b53;">Request Details</h3>',
+    detailsSection,
+    trackerUrl
+      ? `<p style="margin:20px 0 0;">Review the full request list in <a style="color:#1d72b8;" href="${escapeHtml_(trackerUrl)}" target="_blank" rel="noopener">Google Sheets</a>.</p>`
+      : '',
+    '</div>'
+  ].join('');
+}
+
+function getRequestFieldPairsForEmail_(type, fields) {
+  const safeFields = fields || {};
+  if (type === 'it') {
+    return [
+      ['Issue', safeFields.issue],
+      ['Location', safeFields.location],
+      ['Device/System', safeFields.device],
+      ['Urgency', safeFields.urgency ? capitalize_(safeFields.urgency) : ''],
+      ['Additional Details', safeFields.details]
+    ];
+  }
+  if (type === 'maintenance') {
+    return [
+      ['Issue', safeFields.issue],
+      ['Location', safeFields.location],
+      ['Urgency', safeFields.urgency ? capitalize_(safeFields.urgency) : ''],
+      ['Access Notes', safeFields.accessNotes]
+    ];
+  }
+  return [];
+}
+
+function sendSuppliesSummaryEmail_(records) {
+  const count = Array.isArray(records) ? records.length : 0;
+  const subject = count
+    ? `[Request Manager] Weekly Supplies Summary – ${count} awaiting review`
+    : '[Request Manager] Weekly Supplies Summary – No pending requests';
+  const htmlBody = buildSuppliesSummaryEmailBody_(Array.isArray(records) ? records : []);
+  MailApp.sendEmail({
+    to: PRIMARY_NOTIFICATION_EMAIL,
+    subject,
+    htmlBody,
+    name: EMAIL_SENDER_NAME
+  });
+}
+
+function buildSuppliesSummaryEmailBody_(records) {
+  const trackerUrl = getSpreadsheetUrlSafe_();
+  const count = records.length;
+  const introText = count
+    ? `${count} supplies ${count === 1 ? 'request requires' : 'requests require'} approval or denial.`
+    : 'No supplies requests are waiting for approval or denial this week.';
+  let tableHtml = '';
+  if (count) {
+    const rowsHtml = records
+      .slice()
+      .sort((a, b) => String(a && a.ts || '').localeCompare(String(b && b.ts || '')))
+      .map(record => {
+        const fields = record && record.fields ? record.fields : {};
+        const submitted = formatTimestampForEmail_(record && record.ts);
+        const status = formatStatusForEmail_(record && record.status);
+        const description = fields.description || record.summary || 'Supplies request';
+        const qty = fields.qty !== undefined && fields.qty !== null && fields.qty !== '' ? String(fields.qty) : '—';
+        const location = fields.location || '—';
+        const requester = record && record.requester ? record.requester : '—';
+        const notes = sanitizeString_(fields.notes);
+        const supplier = sanitizeString_(fields.supplier);
+        const eta = sanitizeString_(fields.eta);
+        const estimatedCost = sanitizeString_(fields.estimatedCost);
+        const detailSegments = [];
+        if (supplier) {
+          detailSegments.push(`<strong>Supplier:</strong> ${escapeHtml_(supplier)}`);
+        }
+        if (estimatedCost) {
+          detailSegments.push(`<strong>Est. Cost:</strong> ${escapeHtml_(estimatedCost)}`);
+        }
+        if (eta) {
+          detailSegments.push(`<strong>ETA:</strong> ${escapeHtml_(formatDateOnlyForEmail_(eta))}`);
+        }
+        if (notes) {
+          detailSegments.push(`<strong>Notes:</strong> ${escapeHtml_(notes)}`);
+        }
+        const extraDetails = detailSegments.length
+          ? `<div style="margin-top:6px;font-size:12px;color:#52606d;">${detailSegments.join('<br>')}</div>`
+          : '';
+        return [
+          '<tr>',
+          `<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">${escapeHtml_(submitted)}</td>`,
+          `<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">${escapeHtml_(requester)}</td>`,
+          `<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">${escapeHtml_(description)}${extraDetails}</td>`,
+          `<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;text-align:center;">${escapeHtml_(qty)}</td>`,
+          `<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">${escapeHtml_(location)}</td>`,
+          `<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">${escapeHtml_(status)}</td>`,
+          '</tr>'
+        ].join('');
+      })
+      .join('');
+    tableHtml = [
+      '<table style="border-collapse:collapse;width:100%;margin-top:16px;border:1px solid #d2d6dc;">',
+      '<thead>',
+      '<tr style="background:#f5f7fa;color:#243b53;text-align:left;">',
+      '<th style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">Submitted</th>',
+      '<th style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">Requester</th>',
+      '<th style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">Item</th>',
+      '<th style="padding:10px 12px;border-bottom:1px solid #d2d6dc;text-align:center;width:70px;">Qty</th>',
+      '<th style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">Location</th>',
+      '<th style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">Status</th>',
+      '</tr>',
+      '</thead>',
+      `<tbody>${rowsHtml}</tbody>`,
+      '</table>'
+    ].join('');
+  } else {
+    tableHtml = '<p style="margin:16px 0 0;color:#52606d;">No pending supplies requests were found.</p>';
+  }
+
+  return [
+    '<div style="font-family:Arial,Helvetica,sans-serif;color:#102a43;line-height:1.6;">',
+    '<h2 style="margin:0 0 12px;font-size:20px;">Weekly Supplies Summary</h2>',
+    `<p style="margin:0 0 12px;">${escapeHtml_(introText)}</p>`,
+    tableHtml,
+    trackerUrl
+      ? `<p style="margin:20px 0 0;">Review all requests: <a style="color:#1d72b8;" href="${escapeHtml_(trackerUrl)}" target="_blank" rel="noopener">Open Request Tracker</a></p>`
+      : '',
+    '</div>'
+  ].join('');
+}
+
+function formatStatusForEmail_(status) {
+  const key = toStatusKey_(status);
+  if (!key) {
+    return 'Pending';
+  }
+  return key
+    .split('_')
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatTimestampForEmail_(value) {
+  if (!value) {
+    return '—';
+  }
+  let date;
+  if (Object.prototype.toString.call(value) === '[object Date]') {
+    date = value;
+  } else {
+    date = new Date(String(value));
+  }
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return String(value);
+  }
+  return Utilities.formatDate(date, EMAIL_TIMEZONE, "MMM d, yyyy h:mm a 'ET'");
+}
+
+function formatDateOnlyForEmail_(value) {
+  if (!value) {
+    return '';
+  }
+  const text = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const date = new Date(`${text}T00:00:00`);
+    if (!isNaN(date.getTime())) {
+      return Utilities.formatDate(date, EMAIL_TIMEZONE, 'MMM d, yyyy');
+    }
+  }
+  const parsed = new Date(text);
+  if (!isNaN(parsed.getTime())) {
+    return Utilities.formatDate(parsed, EMAIL_TIMEZONE, 'MMM d, yyyy');
+  }
+  return text;
+}
+
+function getSpreadsheetUrlSafe_() {
+  try {
+    const ss = getSpreadsheet_();
+    return ss && typeof ss.getUrl === 'function' ? ss.getUrl() : '';
+  } catch (err) {
+    return '';
+  }
+}
+
+function escapeHtml_(value) {
+  return String(value === undefined || value === null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function getFieldNames_(headers) {
