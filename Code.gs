@@ -1186,6 +1186,30 @@ function formatAmountWithGrouping_(amount, decimals) {
   }
 }
 
+function formatCurrencyForDisplay_(value, decimalsHint) {
+  const text = sanitizeString_(value);
+  if (!text) {
+    return '';
+  }
+  const parsed = parseCurrencyText_(text);
+  if (!parsed) {
+    if (/^\$/i.test(text)) {
+      return text;
+    }
+    if (/[A-Za-z]/.test(text) || /[^0-9.,\s-]/.test(text)) {
+      return text;
+    }
+    return `$${text}`;
+  }
+  const decimals = parsed.decimals > 0
+    ? parsed.decimals
+    : (typeof decimalsHint === 'number' && decimalsHint >= 0 ? decimalsHint : 2);
+  const formattedAmount = formatAmountWithGrouping_(parsed.amount, decimals);
+  const prefix = parsed.prefix || '$';
+  const suffix = parsed.suffix || '';
+  return `${prefix}${formattedAmount}${suffix}`.trim();
+}
+
 function sanitizeString_(value) {
   return String(value || '').trim();
 }
@@ -1639,26 +1663,26 @@ function buildSuppliesEstimatedCostDetail_(fields) {
   if (!costText) {
     return '';
   }
+  const displayCost = formatCurrencyForDisplay_(costText) || costText;
+  if (fields) {
+    fields.estimatedCost = displayCost;
+  }
   const qtyValue = fields && fields.qty;
   const qty = Number(qtyValue);
-  if (!qty || !isFinite(qty) || qty <= 0) {
-    return `Estimated cost: ${costText}`;
-  }
   const parsed = parseCurrencyText_(costText);
-  if (!parsed) {
-    return `Estimated cost: ${costText}`;
+  if (!qty || !isFinite(qty) || qty <= 0 || !parsed) {
+    return displayCost ? `Estimated cost: ${displayCost}` : '';
   }
   const decimals = parsed.decimals > 0 ? parsed.decimals : 2;
   const totalAmount = parsed.amount * qty;
+  const prefix = parsed.prefix || '$';
+  const suffix = parsed.suffix || '';
   const formattedTotal = formatAmountWithGrouping_(totalAmount, decimals);
-  const totalLabel = `${parsed.prefix || ''}${formattedTotal}${parsed.suffix || ''}`.trim();
+  const totalLabel = `${prefix}${formattedTotal}${suffix}`.trim();
   if (fields) {
     fields.estimatedCostTotal = totalLabel;
   }
-  if (qty === 1) {
-    return `Estimated cost: ${totalLabel}`;
-  }
-  return `Estimated cost: ${totalLabel} (${qty} × ${costText})`;
+  return `Estimated cost: ${totalLabel}`;
 }
 
 function buildClientRequest_(type, row) {
