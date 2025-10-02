@@ -18,6 +18,7 @@ const LOCATION_OPTIONS = ['Plant', 'Short North', 'South Dublin', 'Muirfield', '
 const EMAIL_TIMEZONE = 'America/New_York';
 const PRIMARY_NOTIFICATION_EMAIL = 'skhun@dublincleaners.com';
 const EMAIL_SENDER_NAME = 'Request Manager';
+const REQUEST_MANAGER_APP_URL = 'https://script.google.com/macros/s/AKfycbxf6fr9FKGjQCPE31Li-woofA6k8H7SqNcO09HayFdKfJBeSiQJXIfOd_bJ4MVfynoJag/exec';
 
 const REQUEST_TYPES = {
   supplies: {
@@ -1356,6 +1357,10 @@ function buildNewRequestEmailBody_(type, record) {
     )
     .join('');
   const trackerUrl = getSpreadsheetUrlSafe_();
+  const appUrl = sanitizeString_(REQUEST_MANAGER_APP_URL);
+  const appLinkHtml = appUrl
+    ? `<p style="margin:20px 0 0;">Open this request in the <a style="color:#1d72b8;" href="${escapeHtml_(appUrl)}" target="_blank" rel="noopener">Request Manager app</a>.</p>`
+    : '';
   const detailsSection = detailRowsHtml
     ? `<table style="border-collapse:collapse;width:100%;margin-top:12px;border:1px solid #d2d6dc;">${detailRowsHtml}</table>`
     : '<p style="margin:12px 0 0;color:#52606d;">No additional details were provided.</p>';
@@ -1372,6 +1377,7 @@ function buildNewRequestEmailBody_(type, record) {
     trackerUrl
       ? `<p style="margin:20px 0 0;">Review the full request list in <a style="color:#1d72b8;" href="${escapeHtml_(trackerUrl)}" target="_blank" rel="noopener">Google Sheets</a>.</p>`
       : '',
+    appLinkHtml,
     '</div>'
   ].join('');
 }
