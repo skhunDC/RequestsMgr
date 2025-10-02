@@ -52,7 +52,10 @@ const REQUEST_TYPES = {
         details.push(`Supplier: ${fields.supplier}`);
       }
       if (fields.estimatedCost) {
-        details.push(`Estimated cost: ${fields.estimatedCost}`);
+        const estimatedCostDetail = buildSuppliesEstimatedCostDetail_(fields);
+        if (estimatedCostDetail) {
+          details.push(estimatedCostDetail);
+        }
       }
       if (fields.notes) {
         details.push(`Notes: ${fields.notes}`);
@@ -1148,6 +1151,41 @@ function parsePositiveInteger_(value) {
   return num > 0 ? num : 0;
 }
 
+function parseCurrencyText_(value) {
+  const text = sanitizeString_(value);
+  if (!text) {
+    return null;
+  }
+  const numericPart = text.replace(/[^0-9.,-]/g, '');
+  if (!numericPart) {
+    return null;
+  }
+  const normalized = numericPart.replace(/,/g, '');
+  const amount = parseFloat(normalized);
+  if (isNaN(amount)) {
+    return null;
+  }
+  const decimalMatch = normalized.match(/\.(\d+)/);
+  const decimals = decimalMatch ? decimalMatch[1].length : 0;
+  const prefixMatch = text.match(/^[^0-9-]*/);
+  const prefix = prefixMatch ? prefixMatch[0] : '';
+  const suffixMatch = text.match(/[^0-9.,-]*$/);
+  const suffix = suffixMatch ? suffixMatch[0] : '';
+  return { amount, decimals, prefix, suffix };
+}
+
+function formatAmountWithGrouping_(amount, decimals) {
+  const safeDecimals = Math.max(0, Math.min(4, Number(decimals) || 0));
+  try {
+    return amount.toLocaleString('en-US', {
+      minimumFractionDigits: safeDecimals,
+      maximumFractionDigits: safeDecimals
+    });
+  } catch (err) {
+    return amount.toFixed(safeDecimals);
+  }
+}
+
 function sanitizeString_(value) {
   return String(value || '').trim();
 }
@@ -1594,6 +1632,33 @@ function enrichSuppliesFieldsFromCatalog_(fields) {
   if (match.category && !fields.category) {
     fields.category = match.category;
   }
+}
+
+function buildSuppliesEstimatedCostDetail_(fields) {
+  const costText = sanitizeString_(fields && fields.estimatedCost);
+  if (!costText) {
+    return '';
+  }
+  const qtyValue = fields && fields.qty;
+  const qty = Number(qtyValue);
+  if (!qty || !isFinite(qty) || qty <= 0) {
+    return `Estimated cost: ${costText}`;
+  }
+  const parsed = parseCurrencyText_(costText);
+  if (!parsed) {
+    return `Estimated cost: ${costText}`;
+  }
+  const decimals = parsed.decimals > 0 ? parsed.decimals : 2;
+  const totalAmount = parsed.amount * qty;
+  const formattedTotal = formatAmountWithGrouping_(totalAmount, decimals);
+  const totalLabel = `${parsed.prefix || ''}${formattedTotal}${parsed.suffix || ''}`.trim();
+  if (fields) {
+    fields.estimatedCostTotal = totalLabel;
+  }
+  if (qty === 1) {
+    return `Estimated cost: ${totalLabel}`;
+  }
+  return `Estimated cost: ${totalLabel} (${qty} × ${costText})`;
 }
 
 function buildClientRequest_(type, row) {
