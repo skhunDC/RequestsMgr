@@ -483,6 +483,31 @@
       margin-bottom: 0.45rem;
     }
 
+    .checkbox-field {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-alt);
+      line-height: 1.4;
+    }
+
+    .checkbox-field input[type="checkbox"] {
+      margin-top: 0.2rem;
+      width: 1.2rem;
+      height: 1.2rem;
+      min-width: 1.2rem;
+      accent-color: var(--supplies-color);
+    }
+
+    .checkbox-field span {
+      margin: 0;
+      font-size: clamp(0.98rem, 3.6vw, 1.1rem);
+      font-weight: 600;
+    }
+
     input[type="number"],
     input[type="text"],
     input[type="search"],
@@ -1473,6 +1498,15 @@
               <span>Quantity</span>
               <input id="suppliesQty" name="qty" type="number" min="1" step="1" required>
             </label>
+            <label class="checkbox-field full-width">
+              <input
+                id="suppliesPlantCheck"
+                name="plantCheck"
+                type="checkbox"
+                required
+              >
+              <span>Have you checked with The Plant (or searched in our supplies cabinet in the plant to ensure we don't already have the supply you are requesting)?</span>
+            </label>
             <label class="full-width">
               <span>Notes (optional)</span>
               <textarea id="suppliesNotes" name="notes" autocomplete="off"></textarea>
@@ -1694,7 +1728,7 @@
       let dashboardAutoRefreshId = null;
       let dashboardDeferredRefreshId = null;
       const FORM_TEMPLATES = {
-        supplies: { description: '', qty: 1, notes: '', catalogSku: '', location: '', requesterName: '' },
+        supplies: { description: '', qty: 1, notes: '', catalogSku: '', location: '', requesterName: '', plantConfirmed: false },
         it: { location: '', issue: '', device: '', urgency: 'normal', details: '', requesterName: '' },
         maintenance: { location: '', issue: '', urgency: 'normal', accessNotes: '', requesterName: '' }
       };
@@ -1782,6 +1816,8 @@
           catalogList: document.getElementById('catalogList'),
           catalogMore: document.getElementById('catalogMoreButton'),
           catalogClear: document.getElementById('catalogClearButton'),
+          catalogScroll: document.getElementById('catalogScrollButton'),
+          plantCheck: document.getElementById('suppliesPlantCheck'),
           catalogCard: document.getElementById('catalogCard'),
           approverNotice: document.querySelector('[data-approver-notice="supplies"]')
         },
@@ -2300,6 +2336,28 @@ function renderApproverUnavailable(auth) {
             dom.supplies.catalogSearch.focus();
           });
         }
+        if (dom.supplies.catalogScroll) {
+          dom.supplies.catalogScroll.addEventListener('click', () => {
+            state.catalog.search = '';
+            if (dom.supplies.catalogSearch) {
+              dom.supplies.catalogSearch.value = '';
+            }
+            selectCatalogSku('', { updateSearch: false, preserveDescription: true });
+            ensureFullCatalogLoaded();
+            renderCatalog();
+            if (dom.supplies.catalogCard) {
+              window.requestAnimationFrame(() => {
+                dom.supplies.catalogCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          });
+        }
+        if (dom.supplies.plantCheck) {
+          dom.supplies.plantCheck.addEventListener('change', () => {
+            setFormState('supplies', { plantConfirmed: dom.supplies.plantCheck.checked });
+            persistForm('supplies');
+          });
+        }
         dom.supplies.more.addEventListener('click', () => {
           if (!state.loading.supplies && state.nextTokens.supplies) {
             loadRequests('supplies', { append: true });
@@ -2475,6 +2533,9 @@ function renderApproverUnavailable(auth) {
             if (!formState.qty || Number(formState.qty) <= 0) {
               return 'Quantity must be at least 1.';
             }
+            if (!formState.plantConfirmed) {
+              return 'Please confirm you have checked The Plant or supplies cabinet first.';
+            }
             return '';
           case 'it':
             if (!formState.location || !formState.location.trim()) {
@@ -2520,6 +2581,9 @@ function renderApproverUnavailable(auth) {
           dom.supplies.qty.value = formState.qty || 1;
           dom.supplies.description.value = formState.description || '';
           dom.supplies.notes.value = formState.notes || '';
+          if (dom.supplies.plantCheck) {
+            dom.supplies.plantCheck.checked = Boolean(formState.plantConfirmed);
+          }
           if (dom.supplies.requesterName) {
             dom.supplies.requesterName.value = requiresRequesterName
               ? (formState.requesterName || state.requesterName || '')
