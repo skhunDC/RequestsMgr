@@ -3173,7 +3173,8 @@ function renderApproverUnavailable(auth) {
         let filteredItems = state.catalog.items.slice();
         if (normalizedSearch) {
           filteredItems = state.catalog.items.filter(item => {
-            const haystack = `${item.description} ${item.category} ${item.sku} ${item.supplier || ''} ${item.estimatedCost || ''}`.toLowerCase();
+            const displayCost = formatCurrencyDisplay(item.estimatedCost);
+            const haystack = `${item.description} ${item.category} ${item.sku} ${item.supplier || ''} ${item.estimatedCost || ''} ${displayCost}`.toLowerCase();
             return haystack.indexOf(normalizedSearch) !== -1;
           });
           const skuToHighlight = state.forms.supplies.catalogSku || '';
@@ -3234,6 +3235,8 @@ function renderApproverUnavailable(auth) {
           card.tabIndex = 0;
           card.setAttribute('role', 'listitem');
 
+          const costDisplay = formatCurrencyDisplay(item.estimatedCost);
+
           const head = document.createElement('div');
           head.className = 'catalog-item-head';
 
@@ -3273,10 +3276,10 @@ function renderApproverUnavailable(auth) {
             info.appendChild(supplier);
           }
 
-          if (item.estimatedCost) {
+          if (costDisplay) {
             const cost = document.createElement('span');
             cost.className = 'detail-line';
-            cost.textContent = `Estimated cost: ${item.estimatedCost}`;
+            cost.textContent = `Estimated cost: ${costDisplay}`;
             info.appendChild(cost);
           }
 
@@ -3349,6 +3352,52 @@ function renderApproverUnavailable(auth) {
         }
       }
 
+      function formatCurrencyDisplay(value, decimalsHint) {
+        const text = value === undefined || value === null ? '' : String(value).trim();
+        if (!text) {
+          return '';
+        }
+        const numericPart = text.replace(/[^0-9.,-]/g, '');
+        if (!numericPart) {
+          if (/^\$/i.test(text)) {
+            return text;
+          }
+          if (/[A-Za-z]/.test(text) || /[^0-9.,\s-]/.test(text)) {
+            return text;
+          }
+          return `$${text}`;
+        }
+        const normalized = numericPart.replace(/,/g, '');
+        const amount = Number(normalized);
+        if (!Number.isFinite(amount)) {
+          if (/^\$/i.test(text)) {
+            return text;
+          }
+          return `$${text}`;
+        }
+        const decimalMatch = normalized.match(/\.(\d+)/);
+        const decimalsRaw = decimalMatch ? decimalMatch[1].length : 0;
+        const safeDecimals = decimalsRaw > 0
+          ? Math.min(decimalsRaw, 4)
+          : (typeof decimalsHint === 'number' && decimalsHint >= 0 ? decimalsHint : 2);
+        let formatted;
+        try {
+          formatted = amount.toLocaleString('en-US', {
+            minimumFractionDigits: safeDecimals,
+            maximumFractionDigits: safeDecimals
+          });
+        } catch (err) {
+          formatted = amount.toFixed(safeDecimals);
+        }
+        const prefixMatch = text.match(/^[^0-9-]*/);
+        const prefix = prefixMatch ? prefixMatch[0] : '';
+        const suffixMatch = text.match(/[^0-9.,-]*$/);
+        const suffix = suffixMatch ? suffixMatch[0] : '';
+        const labelPrefix = prefix || '$';
+        const labelSuffix = suffix || '';
+        return `${labelPrefix}${formatted}${labelSuffix}`.trim();
+      }
+
       function formatCatalogOptionValue(item, highlight) {
         if (!item) {
           return '';
@@ -3356,7 +3405,8 @@ function renderApproverUnavailable(auth) {
         const prefix = highlight ? '★ ' : '';
         const categoryLabel = item.category ? ` · ${item.category}` : '';
         const supplierLabel = item.supplier ? ` · ${item.supplier}` : '';
-        const costLabel = item.estimatedCost ? ` (${item.estimatedCost})` : '';
+        const costDisplay = formatCurrencyDisplay(item.estimatedCost);
+        const costLabel = costDisplay ? ` (${costDisplay})` : '';
         return `${prefix}${item.description}${categoryLabel}${supplierLabel} — ${item.sku}${costLabel}`;
       }
 
