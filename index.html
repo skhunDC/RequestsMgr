@@ -394,6 +394,31 @@
       display: none;
       flex-direction: column;
       gap: 1.25rem;
+      --panel-accent: var(--accent);
+      --panel-accent-strong: var(--accent-strong);
+      --panel-accent-soft: var(--accent-soft);
+      --panel-accent-outline: rgba(11, 87, 208, 0.2);
+    }
+
+    .tab-panel[data-tab-panel="supplies"] {
+      --panel-accent: var(--supplies-color);
+      --panel-accent-strong: var(--supplies-color-strong);
+      --panel-accent-soft: var(--supplies-soft);
+      --panel-accent-outline: var(--supplies-outline);
+    }
+
+    .tab-panel[data-tab-panel="it"] {
+      --panel-accent: var(--it-color);
+      --panel-accent-strong: var(--it-color-strong);
+      --panel-accent-soft: var(--it-soft);
+      --panel-accent-outline: var(--it-outline);
+    }
+
+    .tab-panel[data-tab-panel="maintenance"] {
+      --panel-accent: var(--maintenance-color);
+      --panel-accent-strong: var(--maintenance-color-strong);
+      --panel-accent-soft: var(--maintenance-soft);
+      --panel-accent-outline: var(--maintenance-outline);
     }
 
     .tab-panel.active {
@@ -406,7 +431,7 @@
       padding: clamp(0.85rem, 4vw, 1.2rem);
       border-radius: 12px;
       border: 1px solid var(--border);
-      background: rgba(11, 87, 208, 0.08);
+      background: var(--panel-accent-soft, var(--accent-soft));
       color: inherit;
       font-size: clamp(1rem, 3.6vw, 1.1rem);
     }
@@ -458,8 +483,8 @@
     }
 
     .notice[data-variant="info"] {
-      border-color: rgba(11, 87, 208, 0.35);
-      background: rgba(11, 87, 208, 0.08);
+      border-color: var(--panel-accent-outline, rgba(11, 87, 208, 0.35));
+      background: var(--panel-accent-soft, var(--accent-soft));
     }
 
     .notice strong {
@@ -480,8 +505,8 @@
       margin-top: 0.75rem;
       padding: clamp(0.75rem, 3.6vw, 1rem);
       border-radius: 12px;
-      border: 1px solid var(--border);
-      background: rgba(11, 87, 208, 0.08);
+      border: 1px solid var(--panel-accent-outline, var(--border));
+      background: var(--panel-accent-soft, var(--accent-soft));
       font-size: clamp(0.95rem, 3.4vw, 1.05rem);
       color: inherit;
     }
@@ -621,7 +646,7 @@
       width: 1.2rem;
       height: 1.2rem;
       min-width: 1.2rem;
-      accent-color: var(--supplies-color);
+      accent-color: var(--panel-accent, var(--supplies-color));
     }
 
     .checkbox-field span {
@@ -796,8 +821,8 @@
 
     .notice-block {
       border-radius: 12px;
-      border: 1px solid rgba(11, 87, 208, 0.25);
-      background: rgba(11, 87, 208, 0.08);
+      border: 1px solid var(--panel-accent-outline, rgba(11, 87, 208, 0.25));
+      background: var(--panel-accent-soft, var(--accent-soft));
       padding: 1rem 1.15rem;
       display: flex;
       flex-direction: column;
@@ -808,7 +833,7 @@
       margin: 0;
       font-size: clamp(1.05rem, 3.8vw, 1.2rem);
       font-weight: 600;
-      color: var(--accent-strong);
+      color: var(--panel-accent-strong, var(--accent-strong));
     }
 
     .notice-block p {
