@@ -142,12 +142,13 @@
       --button-bg: var(--accent);
       --button-hover-bg: var(--accent-strong);
       --button-fg: #fff;
-      --button-shadow: rgba(11, 87, 208, 0.65);
-      --button-shadow-active: rgba(11, 87, 208, 0.75);
+      --button-shadow: rgba(11, 87, 208, 0.45);
+      --button-shadow-active: rgba(11, 87, 208, 0.65);
       flex: 1 1 0;
       min-width: 0;
       position: relative;
       isolation: isolate;
+      overflow: hidden;
       border: none;
       border-radius: 14px;
       color: var(--button-fg);
@@ -157,35 +158,59 @@
       padding: clamp(0.65rem, 2.8vw, 0.9rem) clamp(0.85rem, 3vw, 1.15rem);
       text-align: center;
       line-height: 1.35;
-      background: linear-gradient(160deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 55%),
+      background: linear-gradient(160deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.05) 45%),
         linear-gradient(140deg, var(--button-bg) 0%, var(--button-hover-bg) 100%);
-      box-shadow: 0 18px 45px -30px var(--button-shadow);
-      transition: box-shadow 0.2s ease, background 0.2s ease;
+      box-shadow: 0 16px 38px -28px var(--button-shadow);
+      transform: translateY(0);
+      transition: transform 0.35s ease, box-shadow 0.35s ease, background 0.35s ease;
+    }
+
+    .hero-actions button::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.45), transparent 55%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent 70%);
+      opacity: 0;
+      transform: translateY(14%);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      mix-blend-mode: screen;
+      pointer-events: none;
     }
 
     .hero-actions button:hover,
     .hero-actions button:focus-visible {
-      background: var(--button-hover-bg);
-      box-shadow: 0 22px 55px -30px var(--button-shadow-active);
+      background: linear-gradient(150deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 40%),
+        linear-gradient(140deg, var(--button-bg) 0%, var(--button-hover-bg) 100%);
+      box-shadow: 0 22px 48px -28px var(--button-shadow-active);
+      transform: translateY(-3px);
+    }
+
+    .hero-actions button:hover::after,
+    .hero-actions button:focus-visible::after {
+      opacity: 1;
+      transform: translateY(0);
     }
 
     .hero-actions button:focus-visible {
       outline-color: var(--button-hover-bg);
+      outline-offset: 2px;
     }
 
     .hero-actions button:active {
-      box-shadow: 0 18px 45px -30px var(--button-shadow-active);
+      transform: translateY(-1px);
+      box-shadow: 0 18px 42px -30px var(--button-shadow-active);
     }
 
     .hero-actions button.active {
-      transform: translateY(-2px);
-      box-shadow: 0 26px 60px -32px var(--button-shadow-active);
+      transform: translateY(-4px);
+      box-shadow: 0 26px 56px -30px var(--button-shadow-active);
     }
 
     .hero-actions button.active:hover,
     .hero-actions button.active:focus-visible {
-      transform: translateY(-5px) scale(1.02);
-      box-shadow: 0 34px 75px -32px var(--button-shadow-active), 0 22px 36px -28px rgba(18, 42, 78, 0.34);
+      transform: translateY(-5px) scale(1.01);
+      box-shadow: 0 34px 68px -30px var(--button-shadow-active), 0 20px 32px -26px rgba(18, 42, 78, 0.28);
     }
 
     .hero-actions button[data-tab-trigger="supplies"] {
