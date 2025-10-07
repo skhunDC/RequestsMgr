@@ -151,6 +151,21 @@
       text-align: center;
       line-height: 1.35;
       box-shadow: 0 18px 45px -30px var(--button-shadow);
+      transition: box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .hero-actions button:hover,
+    .hero-actions button:focus-visible {
+      background: var(--button-hover-bg);
+      box-shadow: 0 22px 55px -30px var(--button-shadow-active);
+    }
+
+    .hero-actions button:focus-visible {
+      outline-color: var(--button-hover-bg);
+    }
+
+    .hero-actions button:active {
+      box-shadow: 0 18px 45px -30px var(--button-shadow-active);
     }
 
     .hero-actions button.active {
