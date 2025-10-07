@@ -72,7 +72,6 @@ function doGet(e) {
   template.bootstrap = buildBootstrapPayload_(email, roles, cid);
   const output = template.evaluate();
   output.setTitle(APP_CONFIG.brand.title);
-  output.addMetaTag("theme-color", "#0b57d0");
   return output;
 }
 
