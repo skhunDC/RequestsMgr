@@ -333,6 +333,24 @@
       font-size: 0.95rem;
     }
 
+    .feedback-required,
+    .feedback-optional {
+      font-size: clamp(0.82rem, 2.6vw, 0.92rem);
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .feedback-required {
+      color: var(--accent-strong);
+      margin-left: 0.3rem;
+    }
+
+    .feedback-note {
+      margin: 0;
+      font-size: clamp(0.85rem, 2.8vw, 0.95rem);
+      color: var(--muted);
+    }
+
     .feedback-form {
       display: grid;
       gap: 0.85rem;
@@ -1977,7 +1995,7 @@
       <button type="button" id="feedbackCloseButton" class="feedback-close" aria-label="Close feedback form">×</button>
       <div class="feedback-header">
         <h2 id="feedbackTitle">Help us shine brighter ✨</h2>
-        <p class="feedback-subtitle">Spotted a bug or dreaming up an improvement? Tell us what would make the app feel even smoother.</p>
+        <p class="feedback-subtitle">Share a bug or improvement idea—only one quick note is required, and you can stay anonymous.</p>
       </div>
       <form id="feedbackForm" class="feedback-form" novalidate>
         <fieldset>
@@ -1997,43 +2015,35 @@
             </label>
           </div>
         </fieldset>
+        <p class="feedback-note">Pick the option that fits best. We just need the story—no personal details required.</p>
         <label>
-          <span>Catchy headline</span>
+          <span>Quick headline <span class="feedback-optional">(optional)</span></span>
           <input
             id="feedbackSummary"
             name="summary"
             type="text"
             maxlength="120"
             placeholder="e.g., Faster search results for catalog items"
-            required
           >
         </label>
         <label>
-          <span>What's happening?</span>
+          <span>Tell us what happened<span class="feedback-required" aria-hidden="true">*</span></span>
           <textarea
             id="feedbackDetails"
             name="details"
-            placeholder="Share steps, screens, or context so we can experience it too."
+            placeholder="Share the bug, idea, or context in your own words."
             required
           ></textarea>
         </label>
         <label>
-          <span>What would make it awesome?</span>
-          <textarea
-            id="feedbackWish"
-            name="wish"
-            placeholder="Describe the ideal outcome or specific improvements you'd love to see."
-            required
-          ></textarea>
-        </label>
-        <label>
-          <span>Your name (optional)</span>
+          <span>How can we follow up? <span class="feedback-optional">(optional)</span></span>
           <input
-            id="feedbackName"
-            name="name"
+            id="feedbackContact"
+            name="contact"
             type="text"
-            autocomplete="name"
-            placeholder="We'll sign the thank-you note!"
+            inputmode="email"
+            autocomplete="off"
+            placeholder="Share an email or chat handle, or leave blank to stay anonymous"
           >
         </label>
         <div id="feedbackStatus" class="feedback-status" role="status" aria-live="polite" hidden></div>
@@ -2506,8 +2516,7 @@
           status: document.getElementById('feedbackStatus'),
           summary: document.getElementById('feedbackSummary'),
           details: document.getElementById('feedbackDetails'),
-          wish: document.getElementById('feedbackWish'),
-          name: document.getElementById('feedbackName'),
+          contact: document.getElementById('feedbackContact'),
           chips: Array.from(document.querySelectorAll('.feedback-chip')),
           typeInputs: Array.from(document.querySelectorAll('input[name="feedbackType"]'))
         }
@@ -2517,7 +2526,6 @@
       const canManageStatuses = Boolean(SESSION && SESSION.canManageStatuses);
       const requiresRequesterName = !initialSessionEmail;
       const statusAuth = SESSION && SESSION.statusAuth ? SESSION.statusAuth : null;
-      const sessionFriendlyName = deriveFriendlyNameFromEmail(initialSessionEmail);
       const feedbackState = { open: false, submitting: false, closeTimer: null };
 
       renderStatusAuthNotice(statusAuth);
@@ -3151,14 +3159,6 @@ function renderApproverUnavailable(auth) {
             closeFeedbackDialog({ restoreFocus: true });
           }
         });
-        if (feedback.name) {
-          feedback.name.addEventListener('input', () => {
-            const text = sanitizeFeedbackText(feedback.name.value);
-            if (requiresRequesterName && text && text !== state.requesterName) {
-              setRequesterName(text, { sourceType: 'feedback' });
-            }
-          });
-        }
         feedback.form.addEventListener('submit', handleFeedbackSubmit);
         const typeInputs = feedback.typeInputs || [];
         typeInputs.forEach(input => {
@@ -3201,9 +3201,10 @@ function renderApproverUnavailable(auth) {
           feedback.launcher.setAttribute('aria-expanded', 'true');
         }
         clearFeedbackStatus();
-        prefillFeedbackName();
         window.requestAnimationFrame(() => {
-          if (feedback.summary) {
+          if (feedback.details) {
+            feedback.details.focus();
+          } else if (feedback.summary) {
             feedback.summary.focus();
           }
         });
@@ -3262,9 +3263,7 @@ function renderApproverUnavailable(auth) {
             type: selectedType,
             summary: sanitizeFeedbackText(feedback.summary && feedback.summary.value),
             details: sanitizeFeedbackText(feedback.details && feedback.details.value),
-            wish: sanitizeFeedbackText(feedback.wish && feedback.wish.value),
-            name: sanitizeFeedbackText(feedback.name && feedback.name.value),
-            fromEmail: initialSessionEmail
+            contact: sanitizeFeedbackText(feedback.contact && feedback.contact.value)
           }
         };
         const onSuccess = () => {
@@ -3307,7 +3306,7 @@ function renderApproverUnavailable(auth) {
         typeInputs.forEach(input => {
           input.disabled = feedbackState.submitting;
         });
-        ['summary', 'details', 'wish', 'name'].forEach(key => {
+        ['summary', 'details', 'contact'].forEach(key => {
           const field = feedback[key];
           if (field) {
             field.disabled = feedbackState.submitting;
@@ -3384,63 +3383,6 @@ function renderApproverUnavailable(auth) {
 
       function sanitizeFeedbackText(value) {
         return typeof value === 'string' ? value.trim() : '';
-      }
-
-      function prefillFeedbackName() {
-        const feedback = dom.feedback;
-        if (!feedback || !feedback.name) {
-          return;
-        }
-        const existing = sanitizeFeedbackText(feedback.name.value);
-        if (existing) {
-          return;
-        }
-        if (sanitizeFeedbackText(state.requesterName)) {
-          updateFeedbackName(state.requesterName);
-          return;
-        }
-        if (sessionFriendlyName) {
-          updateFeedbackName(sessionFriendlyName, { force: true });
-        }
-      }
-
-      function updateFeedbackName(value, options) {
-        const feedback = dom.feedback;
-        if (!feedback || !feedback.name) {
-          return;
-        }
-        const input = feedback.name;
-        const text = sanitizeFeedbackText(value);
-        const shouldForce = Boolean(options && options.force);
-        const overrideActive = Boolean(options && options.overrideActive);
-        const isActive = document.activeElement === input;
-        if (!shouldForce) {
-          const existing = sanitizeFeedbackText(input.value);
-          if (existing && (!text || existing === text)) {
-            return;
-          }
-          if (!overrideActive && isActive) {
-            return;
-          }
-        }
-        input.value = text;
-      }
-
-      function deriveFriendlyNameFromEmail(email) {
-        const safeEmail = sanitizeFeedbackText(email);
-        if (!safeEmail) {
-          return '';
-        }
-        const local = safeEmail.split('@')[0] || '';
-        if (!local) {
-          return '';
-        }
-        const words = local
-          .replace(/[._-]+/g, ' ')
-          .split(' ')
-          .filter(Boolean)
-          .map(segment => segment.charAt(0).toUpperCase() + segment.slice(1));
-        return words.join(' ');
       }
 
       function setActiveTab(type) {
@@ -4522,7 +4464,6 @@ function renderApproverUnavailable(auth) {
             persistForm(type);
           }
         });
-        updateFeedbackName(text);
       }
 
       function initializeRequesterName() {

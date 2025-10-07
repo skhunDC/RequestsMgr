@@ -818,34 +818,32 @@ function submitAppFeedback(request) {
     const feedback = request && request.feedback ? request.feedback : request;
     const typeValue = sanitizeString_(feedback && feedback.type);
     const summary = sanitizeString_(feedback && feedback.summary);
-    const details = sanitizeString_(feedback && feedback.details);
-    const wish = sanitizeString_(feedback && feedback.wish);
+    const details = sanitizeString_(feedback && (feedback.message || feedback.details));
+    const contact = sanitizeString_(feedback && feedback.contact);
     const providedName = sanitizeString_(feedback && feedback.name);
     const fromEmail = normalizeEmail_(feedback && feedback.fromEmail);
     if (!typeValue) {
       throw new Error('Select what kind of idea you are sharing.');
     }
-    if (!summary) {
-      throw new Error('Add a short headline so we know where to start.');
-    }
     if (!details) {
-      throw new Error('Tell us what you experienced.');
-    }
-    if (!wish) {
-      throw new Error('Share what would make it better.');
+      throw new Error('Tell us what happened so we can help.');
     }
     const typeKey = typeValue.toLowerCase();
     const typeLabel = typeKey === 'bug' ? 'Bug' : typeKey === 'improvement' ? 'Improvement' : 'Idea';
-    const subjectSummary = summary.length > 70 ? `${summary.slice(0, 67)}…` : summary;
+    const subjectSource = summary || details;
+    const subjectSummary = subjectSource.length > 70 ? `${subjectSource.slice(0, 67)}…` : subjectSource;
     const subject = `[Request Manager] ${typeLabel} feedback – ${subjectSummary}`;
-    const friendlyName = providedName || deriveDisplayNameFromEmail_(fromEmail) || 'Request Manager teammate';
+    const contactLine = contact ? contact.split('\n')[0] : '';
+    const friendlyName = providedName || contactLine || deriveDisplayNameFromEmail_(fromEmail) || 'Anonymous teammate';
+    const isAnonymous = !providedName && !contact && !fromEmail;
     const htmlBody = buildFeedbackEmailBody_({
       type: typeLabel,
       summary,
-      details,
-      wish,
+      message: details,
+      contact,
       name: friendlyName,
       fromEmail,
+      isAnonymous,
       submittedAt: formatTimestampForEmail_(new Date())
     });
     MailApp.sendEmail({
@@ -1595,31 +1593,38 @@ function buildNewRequestEmailBody_(type, record) {
 function buildFeedbackEmailBody_(entry) {
   const typeLabel = sanitizeString_(entry && entry.type) || 'Idea';
   const summary = sanitizeString_(entry && entry.summary);
-  const details = sanitizeString_(entry && entry.details);
-  const wish = sanitizeString_(entry && entry.wish);
+  const message = sanitizeString_(entry && (entry.message || entry.details));
+  const contact = sanitizeString_(entry && entry.contact);
   const submittedAt = sanitizeString_(entry && entry.submittedAt);
-  const name = sanitizeString_(entry && entry.name) || 'Request Manager teammate';
+  const name = sanitizeString_(entry && entry.name) || 'A teammate';
   const fromEmail = normalizeEmail_(entry && entry.fromEmail);
-  const reachBackHtml = fromEmail
-    ? `<p style="margin:8px 0 0;font-size:14px;color:#627d98;">Reply to: <a style="color:#0b57d0;" href="mailto:${escapeHtml_(fromEmail)}">${escapeHtml_(fromEmail)}</a></p>`
-    : '';
+  const isAnonymous = Boolean(entry && entry.isAnonymous);
+  const submitted = submittedAt ? escapeHtml_(submittedAt) : '';
+  const introText = isAnonymous
+    ? `Shared anonymously${submitted ? ` on ${submitted}` : ''}.`
+    : `Shared by <strong>${escapeHtml_(name)}</strong>${submitted ? ` on ${submitted}` : ''}.`;
+  const introHtml = `<p style="margin:12px 0 0;font-size:15px;color:#334e68;">${introText}</p>`;
   const summaryHtml = summary
     ? `<p style="margin:16px 0 0;font-size:16px;color:#243b53;"><strong>${escapeHtml_(summary)}</strong></p>`
     : '';
-  const detailsHtml = details
-    ? `<p style="margin:16px 0 0;line-height:1.6;color:#334e68;"><strong>What they noticed:</strong><br>${formatMultilineForEmail_(details)}</p>`
+  const messageHtml = message
+    ? `<p style="margin:16px 0 0;line-height:1.6;color:#334e68;"><strong>What they shared:</strong><br>${formatMultilineForEmail_(message)}</p>`
     : '';
-  const wishHtml = wish
-    ? `<p style="margin:16px 0 0;line-height:1.6;color:#334e68;"><strong>What they'd love to see:</strong><br>${formatMultilineForEmail_(wish)}</p>`
-    : '';
+  const contactParts = [];
+  if (contact) {
+    contactParts.push(`<p style="margin:16px 0 0;font-size:14px;color:#627d98;"><strong>Okay to follow up via:</strong> ${formatMultilineForEmail_(contact)}</p>`);
+  }
+  if (fromEmail && (!contact || contact.toLowerCase() !== fromEmail.toLowerCase())) {
+    contactParts.push(`<p style="margin:8px 0 0;font-size:14px;color:#627d98;">Reply to: <a style="color:#0b57d0;" href="mailto:${escapeHtml_(fromEmail)}">${escapeHtml_(fromEmail)}</a></p>`);
+  }
+  const contactHtml = contactParts.join('');
   return [
     '<div style="font-family:Arial,Helvetica,sans-serif;color:#102a43;line-height:1.6;">',
     `<h2 style="margin:0;font-size:20px;">${escapeHtml_(typeLabel)} insight just arrived</h2>`,
-    `<p style="margin:12px 0 0;font-size:15px;color:#334e68;">Shared by <strong>${escapeHtml_(name)}</strong>${submittedAt ? ` on ${escapeHtml_(submittedAt)}` : ''}.</p>`,
-    reachBackHtml,
+    introHtml,
     summaryHtml,
-    detailsHtml,
-    wishHtml,
+    messageHtml,
+    contactHtml,
     '</div>'
   ].join('');
 }
