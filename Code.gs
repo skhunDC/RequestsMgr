@@ -471,7 +471,9 @@ function listRequests(request) {
 function getDashboardMetrics(request) {
   return withErrorHandling_('getDashboardMetrics', request && request.cid, request, () => {
     ensureSetup_();
-    const completionTimesByType = getRequestCompletionTimesByType_();
+    const milestoneTimesByType = getRequestMilestoneTimesByType_();
+    const completionTimesByType = milestoneTimesByType && milestoneTimesByType.completion ? milestoneTimesByType.completion : {};
+    const inProgressTimesByType = milestoneTimesByType && milestoneTimesByType.inProgress ? milestoneTimesByType.inProgress : {};
     const metrics = {};
     let totalRequests = 0;
     let outstandingRequests = 0;
@@ -486,8 +488,11 @@ function getDashboardMetrics(request) {
         return count + 1;
       }, 0);
       const completionIndex = completionTimesByType[type] || {};
+      const inProgressIndex = inProgressTimesByType[type] || {};
       let completionMsTotal = 0;
       let completionCount = 0;
+      let startMsTotal = 0;
+      let startCount = 0;
       records.forEach(record => {
         const statusKey = toStatusKey_(record && record.status);
         if (statusKey === 'denied') {
@@ -499,13 +504,27 @@ function getDashboardMetrics(request) {
         }
         const completionMs = completionIndex[record && record.id];
         if (!completionMs || completionMs <= openedMs) {
-          return;
+          // Continue evaluating other milestones even if completion data is missing.
+        } else {
+          completionMsTotal += completionMs - openedMs;
+          completionCount++;
         }
-        completionMsTotal += completionMs - openedMs;
-        completionCount++;
+        const startedMs = inProgressIndex[record && record.id];
+        if (startedMs && startedMs > openedMs) {
+          startMsTotal += startedMs - openedMs;
+          startCount++;
+        }
       });
       const avgCompletionMs = completionCount > 0 ? completionMsTotal / completionCount : 0;
-      metrics[type] = { total, outstanding, avgCompletionMs, completionCount };
+      const avgStartMs = startCount > 0 ? startMsTotal / startCount : 0;
+      metrics[type] = {
+        total,
+        outstanding,
+        avgCompletionMs,
+        completionCount,
+        avgStartMs,
+        startCount
+      };
       totalRequests += total;
       outstandingRequests += outstanding;
     });
@@ -1536,36 +1555,46 @@ function recordStatusAction_(type, requestId, status, actor) {
   });
 }
 
-function getRequestCompletionTimesByType_() {
-  const completionStatuses = { approved: true, completed: true, closed: true };
+function getRequestMilestoneTimesByType_() {
   const sheet = getSheet_(SHEETS.STATUS_LOG, STATUS_LOG_HEADERS);
   const rows = readTable_(sheet, STATUS_LOG_HEADERS);
-  return rows.reduce((acc, row) => {
-    const type = String(row && row.type || '').trim().toLowerCase();
-    if (!type || !REQUEST_TYPES[type]) {
+  return rows.reduce(
+    (acc, row) => {
+      const type = String(row && row.type || '').trim().toLowerCase();
+      if (!type || !REQUEST_TYPES[type]) {
+        return acc;
+      }
+      const requestId = String(row && row.requestId || '').trim();
+      if (!requestId) {
+        return acc;
+      }
+      const timestampMs = toTimestampMs_(row && row.ts);
+      if (!timestampMs) {
+        return acc;
+      }
+      const statusKey = toStatusKey_(row && row.status);
+      if (statusKey === 'in_progress') {
+        if (!acc.inProgress[type]) {
+          acc.inProgress[type] = {};
+        }
+        const existingStart = acc.inProgress[type][requestId];
+        if (!existingStart || timestampMs < existingStart) {
+          acc.inProgress[type][requestId] = timestampMs;
+        }
+      }
+      if (statusKey === 'approved' || statusKey === 'completed' || statusKey === 'closed') {
+        if (!acc.completion[type]) {
+          acc.completion[type] = {};
+        }
+        const existingCompletion = acc.completion[type][requestId];
+        if (!existingCompletion || timestampMs < existingCompletion) {
+          acc.completion[type][requestId] = timestampMs;
+        }
+      }
       return acc;
-    }
-    const statusKey = toStatusKey_(row && row.status);
-    if (!completionStatuses[statusKey]) {
-      return acc;
-    }
-    const requestId = String(row && row.requestId || '').trim();
-    if (!requestId) {
-      return acc;
-    }
-    const timestampMs = toTimestampMs_(row && row.ts);
-    if (!timestampMs) {
-      return acc;
-    }
-    if (!acc[type]) {
-      acc[type] = {};
-    }
-    const existing = acc[type][requestId];
-    if (!existing || timestampMs < existing) {
-      acc[type][requestId] = timestampMs;
-    }
-    return acc;
-  }, {});
+    },
+    { completion: {}, inProgress: {} }
+  );
 }
 
 function toTimestampMs_(value) {
