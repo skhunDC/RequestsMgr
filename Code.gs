@@ -812,6 +812,52 @@ function logClientError(request) {
   });
 }
 
+function submitAppFeedback(request) {
+  return withErrorHandling_('submitAppFeedback', request && request.cid, request, () => {
+    ensureSetup_();
+    const feedback = request && request.feedback ? request.feedback : request;
+    const typeValue = sanitizeString_(feedback && feedback.type);
+    const summary = sanitizeString_(feedback && feedback.summary);
+    const details = sanitizeString_(feedback && feedback.details);
+    const wish = sanitizeString_(feedback && feedback.wish);
+    const providedName = sanitizeString_(feedback && feedback.name);
+    const fromEmail = normalizeEmail_(feedback && feedback.fromEmail);
+    if (!typeValue) {
+      throw new Error('Select what kind of idea you are sharing.');
+    }
+    if (!summary) {
+      throw new Error('Add a short headline so we know where to start.');
+    }
+    if (!details) {
+      throw new Error('Tell us what you experienced.');
+    }
+    if (!wish) {
+      throw new Error('Share what would make it better.');
+    }
+    const typeKey = typeValue.toLowerCase();
+    const typeLabel = typeKey === 'bug' ? 'Bug' : typeKey === 'improvement' ? 'Improvement' : 'Idea';
+    const subjectSummary = summary.length > 70 ? `${summary.slice(0, 67)}…` : summary;
+    const subject = `[Request Manager] ${typeLabel} feedback – ${subjectSummary}`;
+    const friendlyName = providedName || deriveDisplayNameFromEmail_(fromEmail) || 'Request Manager teammate';
+    const htmlBody = buildFeedbackEmailBody_({
+      type: typeLabel,
+      summary,
+      details,
+      wish,
+      name: friendlyName,
+      fromEmail,
+      submittedAt: formatTimestampForEmail_(new Date())
+    });
+    MailApp.sendEmail({
+      to: PRIMARY_NOTIFICATION_EMAIL,
+      subject,
+      htmlBody,
+      name: EMAIL_SENDER_NAME
+    });
+    return { ok: true };
+  });
+}
+
 function withErrorHandling_(fnName, cid, context, fn) {
   try {
     return fn();
@@ -1242,6 +1288,23 @@ function normalizeEmail_(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+function deriveDisplayNameFromEmail_(email) {
+  const normalized = normalizeEmail_(email);
+  if (!normalized) {
+    return '';
+  }
+  const local = normalized.split('@')[0] || '';
+  if (!local) {
+    return '';
+  }
+  const parts = local
+    .replace(/[._-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map(segment => segment.charAt(0).toUpperCase() + segment.slice(1));
+  return parts.join(' ');
+}
+
 function normalizeDateOnly_(value) {
   if (value === null || value === undefined) {
     return '';
@@ -1529,6 +1592,38 @@ function buildNewRequestEmailBody_(type, record) {
   ].join('');
 }
 
+function buildFeedbackEmailBody_(entry) {
+  const typeLabel = sanitizeString_(entry && entry.type) || 'Idea';
+  const summary = sanitizeString_(entry && entry.summary);
+  const details = sanitizeString_(entry && entry.details);
+  const wish = sanitizeString_(entry && entry.wish);
+  const submittedAt = sanitizeString_(entry && entry.submittedAt);
+  const name = sanitizeString_(entry && entry.name) || 'Request Manager teammate';
+  const fromEmail = normalizeEmail_(entry && entry.fromEmail);
+  const reachBackHtml = fromEmail
+    ? `<p style="margin:8px 0 0;font-size:14px;color:#627d98;">Reply to: <a style="color:#0b57d0;" href="mailto:${escapeHtml_(fromEmail)}">${escapeHtml_(fromEmail)}</a></p>`
+    : '';
+  const summaryHtml = summary
+    ? `<p style="margin:16px 0 0;font-size:16px;color:#243b53;"><strong>${escapeHtml_(summary)}</strong></p>`
+    : '';
+  const detailsHtml = details
+    ? `<p style="margin:16px 0 0;line-height:1.6;color:#334e68;"><strong>What they noticed:</strong><br>${formatMultilineForEmail_(details)}</p>`
+    : '';
+  const wishHtml = wish
+    ? `<p style="margin:16px 0 0;line-height:1.6;color:#334e68;"><strong>What they'd love to see:</strong><br>${formatMultilineForEmail_(wish)}</p>`
+    : '';
+  return [
+    '<div style="font-family:Arial,Helvetica,sans-serif;color:#102a43;line-height:1.6;">',
+    `<h2 style="margin:0;font-size:20px;">${escapeHtml_(typeLabel)} insight just arrived</h2>`,
+    `<p style="margin:12px 0 0;font-size:15px;color:#334e68;">Shared by <strong>${escapeHtml_(name)}</strong>${submittedAt ? ` on ${escapeHtml_(submittedAt)}` : ''}.</p>`,
+    reachBackHtml,
+    summaryHtml,
+    detailsHtml,
+    wishHtml,
+    '</div>'
+  ].join('');
+}
+
 function getRequestFieldPairsForEmail_(type, fields) {
   const safeFields = fields || {};
   if (type === 'it') {
@@ -1709,6 +1804,14 @@ function escapeHtml_(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function formatMultilineForEmail_(value) {
+  const text = sanitizeString_(value);
+  if (!text) {
+    return '';
+  }
+  return escapeHtml_(text).replace(/\r?\n/g, '<br>');
 }
 
 function getFieldNames_(headers) {
