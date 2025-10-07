@@ -2456,10 +2456,21 @@ function renderApproverUnavailable(auth) {
 
       function scrollToTab(type) {
         const anchor = dom.tabAnchors && dom.tabAnchors[type];
-        if (!anchor || typeof anchor.scrollIntoView !== 'function') {
+        if (!anchor || typeof anchor.getBoundingClientRect !== 'function') {
           return;
         }
-        anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        const nav = document.querySelector('.tab-nav');
+        const navRect = nav && typeof nav.getBoundingClientRect === 'function' ? nav.getBoundingClientRect() : null;
+        const navStyles = nav && typeof window.getComputedStyle === 'function' ? window.getComputedStyle(nav) : null;
+        const navSpacing = navStyles ? parseFloat(navStyles.marginBottom || '0') : 0;
+        const navOffset = navRect ? navRect.height + navSpacing : 0;
+        const extraSpacing = 16;
+
+        const anchorTop = anchor.getBoundingClientRect().top + window.pageYOffset;
+        const targetTop = Math.max(anchorTop - navOffset - extraSpacing, 0);
+
+        window.scrollTo({ top: targetTop, behavior: 'smooth' });
       }
 
       function attachFormHandlers() {
