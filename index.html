@@ -53,6 +53,21 @@
       -webkit-font-smoothing: antialiased;
     }
 
+    body[data-active-tab="supplies"] {
+      --page-gradient-start: #f3f6ff;
+      --page-gradient-end: #ffffff;
+    }
+
+    body[data-active-tab="it"] {
+      --page-gradient-start: #edf8f2;
+      --page-gradient-end: #ffffff;
+    }
+
+    body[data-active-tab="maintenance"] {
+      --page-gradient-start: #fff6eb;
+      --page-gradient-end: #ffffff;
+    }
+
     header {
       position: relative;
       padding: clamp(1.75rem, 5vw, 2.75rem) 0 clamp(2.4rem, 7vw, 3.5rem);
@@ -1533,7 +1548,7 @@
     }
   </style>
 </head>
-<body>
+<body data-active-tab="supplies">
   <header>
     <div class="hero-inner">
       <div class="hero-copy">
@@ -2690,6 +2705,9 @@ function renderApproverUnavailable(auth) {
 
       function setActiveTab(type) {
         state.activeTab = type;
+        if (document && document.body) {
+          document.body.dataset.activeTab = type;
+        }
         dom.tabButtons.forEach(button => {
           button.classList.toggle('active', button.getAttribute('data-tab-trigger') === type);
         });
