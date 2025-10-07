@@ -123,28 +123,39 @@
     }
 
     .hero-actions button {
+      --button-bg: var(--accent);
+      --button-hover-bg: var(--accent-strong);
+      --button-fg: #fff;
+      --button-shadow: rgba(11, 87, 208, 0.65);
+      --button-shadow-active: rgba(11, 87, 208, 0.75);
       font-size: clamp(0.95rem, 3.4vw, 1.1rem);
       padding-inline: clamp(1.1rem, 4vw, 1.6rem);
-      box-shadow: 0 18px 45px -30px rgba(11, 87, 208, 0.65);
-    }
-
-    .hero-actions .secondary {
-      --button-bg: rgba(255, 255, 255, 0.75);
-      --button-hover-bg: rgba(255, 255, 255, 0.9);
-      --button-fg: var(--accent);
-      border: 1px solid rgba(11, 87, 208, 0.2);
-      box-shadow: none;
-      backdrop-filter: blur(4px);
+      box-shadow: 0 18px 45px -30px var(--button-shadow);
     }
 
     .hero-actions button.active {
-      box-shadow: 0 22px 55px -30px rgba(11, 87, 208, 0.7);
+      box-shadow: 0 22px 55px -30px var(--button-shadow-active);
     }
 
-    .hero-actions .secondary.active {
-      background: rgba(11, 87, 208, 0.08);
-      border-color: rgba(11, 87, 208, 0.28);
-      color: var(--accent-strong);
+    .hero-actions button[data-tab-trigger="supplies"] {
+      --button-bg: var(--supplies-color);
+      --button-hover-bg: var(--supplies-color-strong);
+      --button-shadow: rgba(11, 87, 208, 0.65);
+      --button-shadow-active: rgba(11, 87, 208, 0.75);
+    }
+
+    .hero-actions button[data-tab-trigger="it"] {
+      --button-bg: var(--it-color);
+      --button-hover-bg: var(--it-color-strong);
+      --button-shadow: rgba(15, 157, 88, 0.5);
+      --button-shadow-active: rgba(15, 157, 88, 0.65);
+    }
+
+    .hero-actions button[data-tab-trigger="maintenance"] {
+      --button-bg: var(--maintenance-color);
+      --button-hover-bg: var(--maintenance-color-strong);
+      --button-shadow: rgba(242, 153, 0, 0.45);
+      --button-shadow-active: rgba(242, 153, 0, 0.6);
     }
 
     .hero-stats {
@@ -342,7 +353,8 @@
     }
 
     nav.tab-nav {
-      display: inline-flex;
+      display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 0.35rem;
       padding: 0.4rem;
@@ -350,14 +362,10 @@
       background: var(--surface);
       border: 1px solid rgba(14, 31, 53, 0.1);
       box-shadow: 0 24px 45px -32px rgba(20, 36, 63, 0.45);
-      overflow-x: auto;
-      scrollbar-width: none;
+      justify-content: center;
       justify-self: center;
       max-width: 100%;
-    }
-
-    nav.tab-nav::-webkit-scrollbar {
-      display: none;
+      width: min(100%, 720px);
     }
 
     main {
@@ -686,8 +694,8 @@
       --button-bg: transparent;
       --button-hover-bg: var(--tab-soft);
       --button-fg: var(--muted);
-      flex: 1 1 0;
-      min-width: 0;
+      flex: 1 1 200px;
+      min-width: 150px;
       padding: 0.65rem 1rem;
       border-radius: 999px;
       border: 1px solid transparent;
@@ -696,6 +704,7 @@
       font-weight: 600;
       font-size: clamp(0.95rem, 3.5vw, 1.05rem);
       text-align: center;
+      white-space: nowrap;
       transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
@@ -949,25 +958,54 @@
       box-shadow: 0 10px 28px -24px rgba(11, 40, 84, 0.7);
     }
 
+    .request-notes-archive {
+      display: block;
+    }
+
+    .request-notes-archive:not([open]) .request-notes-collapsed {
+      display: none;
+    }
+
     .request-notes-collapsed {
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
+      margin-top: 0.5rem;
     }
 
     .request-notes-toggle {
-      align-self: flex-start;
-      --button-bg: rgba(11, 87, 208, 0.08);
-      --button-hover-bg: rgba(11, 87, 208, 0.14);
-      --button-fg: var(--accent-strong);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
       padding: 0.45rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid rgba(11, 87, 208, 0.24);
+      background: transparent;
+      color: var(--accent-strong);
       font-size: clamp(0.82rem, 2.8vw, 0.94rem);
-      min-height: auto;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      list-style: none;
     }
 
-    .request-notes-toggle[aria-expanded='false'] {
-      --button-bg: transparent;
-      --button-hover-bg: rgba(11, 87, 208, 0.08);
+    .request-notes-toggle::-webkit-details-marker {
+      display: none;
+    }
+
+    .request-notes-toggle:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .request-notes-archive[open] .request-notes-toggle {
+      background: rgba(11, 87, 208, 0.08);
+      border-color: rgba(11, 87, 208, 0.35);
+      box-shadow: 0 12px 30px -26px rgba(11, 40, 84, 0.65);
+    }
+
+    .request-notes-toggle:hover {
+      background: rgba(11, 87, 208, 0.12);
     }
 
     .request-notes-empty {
@@ -1466,7 +1504,8 @@
         </p>
         <div class="hero-actions">
           <button type="button" data-tab-trigger="supplies" class="active">Start a supplies request</button>
-          <button type="button" data-tab-trigger="maintenance" class="secondary">Log a maintenance issue</button>
+          <button type="button" data-tab-trigger="it">Log an IT issue</button>
+          <button type="button" data-tab-trigger="maintenance">Log a maintenance issue</button>
         </div>
         <div class="hero-stats">
           <div class="hero-stat">
@@ -1927,6 +1966,11 @@
       const dom = {
         tabButtons: Array.from(document.querySelectorAll('[data-tab-trigger]')),
         panels: Array.from(document.querySelectorAll('[data-tab-panel]')),
+        tabAnchors: {
+          supplies: document.getElementById('suppliesFormCard'),
+          it: document.getElementById('itFormCard'),
+          maintenance: document.getElementById('maintenanceFormCard')
+        },
         statusNotice: document.getElementById('statusAuthNotice'),
         toast: document.getElementById('toast'),
         supplies: {
@@ -2382,10 +2426,24 @@ function renderApproverUnavailable(auth) {
           button.addEventListener('click', () => {
             const type = button.getAttribute('data-tab-trigger');
             if (type && REQUEST_KEYS.indexOf(type) !== -1) {
+              const shouldScroll = Boolean(button.closest('.hero-actions'));
               setActiveTab(type);
+              if (shouldScroll) {
+                window.requestAnimationFrame(() => {
+                  scrollToTab(type);
+                });
+              }
             }
           });
         });
+      }
+
+      function scrollToTab(type) {
+        const anchor = dom.tabAnchors && dom.tabAnchors[type];
+        if (!anchor || typeof anchor.scrollIntoView !== 'function') {
+          return;
+        }
+        anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
 
       function attachFormHandlers() {
@@ -3955,7 +4013,6 @@ function renderApproverUnavailable(auth) {
 
         const list = document.createElement('div');
         list.className = 'request-notes-list';
-        let toggleButton = null;
         if (notes.length) {
           const [latestNote, ...otherNotes] = notes;
           const latestEntry = buildRequestNoteEntry(latestNote);
@@ -3963,45 +4020,33 @@ function renderApproverUnavailable(auth) {
           list.appendChild(latestEntry);
 
           if (otherNotes.length) {
+            const archive = document.createElement('details');
+            archive.className = 'request-notes-archive';
+
+            const summary = document.createElement('summary');
+            summary.className = 'request-notes-toggle';
+            const summaryLabel = document.createElement('span');
+            const additionalLabel = otherNotes.length === 1 ? 'Show 1 more note' : `Show ${otherNotes.length} more notes`;
+            const collapseLabel = 'Hide additional notes';
+            summaryLabel.textContent = additionalLabel;
+            summary.appendChild(summaryLabel);
+            archive.appendChild(summary);
+
             const restContainer = document.createElement('div');
             restContainer.className = 'request-notes-collapsed';
-            restContainer.setAttribute('hidden', '');
 
             otherNotes.forEach(note => {
               const entry = buildRequestNoteEntry(note);
               restContainer.appendChild(entry);
             });
 
-            const rawId = typeof request.id === 'string' ? request.id : request.id != null ? String(request.id) : '';
-            const safeId = rawId ? rawId.replace(/[^a-zA-Z0-9_-]/g, '-') : 'request';
-            const restId = `request-notes-${type}-${safeId}-rest`;
-            restContainer.id = restId;
+            archive.appendChild(restContainer);
 
-            const toggle = document.createElement('button');
-            toggle.type = 'button';
-            toggle.className = 'request-notes-toggle';
-            toggle.setAttribute('aria-expanded', 'false');
-            toggle.setAttribute('aria-controls', restId);
-
-            const additionalLabel = otherNotes.length === 1 ? 'Show 1 more note' : `Show ${otherNotes.length} more notes`;
-            const collapseLabel = 'Hide additional notes';
-            toggle.textContent = additionalLabel;
-
-            toggle.addEventListener('click', () => {
-              const expanded = toggle.getAttribute('aria-expanded') === 'true';
-              if (expanded) {
-                restContainer.setAttribute('hidden', '');
-                toggle.setAttribute('aria-expanded', 'false');
-                toggle.textContent = additionalLabel;
-              } else {
-                restContainer.removeAttribute('hidden');
-                toggle.setAttribute('aria-expanded', 'true');
-                toggle.textContent = collapseLabel;
-              }
+            archive.addEventListener('toggle', () => {
+              summaryLabel.textContent = archive.open ? collapseLabel : additionalLabel;
             });
 
-            list.appendChild(restContainer);
-            toggleButton = toggle;
+            list.appendChild(archive);
           }
         }
 
@@ -4013,9 +4058,6 @@ function renderApproverUnavailable(auth) {
         }
 
         wrapper.appendChild(list);
-        if (toggleButton) {
-          wrapper.appendChild(toggleButton);
-        }
 
         if (canManageStatuses) {
           const form = document.createElement('form');
