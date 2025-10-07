@@ -1,17 +1,49 @@
 {
-  "env": {"browser": true, "es2021": true},
-  "extends": "eslint:recommended",
-  "parserOptions": {"ecmaVersion": 12, "sourceType": "module"},
-  "globals": {
-    "Session": "readonly",
-    "SpreadsheetApp": "readonly",
-    "LockService": "readonly",
-    "UrlFetchApp": "readonly",
-    "GmailApp": "readonly",
-    "PropertiesService": "readonly",
-    "Utilities": "readonly",
-    "HtmlService": "readonly"
+  "root": true,
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": true
   },
+  "extends": ["eslint:recommended"],
+  "overrides": [
+    {
+      "files": ["*.html"],
+      "parser": "@html-eslint/parser",
+      "plugins": ["@html-eslint"],
+      "extends": ["plugin:@html-eslint/recommended"],
+      "rules": {
+        "@html-eslint/no-inline-styles": "off",
+        "@html-eslint/indent": "off",
+        "@html-eslint/require-closing-tags": "off",
+        "@html-eslint/no-extra-spacing-attrs": "off"
+      }
+    },
+    {
+      "files": ["Code.gs"],
+      "env": {
+        "browser": false
+      },
+      "globals": {
+        "CacheService": "readonly",
+        "HtmlService": "readonly",
+        "LockService": "readonly",
+        "PropertiesService": "readonly",
+        "Session": "readonly",
+        "SpreadsheetApp": "readonly",
+        "Utilities": "readonly"
+      }
+    },
+    {
+      "files": ["tests/**/*.js"],
+      "parserOptions": {
+        "sourceType": "module"
+      },
+      "env": {
+        "node": true
+      }
+    }
+  ],
   "rules": {
     "no-unused-vars": "off",
     "no-undef": "off"
