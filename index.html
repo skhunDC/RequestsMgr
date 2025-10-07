@@ -2456,10 +2456,32 @@ function renderApproverUnavailable(auth) {
 
       function scrollToTab(type) {
         const anchor = dom.tabAnchors && dom.tabAnchors[type];
-        if (!anchor || typeof anchor.scrollIntoView !== 'function') {
+        const nav = document.querySelector('.tab-nav');
+        if (
+          !anchor ||
+          !nav ||
+          typeof anchor.getBoundingClientRect !== 'function' ||
+          typeof nav.getBoundingClientRect !== 'function'
+        ) {
           return;
         }
-        anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        const navRect = nav.getBoundingClientRect();
+        const navStyles = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(nav) : null;
+        const navSpacing = navStyles ? parseFloat(navStyles.marginBottom || '0') : 0;
+        const navOffset = navRect.height + navSpacing;
+        const extraSpacing = 16;
+        const navSafePadding = 12;
+
+        const anchorRect = anchor.getBoundingClientRect();
+        const anchorTop = anchorRect.top + window.pageYOffset;
+        const navTop = navRect.top + window.pageYOffset;
+
+        const anchorTarget = anchorTop - navOffset - extraSpacing;
+        const navTarget = navTop - navSafePadding;
+        const targetTop = Math.max(Math.min(anchorTarget, navTarget), 0);
+
+        window.scrollTo({ top: targetTop, behavior: 'smooth' });
       }
 
       function attachFormHandlers() {
