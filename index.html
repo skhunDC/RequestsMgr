@@ -502,14 +502,18 @@
       display: flex;
     }
 
+    .notice,
+    .approver-notice {
+      border-radius: 12px;
+      background: var(--panel-accent-soft, var(--accent-soft));
+      color: inherit;
+    }
+
     .notice {
       width: 100%;
       margin: 0;
       padding: clamp(0.85rem, 4vw, 1.2rem);
-      border-radius: 12px;
       border: 1px solid var(--border);
-      background: var(--panel-accent-soft, var(--accent-soft));
-      color: inherit;
       font-size: clamp(1rem, 3.6vw, 1.1rem);
     }
 
@@ -550,71 +554,52 @@
       }
     }
 
-    .notice[hidden] {
-      display: none !important;
-    }
-
-    .notice[data-variant="warning"] {
-      border-color: rgba(217, 48, 37, 0.35);
-      background: rgba(217, 48, 37, 0.08);
-    }
-
-    .notice[data-variant="info"] {
-      border-color: var(--panel-accent-outline, rgba(11, 87, 208, 0.35));
-      background: var(--panel-accent-soft, var(--accent-soft));
-    }
-
-    .notice strong {
-      display: block;
-      font-weight: 600;
-      margin-bottom: 0.35rem;
-    }
-
-    .notice p {
-      margin: 0;
-    }
-
-    .notice p + p {
-      margin-top: 0.35rem;
-    }
-
-    .approver-notice {
-      margin-top: 0.75rem;
-      padding: clamp(0.75rem, 3.6vw, 1rem);
-      border-radius: 12px;
-      border: 1px solid var(--panel-accent-outline, var(--border));
-      background: var(--panel-accent-soft, var(--accent-soft));
-      font-size: clamp(0.95rem, 3.4vw, 1.05rem);
-      color: inherit;
-    }
-
-    .form-grid .approver-notice {
-      width: 100%;
-      grid-column: 1 / -1;
-      justify-self: stretch;
-    }
+    .notice[hidden],
     .approver-notice[hidden] {
       display: none !important;
     }
 
+    .notice[data-variant="warning"],
     .approver-notice[data-variant="warning"] {
       border-color: rgba(217, 48, 37, 0.35);
       background: rgba(217, 48, 37, 0.08);
     }
 
+    .notice[data-variant="info"],
+    .approver-notice[data-variant="info"] {
+      border-color: var(--panel-accent-outline, rgba(11, 87, 208, 0.35));
+      background: var(--panel-accent-soft, var(--accent-soft));
+    }
+
+    .notice strong,
     .approver-notice strong {
       display: block;
       font-weight: 600;
       margin-bottom: 0.35rem;
     }
 
+    .notice p,
     .approver-notice p {
       margin: 0;
       color: inherit;
     }
 
+    .notice p + p,
     .approver-notice p + p {
       margin-top: 0.35rem;
+    }
+
+    .approver-notice {
+      margin-top: 0.75rem;
+      padding: clamp(0.75rem, 3.6vw, 1rem);
+      border: 1px solid var(--panel-accent-outline, var(--border));
+      font-size: clamp(0.95rem, 3.4vw, 1.05rem);
+    }
+
+    .form-grid .approver-notice {
+      width: 100%;
+      grid-column: 1 / -1;
+      justify-self: stretch;
     }
 
     section.card {
@@ -2005,6 +1990,7 @@
         maintenance: '#f29900'
       };
       const NOTE_SUPPORTED_TYPES = new Set(['it', 'maintenance']);
+      const HIDE_ETA_STATUSES = new Set(['denied', 'declined']);
       const DASHBOARD_REFRESH_INTERVAL = 60000;
       const DASHBOARD_DEBOUNCE = 500;
       const PERSIST_DELAY = 240;
@@ -3376,7 +3362,7 @@ function renderApproverUnavailable(auth) {
         const key = typeof status === 'string'
           ? status.trim().toLowerCase().replace(/\s+/g, '_')
           : '';
-        return key !== 'denied';
+        return !HIDE_ETA_STATUSES.has(key);
       }
 
       function canEditEtaStatus(status) {
@@ -4428,6 +4414,14 @@ function renderApproverUnavailable(auth) {
         return Math.floor(num);
       }
 
+      const DATE_TIME_OPTIONS = Object.freeze({
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+
       function validatePayload(payload) {
         const fields = {
           description: '',
@@ -4468,13 +4462,11 @@ function renderApproverUnavailable(auth) {
         if (Number.isNaN(date.getTime())) {
           return String(value);
         }
-        return date.toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-      });
+        try {
+          return date.toLocaleString(undefined, DATE_TIME_OPTIONS);
+        } catch (err) {
+          return date.toLocaleString();
+        }
       }
 
       window.RequestsAppHelpers = {
