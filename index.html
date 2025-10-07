@@ -943,6 +943,33 @@
       gap: 0.5rem;
     }
 
+    .request-note-latest {
+      border-color: rgba(11, 87, 208, 0.28);
+      background: rgba(11, 87, 208, 0.08);
+      box-shadow: 0 10px 28px -24px rgba(11, 40, 84, 0.7);
+    }
+
+    .request-notes-collapsed {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .request-notes-toggle {
+      align-self: flex-start;
+      --button-bg: rgba(11, 87, 208, 0.08);
+      --button-hover-bg: rgba(11, 87, 208, 0.14);
+      --button-fg: var(--accent-strong);
+      padding: 0.45rem 0.9rem;
+      font-size: clamp(0.82rem, 2.8vw, 0.94rem);
+      min-height: auto;
+    }
+
+    .request-notes-toggle[aria-expanded='false'] {
+      --button-bg: transparent;
+      --button-hover-bg: rgba(11, 87, 208, 0.08);
+    }
+
     .request-notes-empty {
       margin: 0;
       color: var(--muted);
@@ -3928,18 +3955,67 @@ function renderApproverUnavailable(auth) {
 
         const list = document.createElement('div');
         list.className = 'request-notes-list';
+        let toggleButton = null;
         if (notes.length) {
-          notes.forEach(note => {
-            const entry = buildRequestNoteEntry(note);
-            list.appendChild(entry);
-          });
-        } else {
+          const [latestNote, ...otherNotes] = notes;
+          const latestEntry = buildRequestNoteEntry(latestNote);
+          latestEntry.classList.add('request-note-latest');
+          list.appendChild(latestEntry);
+
+          if (otherNotes.length) {
+            const restContainer = document.createElement('div');
+            restContainer.className = 'request-notes-collapsed';
+            restContainer.setAttribute('hidden', '');
+
+            otherNotes.forEach(note => {
+              const entry = buildRequestNoteEntry(note);
+              restContainer.appendChild(entry);
+            });
+
+            const rawId = typeof request.id === 'string' ? request.id : request.id != null ? String(request.id) : '';
+            const safeId = rawId ? rawId.replace(/[^a-zA-Z0-9_-]/g, '-') : 'request';
+            const restId = `request-notes-${type}-${safeId}-rest`;
+            restContainer.id = restId;
+
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'request-notes-toggle';
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.setAttribute('aria-controls', restId);
+
+            const additionalLabel = otherNotes.length === 1 ? 'Show 1 more note' : `Show ${otherNotes.length} more notes`;
+            const collapseLabel = 'Hide additional notes';
+            toggle.textContent = additionalLabel;
+
+            toggle.addEventListener('click', () => {
+              const expanded = toggle.getAttribute('aria-expanded') === 'true';
+              if (expanded) {
+                restContainer.setAttribute('hidden', '');
+                toggle.setAttribute('aria-expanded', 'false');
+                toggle.textContent = additionalLabel;
+              } else {
+                restContainer.removeAttribute('hidden');
+                toggle.setAttribute('aria-expanded', 'true');
+                toggle.textContent = collapseLabel;
+              }
+            });
+
+            list.appendChild(restContainer);
+            toggleButton = toggle;
+          }
+        }
+
+        if (!notes.length) {
           const empty = document.createElement('p');
           empty.className = 'request-notes-empty';
           empty.textContent = 'No notes yet.';
           list.appendChild(empty);
         }
+
         wrapper.appendChild(list);
+        if (toggleButton) {
+          wrapper.appendChild(toggleButton);
+        }
 
         if (canManageStatuses) {
           const form = document.createElement('form');
