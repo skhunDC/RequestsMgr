@@ -493,10 +493,16 @@ function getDashboardMetrics(request) {
       let completionCount = 0;
       let startMsTotal = 0;
       let startCount = 0;
+      let deniedCount = 0;
+      let approvedCount = 0;
       records.forEach(record => {
         const statusKey = toStatusKey_(record && record.status);
         if (statusKey === 'denied') {
+          deniedCount++;
           return;
+        }
+        if (statusKey === 'approved' || statusKey === 'completed' || statusKey === 'closed') {
+          approvedCount++;
         }
         const openedMs = toTimestampMs_(record && record.ts);
         if (!openedMs) {
@@ -523,7 +529,9 @@ function getDashboardMetrics(request) {
         avgCompletionMs,
         completionCount,
         avgStartMs,
-        startCount
+        startCount,
+        deniedCount,
+        approvedCount
       };
       totalRequests += total;
       outstandingRequests += outstanding;
