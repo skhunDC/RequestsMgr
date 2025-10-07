@@ -1,999 +1,4129 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Request Manager</title>
-    <style>
-      :root {
-        color-scheme: light;
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        --bg: #f3f4f6;
-        --surface: #ffffff;
-        --surface-subtle: #f9fafb;
-        --border: #d5d9e2;
-        --border-strong: #a0aec0;
-        --text: #1f2933;
-        --muted: #52606d;
-        --accent: #0b57d0;
-        --accent-strong: #0949b0;
-        --danger: #d93025;
-        --success: #0f9d58;
-        --shadow-soft: 0 18px 35px rgba(15, 23, 42, 0.12);
-        --shadow-focus: 0 0 0 3px rgba(11, 87, 208, 0.18);
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Request Manager</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --surface: #ffffff;
+      --surface-alt: #f5f6f8;
+      --border: #d7dce1;
+      --text: #202731;
+      --muted: #5c6774;
+      --accent: #0b57d0;
+      --accent-strong: #0a47ac;
+      --supplies-color: #0b57d0;
+      --supplies-color-strong: #0a47ac;
+      --supplies-soft: rgba(11, 87, 208, 0.12);
+      --supplies-outline: rgba(11, 87, 208, 0.32);
+      --it-color: #0f9d58;
+      --it-color-strong: #0b8043;
+      --it-soft: rgba(15, 157, 88, 0.12);
+      --it-outline: rgba(15, 157, 88, 0.28);
+      --maintenance-color: #f29900;
+      --maintenance-color-strong: #c77700;
+      --maintenance-soft: rgba(242, 153, 0, 0.14);
+      --maintenance-outline: rgba(242, 153, 0, 0.3);
+      --success: #0f9d58;
+      --danger: #d93025;
+      --dashboard-pie-size: 100px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--surface-alt);
+      color: var(--text);
+      font-size: clamp(16px, 4.6vw, 19px);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      padding: clamp(0.85rem, 5vw, 1.25rem) clamp(0.9rem, 5vw, 1.65rem) clamp(0.55rem, 3vw, 0.9rem);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(0.75rem, 3vw, 1.1rem);
+      align-items: stretch;
+    }
+
+    header .hero-inner {
+      width: min(100%, 1080px);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(0.75rem, 3vw, 1.15rem);
+      align-items: stretch;
+    }
+
+    .hero-dashboard-shell {
+      width: 100%;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr;
+      align-items: center;
+      justify-items: center;
+      gap: clamp(0.75rem, 3vw, 1.5rem);
+    }
+
+    .hero-dashboard-logo {
+      width: clamp(150px, 32vw, 210px);
+      max-width: 100%;
+      height: auto;
+    }
+
+    .hero-dashboard {
+      background: var(--surface);
+      border-radius: 14px;
+      border: 1px solid rgba(14, 31, 53, 0.08);
+      padding: clamp(0.75rem, 2.8vw, 1rem);
+      box-shadow: 0 10px 20px -18px rgba(13, 34, 78, 0.25);
+      display: grid;
+      gap: clamp(0.65rem, 2.8vw, 0.9rem);
+      width: min(100%, 720px);
+      margin: 0 auto;
+      background-image: radial-gradient(circle at top left, rgba(11, 87, 208, 0.06), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(15, 157, 88, 0.06), transparent 60%);
+    }
+
+    .hero-dashboard .dashboard-header {
+      display: grid;
+      gap: clamp(0.35rem, 2vw, 0.6rem);
+    }
+
+    .dashboard-header-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem;
+    }
+
+    .dashboard-title {
+      margin: 0;
+      font-size: clamp(1.05rem, 3.6vw, 1.32rem);
+      font-weight: 600;
+    }
+
+    .dashboard-header-top .meta {
+      margin-left: auto;
+      font-size: clamp(0.82rem, 2.6vw, 0.95rem);
+    }
+
+    .dashboard-summary {
+      display: grid;
+      gap: clamp(0.3rem, 2vw, 0.6rem);
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      font-size: clamp(0.82rem, 2.4vw, 0.92rem);
+    }
+
+    .dashboard-summary span {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      color: var(--muted);
+      background: var(--surface-alt);
+      border-radius: 10px;
+      border: 1px solid rgba(14, 31, 53, 0.05);
+      padding: 0.5rem 0.65rem;
+    }
+
+    .dashboard-summary span strong {
+      font-size: clamp(1.2rem, 4vw, 1.45rem);
+      color: var(--text);
+    }
+
+    .dashboard-summary span.highlight strong {
+      color: var(--accent);
+    }
+
+    .dashboard-top {
+      display: grid;
+      gap: clamp(0.45rem, 2.2vw, 0.75rem);
+      align-items: start;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      gap: clamp(0.4rem, 2vw, 0.75rem);
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+
+    .dashboard-card {
+      --card-color: var(--accent);
+      --card-color-strong: var(--accent-strong);
+      --card-soft: rgba(11, 87, 208, 0.12);
+      --card-outline: rgba(11, 87, 208, 0.22);
+      border: 1px solid var(--card-outline);
+      border-radius: 12px;
+      padding: clamp(0.55rem, 2vw, 0.8rem);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.78)), var(--card-soft);
+      display: grid;
+      gap: 0.35rem;
+      align-content: start;
+    }
+
+    .dashboard-card[data-dashboard-card="supplies"] {
+      --card-color: var(--supplies-color);
+      --card-color-strong: var(--supplies-color-strong);
+      --card-soft: var(--supplies-soft);
+      --card-outline: var(--supplies-outline);
+    }
+
+    .dashboard-card[data-dashboard-card="it"] {
+      --card-color: var(--it-color);
+      --card-color-strong: var(--it-color-strong);
+      --card-soft: var(--it-soft);
+      --card-outline: var(--it-outline);
+    }
+
+    .dashboard-card[data-dashboard-card="maintenance"] {
+      --card-color: var(--maintenance-color);
+      --card-color-strong: var(--maintenance-color-strong);
+      --card-soft: var(--maintenance-soft);
+      --card-outline: var(--maintenance-outline);
+    }
+
+    .dashboard-card h3 {
+      margin: 0;
+      font-size: clamp(0.95rem, 3vw, 1.12rem);
+      font-weight: 600;
+      color: var(--card-color-strong);
+    }
+
+    .dashboard-card .metric-group {
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .dashboard-card .metric {
+      display: grid;
+      gap: 0.15rem;
+      color: var(--muted);
+      font-size: clamp(0.76rem, 2.3vw, 0.86rem);
+    }
+
+    .dashboard-card .metric strong {
+      font-size: clamp(1.1rem, 3.6vw, 1.45rem);
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .dashboard-card .metric.highlight {
+      color: var(--card-color);
+    }
+
+    .dashboard-card .metric.highlight strong {
+      color: var(--card-color-strong);
+    }
+
+    .dashboard-visual {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .dashboard-visual canvas {
+      width: clamp(220px, var(--dashboard-pie-size), var(--dashboard-pie-size));
+      max-width: 100%;
+      height: auto;
+      aspect-ratio: 1 / 1;
+    }
+
+    .dashboard-empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.9rem, 3.2vw, 1rem);
+    }
+
+    nav.tab-nav {
+      display: flex;
+      gap: 0.35rem;
+      padding: 0 clamp(0.75rem, 6vw, 1.35rem) clamp(0.75rem, 4vw, 1rem);
+      overflow-x: auto;
+      scrollbar-width: none;
+      width: min(100%, 1080px);
+      margin: 0 auto;
+    }
+
+    nav.tab-nav::-webkit-scrollbar {
+      display: none;
+    }
+
+    main {
+      padding: 0 clamp(0.75rem, 6vw, 2rem) 2.5rem;
+      width: min(100%, 720px);
+      margin: 0 auto;
+    }
+
+    .tab-panel {
+      display: none;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .tab-panel.active {
+      display: flex;
+    }
+
+    .notice {
+      width: min(100%, 720px);
+      margin: 0 auto clamp(0.75rem, 4vw, 1.2rem);
+      padding: clamp(0.85rem, 4vw, 1.2rem);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(11, 87, 208, 0.08);
+      color: inherit;
+      font-size: clamp(1rem, 3.6vw, 1.1rem);
+    }
+
+    @media (min-width: 680px) {
+      .dashboard-top {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
       }
 
-      * {
-        box-sizing: border-box;
+      .dashboard-visual {
+        justify-self: end;
+        align-items: flex-end;
+      }
+    }
+
+    @media (min-width: 900px) {
+      .hero-dashboard-shell {
+        grid-template-columns: 1fr auto 1fr;
+        gap: clamp(1rem, 3vw, 2.5rem);
       }
 
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        font-size: clamp(16px, 4vw, 18px);
-        line-height: 1.55;
-        min-height: 100vh;
+      .hero-dashboard-shell .hero-dashboard {
+        grid-column: 2;
+        justify-self: center;
       }
 
-      .app-shell {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
+      .hero-dashboard-logo {
+        grid-column: 1;
+        justify-self: end;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .hero-dashboard {
+        width: clamp(420px, 52vw, 760px);
       }
 
-      header.app-header {
-        background: linear-gradient(120deg, rgba(11, 87, 208, 0.12), rgba(11, 87, 208, 0));
-        border-bottom: 1px solid rgba(11, 87, 208, 0.1);
-        padding: clamp(1rem, 4vw, 1.6rem) clamp(1.2rem, 5vw, 2rem);
+      nav.tab-nav,
+      main,
+      .notice {
+        width: min(100%, 960px);
       }
 
-      .header-inner {
-        max-width: 1080px;
-        margin: 0 auto;
-        display: flex;
-        flex-wrap: wrap;
-        gap: clamp(0.75rem, 3vw, 1.2rem);
-        align-items: center;
-        justify-content: space-between;
+      section.card {
+        padding: clamp(1.25rem, 3vw, 2rem);
+      }
+    }
+
+    .notice[hidden] {
+      display: none !important;
+    }
+
+    .notice[data-variant="warning"] {
+      border-color: rgba(217, 48, 37, 0.35);
+      background: rgba(217, 48, 37, 0.08);
+    }
+
+    .notice[data-variant="info"] {
+      border-color: rgba(11, 87, 208, 0.35);
+      background: rgba(11, 87, 208, 0.08);
+    }
+
+    .notice strong {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    .notice p {
+      margin: 0;
+    }
+
+    .notice p + p {
+      margin-top: 0.35rem;
+    }
+
+    .approver-notice {
+      margin-top: 0.75rem;
+      padding: clamp(0.75rem, 3.6vw, 1rem);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(11, 87, 208, 0.08);
+      font-size: clamp(0.95rem, 3.4vw, 1.05rem);
+      color: inherit;
+    }
+
+    .form-grid .approver-notice {
+      width: 100%;
+      grid-column: 1 / -1;
+      justify-self: stretch;
+    }
+    .approver-notice[hidden] {
+      display: none !important;
+    }
+
+    .approver-notice[data-variant="warning"] {
+      border-color: rgba(217, 48, 37, 0.35);
+      background: rgba(217, 48, 37, 0.08);
+    }
+
+    .approver-notice strong {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    .approver-notice p {
+      margin: 0;
+      color: inherit;
+    }
+
+    .approver-notice p + p {
+      margin-top: 0.35rem;
+    }
+
+    section.card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: clamp(1.1rem, 5.8vw, 1.65rem);
+      box-shadow: 0 12px 24px -18px rgba(23, 32, 42, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: clamp(1.2rem, 4vw, 1.45rem);
+      font-weight: 600;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      width: 100%;
+      text-align: left;
+      color: inherit;
+      user-select: none;
+    }
+
+    .card-header-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .card-header-action {
+      --button-bg: var(--surface);
+      --button-hover-bg: rgba(11, 87, 208, 0.1);
+      --button-fg: var(--supplies-color-strong);
+      border: 1px solid var(--supplies-outline);
+      padding: 0.55rem 1.05rem;
+      min-height: 0;
+      font-size: clamp(0.92rem, 3vw, 1.05rem);
+      line-height: 1.2;
+      margin-left: auto;
+      white-space: nowrap;
+      box-shadow: none;
+      align-self: flex-start;
+    }
+
+    .card-title {
+      font-size: clamp(1.2rem, 4.4vw, 1.5rem);
+      font-weight: 600;
+    }
+
+    .card-subtitle {
+      font-size: clamp(1rem, 3.7vw, 1.1rem);
+      color: var(--muted);
+    }
+
+    .card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    @media (min-width: 560px) {
+      .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: end;
       }
 
-      .brand-block {
-        display: flex;
-        align-items: center;
-        gap: clamp(0.85rem, 3vw, 1.4rem);
-        flex: 1;
-        min-width: 220px;
+      .form-grid textarea,
+      .form-grid .full-width {
+        grid-column: 1 / -1;
+      }
+    }
+
+    label span {
+      display: block;
+      font-size: clamp(1rem, 3.8vw, 1.15rem);
+      font-weight: 600;
+      margin-bottom: 0.45rem;
+    }
+
+    .checkbox-field {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-alt);
+      line-height: 1.4;
+    }
+
+    .checkbox-field input[type="checkbox"] {
+      margin-top: 0.2rem;
+      width: 1.2rem;
+      height: 1.2rem;
+      min-width: 1.2rem;
+      accent-color: var(--supplies-color);
+    }
+
+    .checkbox-field span {
+      margin: 0;
+      font-size: clamp(0.98rem, 3.6vw, 1.1rem);
+      font-weight: 600;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    input[type="search"],
+    input[type="date"],
+    textarea,
+    select,
+    button {
+      font: inherit;
+    }
+
+    textarea,
+    input[type="number"],
+    input[type="text"],
+    input[type="search"],
+    input[type="date"],
+    select {
+      width: 100%;
+      padding: 0.75rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-alt);
+      color: inherit;
+      min-height: 48px;
+      font-size: clamp(1.05rem, 4vw, 1.2rem);
+    }
+
+    textarea:focus,
+    input[type="number"]:focus,
+    input[type="text"]:focus,
+    input[type="date"]:focus,
+    select:focus,
+    button:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 96px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 999px;
+      padding: 0.8rem 1.35rem;
+      font-weight: 600;
+      background: var(--button-bg, var(--accent));
+      color: var(--button-fg, #fff);
+      min-height: 48px;
+      transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+      font-size: clamp(1.05rem, 4vw, 1.2rem);
+    }
+
+    button[disabled] {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    button:not([disabled]):hover {
+      background: var(--button-hover-bg, var(--accent-strong));
+    }
+
+    button.secondary {
+      --button-bg: var(--surface-alt);
+      --button-hover-bg: #e9eef7;
+      --button-fg: var(--accent);
+      background: var(--button-bg);
+      color: var(--button-fg);
+      border: 1px solid var(--border);
+    }
+
+    .tab-nav button {
+      --tab-color: var(--accent);
+      --tab-color-strong: var(--accent-strong);
+      --tab-soft: rgba(11, 87, 208, 0.12);
+      --tab-border: rgba(11, 87, 208, 0.32);
+      --button-bg: var(--surface);
+      --button-hover-bg: var(--tab-soft);
+      --button-fg: var(--tab-color);
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 0.65rem 1rem;
+      border-radius: 999px;
+      border: 1px solid var(--tab-border);
+      background: var(--button-bg);
+      color: var(--button-fg);
+      font-weight: 600;
+      font-size: clamp(0.95rem, 3.5vw, 1.05rem);
+      text-align: center;
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .tab-nav button:not(.active):hover {
+      background: var(--tab-soft);
+    }
+
+    .tab-nav button.active {
+      --button-bg: var(--tab-color);
+      --button-hover-bg: var(--tab-color-strong);
+      --button-fg: #fff;
+      border-color: var(--tab-color);
+      color: var(--button-fg);
+      box-shadow: 0 10px 20px -14px rgba(0, 0, 0, 0.4);
+    }
+
+    .tab-nav button:focus-visible {
+      outline-color: var(--tab-color);
+    }
+
+    .tab-nav button[data-tab-trigger="supplies"] {
+      --tab-color: var(--supplies-color);
+      --tab-color-strong: var(--supplies-color-strong);
+      --tab-soft: var(--supplies-soft);
+      --tab-border: var(--supplies-outline);
+    }
+
+    .tab-nav button[data-tab-trigger="it"] {
+      --tab-color: var(--it-color);
+      --tab-color-strong: var(--it-color-strong);
+      --tab-soft: var(--it-soft);
+      --tab-border: var(--it-outline);
+    }
+
+    .tab-nav button[data-tab-trigger="maintenance"] {
+      --tab-color: var(--maintenance-color);
+      --tab-color-strong: var(--maintenance-color-strong);
+      --tab-soft: var(--maintenance-soft);
+      --tab-border: var(--maintenance-outline);
+    }
+
+    #suppliesSubmitButton {
+      --button-bg: var(--supplies-color);
+      --button-hover-bg: var(--supplies-color-strong);
+    }
+
+    #itSubmitButton {
+      --button-bg: var(--it-color);
+      --button-hover-bg: var(--it-color-strong);
+    }
+
+    #maintenanceSubmitButton {
+      --button-bg: var(--maintenance-color);
+      --button-hover-bg: var(--maintenance-color-strong);
+    }
+
+    .inline-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .inline-buttons button.secondary.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .inline-buttons button.secondary.active:hover:not([disabled]) {
+      background: var(--accent-strong);
+    }
+
+    .notice-block {
+      border-radius: 12px;
+      border: 1px solid rgba(11, 87, 208, 0.25);
+      background: rgba(11, 87, 208, 0.08);
+      padding: 1rem 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .notice-block h3 {
+      margin: 0;
+      font-size: clamp(1.05rem, 3.8vw, 1.2rem);
+      font-weight: 600;
+      color: var(--accent-strong);
+    }
+
+    .notice-block p {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.95rem, 3.6vw, 1.05rem);
+    }
+
+    .skeleton {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(90deg, #e4e8ee 25%, #f2f4f8 37%, #e4e8ee 63%);
+      background-size: 400% 100%;
+      animation: shimmer 1.4s ease infinite;
+      border-radius: 12px;
+      min-height: 44px;
+    }
+
+    .skeleton.sm {
+      height: 18px;
+      border-radius: 6px;
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: 100% 0;
+      }
+      100% {
+        background-position: -100% 0;
+      }
+    }
+
+    .request-item,
+    .catalog-item {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding: 0.7rem 0.85rem;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      line-height: 1.45;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+
+    .catalog-item {
+      cursor: pointer;
+    }
+
+    .catalog-item:hover {
+      border-color: rgba(11, 87, 208, 0.3);
+    }
+
+    .catalog-item:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .request-item-head,
+    .catalog-item-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .request-item-title,
+    .catalog-item-title {
+      font-size: clamp(1rem, 3.6vw, 1.15rem);
+      font-weight: 600;
+      flex: 1 1 160px;
+      display: inline-flex;
+    }
+
+    .catalog-item-sku {
+      margin-left: auto;
+      font-size: clamp(0.78rem, 2.8vw, 0.92rem);
+      color: var(--muted);
+      background: var(--surface-alt);
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.55rem;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .request-item .status {
+      margin-left: auto;
+      font-size: clamp(0.85rem, 2.9vw, 0.95rem);
+      padding: 0.3rem 0.65rem;
+    }
+
+    .request-item .urgency-badge {
+      margin-left: 0;
+      font-size: clamp(0.75rem, 2.8vw, 0.9rem);
+      padding: 0.25rem 0.6rem;
+    }
+
+    .request-item-info,
+    .catalog-item-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem 0.75rem;
+      align-items: center;
+    }
+
+    .request-item-info .meta,
+    .catalog-item-info .meta,
+    .request-item-info .detail-line,
+    .catalog-item-info .detail-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: clamp(0.85rem, 3vw, 0.95rem);
+      color: var(--muted);
+      padding: 0.1rem 0;
+    }
+
+    .request-item-footer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.75rem;
+      align-items: center;
+      margin-top: 0.2rem;
+    }
+
+    .request-notes {
+      margin-top: 0.4rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .request-notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem;
+      font-size: clamp(0.85rem, 3vw, 0.95rem);
+    }
+
+    .request-notes-title {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .request-notes-count {
+      color: var(--muted);
+    }
+
+    .request-notes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .request-notes-empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.82rem, 2.6vw, 0.92rem);
+    }
+
+    .request-note {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.55rem 0.65rem;
+      background: var(--surface-alt);
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .request-note-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+      color: var(--muted);
+      font-size: clamp(0.78rem, 2.6vw, 0.88rem);
+    }
+
+    .request-note-body {
+      margin: 0;
+      color: var(--text);
+      font-size: clamp(0.85rem, 3vw, 0.95rem);
+      white-space: pre-wrap;
+    }
+
+    .request-note-dot {
+      color: var(--muted);
+    }
+
+    .request-note-form {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.6rem 0.65rem;
+      background: rgba(11, 87, 208, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .request-note-form textarea {
+      min-height: 72px;
+      resize: vertical;
+      padding: 0.5rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: clamp(0.85rem, 2.8vw, 0.95rem);
+      font-family: inherit;
+    }
+
+    .request-note-form textarea:focus {
+      border-color: var(--accent);
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .request-note-helper {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.78rem, 2.6vw, 0.88rem);
+    }
+
+    .request-note-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .request-item-footer > .inline-buttons,
+    .request-item-footer > .supplies-actions {
+      flex: 1 1 100%;
+    }
+
+    .request-item-footer .supplies-actions {
+      margin-top: 0;
+    }
+
+    .request-item-footer .supplies-actions .inline-buttons {
+      gap: 0.5rem;
+    }
+
+    .request-item .eta-field {
+      margin: 0;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.3rem;
+      max-width: none;
+      flex: 0 0 auto;
+      padding: 0.1rem 0.35rem;
+    }
+
+    .request-item .eta-field span {
+      font-size: clamp(0.85rem, 2.9vw, 0.95rem);
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .request-item .eta-field input[type="date"] {
+      width: min(38vw, 130px);
+      min-width: 0;
+      min-height: 32px;
+      height: 32px;
+      padding: 0.2rem 0.5rem;
+      font-size: clamp(0.82rem, 2.4vw, 0.95rem);
+      border-radius: 8px;
+    }
+
+    .catalog-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .catalog-combobox {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .catalog-search {
+      position: relative;
+    }
+
+    .catalog-search::after {
+      content: '\1F50D';
+      position: absolute;
+      right: 3.15rem;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .catalog-search input[type="search"] {
+      padding-right: 4.75rem;
+      -webkit-appearance: none;
+    }
+
+    .catalog-clear {
+      position: absolute;
+      top: 50%;
+      right: 0.65rem;
+      transform: translateY(-50%);
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      border: none;
+      background: rgba(32, 39, 49, 0.08);
+      color: var(--text);
+      font-size: 1.35rem;
+      font-weight: 700;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+    }
+
+    .catalog-clear.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .catalog-clear:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .catalog-clear:hover {
+      background: rgba(32, 39, 49, 0.14);
+      transform: translateY(-50%) scale(1.05);
+    }
+
+    datalist option {
+      font-size: clamp(1rem, 3.5vw, 1.1rem);
+    }
+
+    .input-helper {
+      margin-top: 0.35rem;
+      font-size: clamp(0.95rem, 3.3vw, 1.05rem);
+      color: var(--muted);
+      display: block;
+    }
+
+    .input-helper.custom-item-alert {
+      margin-top: 0.75rem;
+      margin-bottom: 0.25rem;
+      font-size: clamp(1rem, 3.6vw, 1.1rem);
+      font-weight: 700;
+      color: var(--danger);
+    }
+
+    .urgency-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: clamp(0.85rem, 3vw, 0.95rem);
+      font-weight: 600;
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .urgency-badge + .urgency-badge {
+      margin-left: 0.35rem;
+    }
+
+    .urgency-badge[data-urgency="low"] {
+      background: rgba(15, 157, 88, 0.12);
+      border-color: rgba(15, 157, 88, 0.35);
+      color: var(--success);
+    }
+
+    .urgency-badge[data-urgency="normal"] {
+      background: rgba(251, 188, 5, 0.16);
+      border-color: rgba(251, 188, 5, 0.4);
+      color: #8c6d00;
+    }
+
+    .urgency-badge[data-urgency="critical"] {
+      background: rgba(217, 48, 37, 0.12);
+      border-color: rgba(217, 48, 37, 0.35);
+      color: var(--danger);
+    }
+
+    .catalog-item.selected {
+      border-color: rgba(11, 87, 208, 0.45);
+      background: rgba(11, 87, 208, 0.08);
+      box-shadow: 0 0 0 1px rgba(11, 87, 208, 0.18);
+    }
+
+    .catalog-item-title {
+      font-size: clamp(1rem, 3.6vw, 1.15rem);
+    }
+
+    .catalog-item-info .usage {
+      color: var(--accent-strong);
+      font-weight: 500;
+    }
+
+    .catalog-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      align-self: flex-end;
+      margin-left: auto;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(11, 87, 208, 0.12);
+      color: var(--accent-strong);
+      font-size: clamp(0.75rem, 2.9vw, 0.9rem);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .catalog-badge::before {
+      content: '\2605';
+      font-size: 0.8rem;
+    }
+
+    .meta {
+      font-size: clamp(0.95rem, 3.2vw, 1.05rem);
+      color: var(--muted);
+    }
+
+    .detail-line {
+      display: block;
+      font-size: clamp(0.95rem, 3.4vw, 1.05rem);
+      color: var(--muted);
+    }
+
+    .eta-field {
+      margin-top: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      width: min(100%, 160px);
+      max-width: 160px;
+    }
+
+    .eta-field span {
+      font-size: clamp(0.9rem, 3.2vw, 1rem);
+      font-weight: 600;
+    }
+
+    .eta-field input[type="date"] {
+      width: min(100%, 140px);
+    }
+
+    @media (max-width: 520px) {
+      header {
+        padding: clamp(1.35rem, 6vw, 1.75rem) clamp(1.1rem, 7vw, 1.65rem) clamp(0.85rem, 5vw, 1.35rem);
       }
 
-      .brand-block img {
-        width: clamp(90px, 20vw, 120px);
-        height: auto;
+      nav.tab-nav {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.35rem;
+        padding: 0 clamp(0.75rem, 6vw, 1rem) clamp(0.75rem, 4vw, 0.9rem);
+        overflow: visible;
       }
 
-      .brand-text h1 {
-        margin: 0;
-        font-size: clamp(1.4rem, 5vw, 1.8rem);
-        font-weight: 600;
-      }
-
-      .brand-text p {
-        margin: 0.2rem 0 0;
-        color: var(--muted);
-        font-size: clamp(0.85rem, 3.5vw, 1rem);
-      }
-
-      .header-actions {
-        display: flex;
-        gap: 0.6rem;
-        align-items: center;
+      .tab-nav button {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
       }
 
       main {
-        flex: 1;
-        padding: clamp(1rem, 4vw, 1.8rem) clamp(1.1rem, 5vw, 2rem) clamp(2.2rem, 8vw, 3rem);
+        padding: 0 clamp(0.85rem, 6vw, 1.15rem) 2.15rem;
+        width: min(100%, 640px);
       }
 
-      .content-grid {
-        max-width: 1080px;
-        margin: 0 auto;
-        display: grid;
-        gap: clamp(1rem, 4vw, 1.6rem);
+      section.card {
+        border-radius: 20px;
+        padding: clamp(1.15rem, 6.5vw, 1.75rem);
       }
 
-      .card {
-        background: var(--surface);
-        border-radius: 16px;
-        border: 1px solid rgba(15, 23, 42, 0.06);
-        box-shadow: var(--shadow-soft);
-        padding: clamp(1rem, 4vw, 1.6rem);
+      .catalog-clear {
+        width: 34px;
+        height: 34px;
+      }
+    }
+
+    @media (max-width: 360px) {
+      button {
+        padding-inline: 1.1rem;
       }
 
-      .card h2 {
-        margin: 0 0 0.75rem;
-        font-size: clamp(1.1rem, 4vw, 1.35rem);
+      .tab-nav button {
+        padding-inline: 0.7rem;
+      }
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: clamp(0.95rem, 3.2vw, 1.05rem);
+      font-weight: 600;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .status[data-state="approved"] {
+      border-color: rgba(15, 157, 88, 0.35);
+      color: var(--success);
+    }
+
+    .status[data-state="completed"] {
+      border-color: rgba(15, 157, 88, 0.35);
+      color: var(--success);
+    }
+
+    .status[data-state="in_progress"],
+    .status[data-state="ordered"] {
+      border-color: rgba(11, 87, 208, 0.35);
+      color: var(--accent);
+    }
+
+    .status[data-state="declined"],
+    .status[data-state="denied"] {
+      border-color: rgba(217, 48, 37, 0.35);
+      color: var(--danger);
+    }
+
+    .supplies-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-top: 0.5rem;
+    }
+
+    .supplies-actions .inline-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+
+    .supplies-actions .inline-buttons button {
+      width: 100%;
+    }
+
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 0.75rem 0;
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .load-more {
+      align-self: center;
+    }
+
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: 1.25rem;
+      transform: translateX(-50%);
+      background: rgba(32, 39, 49, 0.94);
+      color: #fff;
+      padding: 0.75rem 1.25rem;
+      border-radius: 999px;
+      box-shadow: 0 20px 35px -25px rgba(23, 32, 42, 0.8);
+      display: none;
+      z-index: 20;
+      min-width: 200px;
+      text-align: center;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton {
+        animation: none;
+      }
+    }
+
+    @media (min-width: 600px) {
+      body {
+        font-size: 17px;
       }
 
-      form.request-form {
-        display: grid;
-        gap: clamp(0.75rem, 3vw, 1.1rem);
+      .tab-panel {
+        gap: 1.5rem;
       }
 
-      .field {
-        display: grid;
-        gap: 0.35rem;
-      }
-
-      .field label {
-        font-weight: 600;
-        font-size: clamp(0.95rem, 3.5vw, 1rem);
-      }
-
-      .field input,
-      .field textarea,
-      .field select {
-        width: 100%;
-        padding: 0.7rem 0.9rem;
-        border-radius: 12px;
-        border: 1px solid var(--border);
-        background: var(--surface-subtle);
-        font-size: 1rem;
-        transition:
-          border-color 0.2s ease,
-          box-shadow 0.2s ease;
-      }
-
-      .field input:focus,
-      .field textarea:focus,
-      .field select:focus {
-        outline: none;
-        border-color: var(--accent);
-        box-shadow: var(--shadow-focus);
-      }
-
-      .field[data-invalid="true"] input,
-      .field[data-invalid="true"] textarea,
-      .field[data-invalid="true"] select {
-        border-color: var(--danger);
-        box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.18);
-      }
-
-      .field-error {
-        color: var(--danger);
-        font-size: 0.85rem;
-      }
-
-      .form-actions {
-        display: flex;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-        align-items: center;
-      }
-
-      button.primary {
-        appearance: none;
-        border: none;
-        border-radius: 999px;
-        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-        color: #fff;
-        font-size: 1rem;
-        font-weight: 600;
-        padding: 0.85rem 1.6rem;
-        cursor: pointer;
-        min-width: 180px;
-        display: inline-flex;
-        align-items: center;
+      nav.tab-nav {
         justify-content: center;
-        gap: 0.6rem;
-        transition:
-          transform 0.2s ease,
-          box-shadow 0.2s ease;
+      }
+    }
+
+    @media (min-width: 720px) {
+      main {
+        width: min(100%, 900px);
       }
 
-      button.secondary {
-        appearance: none;
-        border-radius: 999px;
-        border: 1px solid var(--border-strong);
-        background: var(--surface);
-        color: var(--text);
-        font-weight: 600;
-        padding: 0.75rem 1.4rem;
-        cursor: pointer;
-        min-width: 150px;
-        display: inline-flex;
-        align-items: center;
+      header {
+        padding-bottom: clamp(1.1rem, 3vw, 1.8rem);
+      }
+
+      header .hero-inner {
+        align-items: stretch;
         justify-content: center;
-        gap: 0.5rem;
-        transition:
-          transform 0.2s ease,
-          box-shadow 0.2s ease,
-          border-color 0.2s ease;
       }
 
-      button.text {
-        appearance: none;
-        border: none;
-        background: transparent;
-        color: var(--accent);
-        font-weight: 600;
-        cursor: pointer;
-        padding: 0.3rem 0.6rem;
-        border-radius: 8px;
+      .hero-dashboard {
+        width: clamp(420px, 62vw, 760px);
       }
 
-      button.primary:hover,
-      button.secondary:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 12px 24px rgba(11, 87, 208, 0.18);
+      .dashboard-summary {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+    }
+
+    @media (min-width: 1200px) {
+      main {
+        width: min(100%, 1080px);
       }
 
-      button.primary:disabled,
-      button.secondary:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-      }
-
-      button.text:focus-visible,
-      button.primary:focus-visible,
-      button.secondary:focus-visible {
-        outline: none;
-        box-shadow: var(--shadow-focus);
-      }
-
-      .button-spinner {
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        border: 2px solid rgba(255, 255, 255, 0.65);
-        border-top-color: #fff;
-        animation: spin 0.8s linear infinite;
-      }
-
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      .requests-card-header {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        margin-bottom: clamp(0.8rem, 3vw, 1.1rem);
-      }
-
-      .requests-card-header .subtitle {
-        color: var(--muted);
-        font-size: 0.95rem;
-      }
-
-      .table-wrapper {
-        border-radius: 14px;
-        border: 1px solid rgba(15, 23, 42, 0.08);
-        overflow: hidden;
-        background: var(--surface-subtle);
-      }
-
-      table.request-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
-        min-width: 360px;
-      }
-
-      table.request-table thead {
-        background: rgba(15, 23, 42, 0.04);
-      }
-
-      table.request-table th,
-      table.request-table td {
-        padding: clamp(0.65rem, 3vw, 0.85rem);
-        text-align: left;
-        border-bottom: 1px solid rgba(15, 23, 42, 0.06);
-        font-size: 0.95rem;
-        vertical-align: top;
-        resize: horizontal;
-        overflow: auto;
-        min-width: 90px;
-      }
-
-      table.request-table tbody tr:last-child td {
-        border-bottom: none;
-      }
-
-      .status-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 999px;
-        padding: 0.25rem 0.75rem;
-        font-weight: 600;
-        font-size: 0.85rem;
-      }
-
-      .status-badge[data-status="New"] {
-        background: rgba(11, 87, 208, 0.12);
-        color: var(--accent);
-      }
-
-      .status-badge[data-status="In Progress"] {
-        background: rgba(249, 115, 22, 0.12);
-        color: #c05621;
-      }
-
-      .status-badge[data-status="On Hold"] {
-        background: rgba(15, 23, 42, 0.1);
-        color: #334155;
-      }
-
-      .status-badge[data-status="Fulfilled"] {
-        background: rgba(15, 157, 88, 0.12);
-        color: var(--success);
-      }
-
-      .status-badge[data-status="Cancelled"] {
-        background: rgba(217, 48, 37, 0.12);
-        color: var(--danger);
-      }
-
-      .empty-state {
-        padding: clamp(1.2rem, 5vw, 1.8rem);
-        text-align: center;
-        color: var(--muted);
-      }
-
-      .toast-layer {
-        position: fixed;
-        bottom: clamp(1rem, 4vw, 1.8rem);
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 30;
+      .tab-panel.active {
         display: grid;
-        gap: 0.65rem;
-        width: min(90%, 360px);
-        pointer-events: none;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+        align-items: stretch;
       }
 
-      .toast {
-        background: #111827;
-        color: #f9fafb;
-        padding: 0.85rem 1.1rem;
-        border-radius: 12px;
-        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.35);
-        font-size: 0.95rem;
-        display: flex;
-        justify-content: space-between;
-        gap: 0.75rem;
-        pointer-events: auto;
+      .tab-panel.active[data-tab-panel="supplies"] {
+        grid-template-columns: repeat(2, minmax(320px, 1fr));
       }
 
-      .toast button {
-        appearance: none;
-        border: none;
-        background: transparent;
-        color: inherit;
-        font-weight: 600;
-        cursor: pointer;
+      .tab-panel.active[data-tab-panel="supplies"] #catalogCard {
+        grid-column: 1 / -1;
       }
 
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        border: 0;
+      .tab-panel.active section.card {
+        height: 100%;
       }
-
-      @media (min-width: 880px) {
-        .content-grid {
-          grid-template-columns: 1fr 1.2fr;
-          align-items: start;
-        }
-      }
-
-      @media (max-width: 640px) {
-        .header-inner {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-
-        button.primary,
-        button.secondary {
-          width: 100%;
-        }
-
-        table.request-table th,
-        table.request-table td {
-          resize: none;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="app-shell" id="app">
-      <header class="app-header">
-        <div class="header-inner">
-          <div class="brand-block">
-            <img id="brand-logo" alt="Dublin Cleaners" src="" />
-            <div class="brand-text">
-              <h1 id="app-title"></h1>
-              <p id="session-email"></p>
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hero-inner">
+      <div class="hero-dashboard-shell">
+        <img
+          class="hero-dashboard-logo"
+          src="https://www.dublincleaners.com/wp-content/uploads/2024/12/Dublin-Logos-stacked.png"
+          alt="Dublin Cleaners logo"
+          loading="lazy"
+          decoding="async"
+          width="180"
+        >
+        <section
+          class="hero-dashboard"
+          id="heroDashboard"
+          aria-label="Request activity dashboard"
+          aria-live="polite"
+        >
+        <div class="dashboard-top">
+          <div class="dashboard-header">
+            <div class="dashboard-header-top">
+              <h1 class="dashboard-title">Request overview</h1>
+              <p class="meta" id="dashboardUpdatedAt">Awaiting data…</p>
+            </div>
+            <div class="dashboard-summary">
+              <span class="highlight">
+                <strong data-dashboard-outstanding="all">—</strong>
+                awaiting approval/completion
+              </span>
+              <span>
+                <strong data-dashboard-total="all">—</strong>
+                total requests
+              </span>
             </div>
           </div>
-          <div class="header-actions">
-            <button class="secondary" type="button" id="refresh-button">Refresh data</button>
+          <div class="dashboard-visual">
+            <canvas id="dashboardPie" width="260" height="260" role="img" aria-label="Outstanding requests by type"></canvas>
           </div>
         </div>
-      </header>
-      <main>
-        <div class="content-grid">
-          <section class="card" aria-labelledby="request-form-title">
-            <h2 id="request-form-title">Submit a new request</h2>
-            <form class="request-form" id="request-form" novalidate>
-              <div class="field" data-field="description">
-                <label for="description-input">What do you need?</label>
-                <textarea
-                  id="description-input"
-                  name="description"
-                  rows="3"
-                  required
-                  maxlength="280"
-                  aria-required="true"
-                ></textarea>
-                <p class="field-error" aria-live="polite"></p>
-              </div>
-              <div class="field" data-field="qty">
-                <label for="qty-input">Quantity</label>
-                <input
-                  id="qty-input"
-                  name="qty"
-                  type="number"
-                  inputmode="numeric"
-                  min="1"
-                  max="9999"
-                  required
-                  aria-required="true"
-                />
-                <p class="field-error" aria-live="polite"></p>
-              </div>
-              <div class="field" data-field="location">
-                <label for="location-input">Location</label>
-                <input
-                  id="location-input"
-                  name="location"
-                  type="text"
-                  maxlength="120"
-                  autocomplete="off"
-                />
-                <p class="field-error" aria-live="polite"></p>
-              </div>
-              <div class="field" data-field="notes">
-                <label for="notes-input">Notes for the team</label>
-                <textarea id="notes-input" name="notes" rows="3" maxlength="500"></textarea>
-                <p class="field-error" aria-live="polite"></p>
-              </div>
-              <div class="form-actions">
-                <button class="primary" type="submit" id="submit-button">
-                  <span class="label">Submit Request</span>
-                </button>
-                <button class="text" type="button" id="reset-button">Clear form</button>
-              </div>
-            </form>
-          </section>
-          <section class="card" aria-labelledby="requests-card-title">
-            <div class="requests-card-header">
-              <h2 id="requests-card-title">Recent activity</h2>
-              <p class="subtitle">
-                Track statuses at a glance. Managers can update progress inline.
-              </p>
+        <div class="dashboard-grid">
+          <article class="dashboard-card" data-dashboard-card="supplies">
+            <h3>Supplies</h3>
+            <div class="metric-group">
+              <span class="metric highlight">
+                <strong data-dashboard-outstanding="supplies">—</strong>
+                Awaiting approval/completion
+              </span>
+              <span class="metric">
+                <strong data-dashboard-total="supplies">—</strong>
+                Total requests
+              </span>
             </div>
-            <div class="table-wrapper" role="region" aria-live="polite" aria-busy="false">
-              <table class="request-table" aria-describedby="requests-card-title">
-                <thead>
-                  <tr>
-                    <th scope="col">Requested</th>
-                    <th scope="col">Description</th>
-                    <th scope="col">Qty</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Approver</th>
-                    <th scope="col">Location</th>
-                    <th scope="col">Notes</th>
-                  </tr>
-                </thead>
-                <tbody id="request-table-body"></tbody>
-              </table>
+          </article>
+          <article class="dashboard-card" data-dashboard-card="it">
+            <h3>IT</h3>
+            <div class="metric-group">
+              <span class="metric highlight">
+                <strong data-dashboard-outstanding="it">—</strong>
+                Awaiting approval/completion
+              </span>
+              <span class="metric">
+                <strong data-dashboard-total="it">—</strong>
+                Total requests
+              </span>
             </div>
-            <div class="empty-state" id="empty-state" hidden>No requests yet.</div>
-            <div class="form-actions" style="justify-content: flex-end; margin-top: 1rem">
-              <button class="secondary" type="button" id="load-more-button">Load more</button>
+          </article>
+          <article class="dashboard-card" data-dashboard-card="maintenance">
+            <h3>Maintenance</h3>
+            <div class="metric-group">
+              <span class="metric highlight">
+                <strong data-dashboard-outstanding="maintenance">—</strong>
+                Awaiting approval/completion
+              </span>
+              <span class="metric">
+                <strong data-dashboard-total="maintenance">—</strong>
+                Total requests
+              </span>
             </div>
-          </section>
+          </article>
         </div>
-      </main>
-      <div class="toast-layer" aria-live="polite" aria-atomic="false" id="toast-layer"></div>
+        <p class="dashboard-empty" id="dashboardEmptyMessage" hidden>No requests yet.</p>
+      </section>
+      </div>
     </div>
-    <script>
-      const BOOTSTRAP = <?= JSON.stringify(bootstrap) ?>;
-    </script>
-    <script>
-      (function () {
-        "use strict";
+  </header>
+  <nav class="tab-nav" aria-label="Request types">
+    <button type="button" data-tab-trigger="supplies" class="active">Supplies</button>
+    <button type="button" data-tab-trigger="it">IT</button>
+    <button type="button" data-tab-trigger="maintenance">Maintenance</button>
+  </nav>
+  <div id="statusAuthNotice" class="notice" hidden></div>
+  <main>
+    <div class="tab-panel active" data-tab-panel="supplies">
+      <section class="card" id="suppliesFormCard">
+        <div class="card-header">
+          <div class="card-header-text">
+            <span class="card-title">New supplies request</span>
+            <span class="card-subtitle meta">Use the catalog to quickly Search & fill in the item details before submitting.</span>
+          </div>
+          <button type="button" id="catalogScrollButton" class="card-header-action">Full Catalog</button>
+        </div>
+        <div class="card-body">
+          <form id="suppliesForm" class="form-grid" novalidate>
+            <label class="full-width">
+              <span>Catalog item</span>
+              <div class="catalog-field">
+                <div class="catalog-combobox" role="group" aria-label="Catalog search">
+                  <div class="catalog-search">
+                    <input
+                      id="catalogSearch"
+                      type="search"
+                      name="catalogSearch"
+                      placeholder="Search by name, category, or SKU"
+                      autocomplete="off"
+                      spellcheck="false"
+                      list="catalogOptions"
+                      aria-autocomplete="list"
+                    >
+                    <button type="button" id="catalogClearButton" class="catalog-clear" aria-label="Clear selected catalog item">×</button>
+                    <datalist id="catalogOptions"></datalist>
+                  </div>
+                </div>
+                <input id="catalogSkuField" name="catalogSku" type="hidden">
+              </div>
+              <span class="input-helper custom-item-alert">Can't find it? Enter a Custom Item below.</span>
+            </label>
+            <label class="full-width">
+              <span>Item name</span>
+              <input
+                id="suppliesDescription"
+                name="description"
+                type="text"
+                placeholder="e.g., 2XL rubber gloves"
+                autocomplete="off"
+                required
+              >
+            </label>
+            <label class="full-width requester-name-field" data-name-field="supplies">
+              <span>Your name</span>
+              <input id="suppliesRequesterName" name="requesterName" type="text" autocomplete="name">
+            </label>
+            <label>
+              <span>Location</span>
+              <select id="suppliesLocation" name="location" required>
+                <option value="">Select a location</option>
+                <option value="Plant">Plant</option>
+                <option value="Short North">Short North</option>
+                <option value="South Dublin">South Dublin</option>
+                <option value="Muirfield">Muirfield</option>
+                <option value="Morse Rd.">Morse Rd.</option>
+                <option value="Granville">Granville</option>
+                <option value="Newark">Newark</option>
+              </select>
+            </label>
+            <label>
+              <span>Quantity</span>
+              <input id="suppliesQty" name="qty" type="number" min="1" step="1" required>
+            </label>
+            <label class="checkbox-field full-width">
+              <input
+                id="suppliesPlantCheck"
+                name="plantCheck"
+                type="checkbox"
+                required
+              >
+              <span>I have checked with the Plant & searched all our supply cabinets?</span>
+            </label>
+            <label class="full-width">
+              <span>Notes (optional)</span>
+              <textarea id="suppliesNotes" name="notes" autocomplete="off"></textarea>
+            </label>
+          <div class="inline-buttons full-width">
+            <button type="submit" id="suppliesSubmitButton">Submit request</button>
+            <button type="button" id="suppliesResetButton" class="secondary">Reset</button>
+          </div>
+          <aside class="notice-block full-width" role="note" aria-label="Supply request approval process">
+            <h3>Supply request approvals</h3>
+            <p>All supply requests must be reviewed and approved by a Manager. Approved orders are placed once per week, every MONDAY.</p>
+            <p>If your request is not included in that week’s order, it will automatically roll over to the following week. Please plan ahead and submit requests before your supplies run low. This process keeps ordering consistent, efficient, and ensures smooth operations.</p>
+          </aside>
+          <div
+            class="approver-notice"
+            data-approver-notice="supplies"
+            role="alert"
+            hidden
+          ></div>
+        </form>
+      </div>
+    </section>
 
-        const app = {
-          state: {
-            session: BOOTSTRAP.session,
-            brand: BOOTSTRAP.brand,
-            requests: Array.isArray(BOOTSTRAP.requests) ? BOOTSTRAP.requests : [],
-            statusOptions: Array.isArray(BOOTSTRAP.statusOptions) ? BOOTSTRAP.statusOptions : [],
-            nextCursor: BOOTSTRAP.nextCursor || "",
-            cid: BOOTSTRAP.cid,
-            submitting: false,
-            loadingMore: false
+      <section class="card" id="suppliesRequestsCard">
+        <div class="card-header">
+          <div class="card-header-text">
+            <span class="card-title">Supplies requests</span>
+            <span class="card-subtitle meta">Track order status and approvals in one place.</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="suppliesRequestsList" class="list" role="list"></div>
+          <button type="button" id="suppliesMoreButton" class="load-more secondary">Load more</button>
+        </div>
+      </section>
+
+      <section class="card" id="catalogCard">
+        <div class="card-header">
+          <div class="card-header-text">
+            <span class="card-title">Catalog</span>
+            <span class="card-subtitle meta">Tap an item to autofill the request form.</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="catalogList" class="list" role="list"></div>
+          <button type="button" id="catalogMoreButton" class="load-more secondary">Load more</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="tab-panel" data-tab-panel="it">
+      <section class="card" id="itFormCard">
+        <div class="card-header">
+          <div class="card-header-text">
+            <span class="card-title">New IT request</span>
+            <span class="card-subtitle meta">Report technology issues or access needs for quick routing.</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <form id="itForm" class="form-grid" novalidate>
+            <label>
+              <span>Location</span>
+              <select id="itLocation" name="location" required>
+                <option value="">Select a location</option>
+                <option value="Plant">Plant</option>
+                <option value="Short North">Short North</option>
+                <option value="South Dublin">South Dublin</option>
+                <option value="Muirfield">Muirfield</option>
+                <option value="Morse Rd.">Morse Rd.</option>
+                <option value="Granville">Granville</option>
+                <option value="Newark">Newark</option>
+              </select>
+            </label>
+            <label class="full-width requester-name-field" data-name-field="it">
+              <span>Your name</span>
+              <input id="itRequesterName" name="requesterName" type="text" autocomplete="name">
+            </label>
+            <label class="full-width">
+              <span>Issue summary</span>
+              <textarea id="itIssue" name="issue" autocomplete="off" required></textarea>
+            </label>
+            <label>
+              <span>Device or system</span>
+              <input id="itDevice" name="device" type="text" autocomplete="off">
+            </label>
+            <label>
+              <span>Urgency</span>
+              <select id="itUrgency" name="urgency">
+                <option value="low">Low</option>
+                <option value="normal">Normal</option>
+                <option value="critical">Critical</option>
+              </select>
+            </label>
+            <label class="full-width">
+              <span>Additional details</span>
+              <textarea id="itDetails" name="details" autocomplete="off"></textarea>
+            </label>
+            <div class="inline-buttons full-width">
+              <button type="submit" id="itSubmitButton">Submit request</button>
+              <button type="button" id="itResetButton" class="secondary">Reset</button>
+            </div>
+            <div
+              class="approver-notice"
+              data-approver-notice="it"
+              role="alert"
+              hidden
+            ></div>
+          </form>
+        </div>
+      </section>
+
+      <section class="card" id="itRequestsCard">
+        <div class="card-header">
+          <div class="card-header-text">
+            <span class="card-title">IT queue</span>
+            <span class="card-subtitle meta">Monitor progress and close items when resolved.</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="itRequestsList" class="list" role="list"></div>
+          <button type="button" id="itMoreButton" class="load-more secondary">Load more</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="tab-panel" data-tab-panel="maintenance">
+      <section class="card" id="maintenanceFormCard">
+        <div class="card-header">
+          <div class="card-header-text">
+            <span class="card-title">New maintenance request</span>
+            <span class="card-subtitle meta">Share location details so facilities can prioritize the work.</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <form id="maintenanceForm" class="form-grid" novalidate>
+            <label>
+              <span>Location</span>
+              <select id="maintenanceLocation" name="location" required>
+                <option value="">Select a location</option>
+                <option value="Plant">Plant</option>
+                <option value="Short North">Short North</option>
+                <option value="South Dublin">South Dublin</option>
+                <option value="Muirfield">Muirfield</option>
+                <option value="Morse Rd.">Morse Rd.</option>
+                <option value="Granville">Granville</option>
+                <option value="Newark">Newark</option>
+              </select>
+            </label>
+            <label class="full-width requester-name-field" data-name-field="maintenance">
+              <span>Your name</span>
+              <input id="maintenanceRequesterName" name="requesterName" type="text" autocomplete="name">
+            </label>
+            <label class="full-width">
+              <span>Issue description</span>
+              <textarea id="maintenanceIssue" name="issue" autocomplete="off" required></textarea>
+            </label>
+            <label>
+              <span>Urgency</span>
+              <select id="maintenanceUrgency" name="urgency">
+                <option value="low">Low</option>
+                <option value="normal">Normal</option>
+                <option value="critical">Critical</option>
+              </select>
+            </label>
+            <label class="full-width">
+              <span>Access notes (optional)</span>
+              <textarea id="maintenanceAccessNotes" name="accessNotes" autocomplete="off"></textarea>
+            </label>
+            <div class="inline-buttons full-width">
+              <button type="submit" id="maintenanceSubmitButton">Submit request</button>
+              <button type="button" id="maintenanceResetButton" class="secondary">Reset</button>
+            </div>
+            <div
+              class="approver-notice"
+              data-approver-notice="maintenance"
+              role="alert"
+              hidden
+            ></div>
+          </form>
+        </div>
+      </section>
+
+      <section class="card" id="maintenanceRequestsCard">
+        <div class="card-header">
+          <div class="card-header-text">
+            <span class="card-title">Maintenance pipeline</span>
+            <span class="card-subtitle meta">See outstanding work orders and update when finished.</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="maintenanceRequestsList" class="list" role="list"></div>
+          <button type="button" id="maintenanceMoreButton" class="load-more secondary">Load more</button>
+        </div>
+      </section>
+    </div>
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const SESSION = <?!= JSON.stringify(session) ?>;
+  </script>
+  <script>
+    (function () {
+      const hasServer = typeof google !== 'undefined' && google.script && google.script.run;
+      const server = hasServer ? google.script.run : null;
+      const REQUEST_KEYS = ['supplies', 'it', 'maintenance'];
+      const DASHBOARD_COLORS = {
+        supplies: '#0b57d0',
+        it: '#0f9d58',
+        maintenance: '#f29900'
+      };
+      const NOTE_SUPPORTED_TYPES = new Set(['it', 'maintenance']);
+      const DASHBOARD_REFRESH_INTERVAL = 60000;
+      const DASHBOARD_DEBOUNCE = 500;
+      const PERSIST_DELAY = 240;
+      const persistTimers = {};
+      let warmScheduled = false;
+      let syncingCatalogToDescription = false;
+      let dashboardAutoRefreshId = null;
+      let dashboardDeferredRefreshId = null;
+      const FORM_TEMPLATES = {
+        supplies: { description: '', qty: 1, notes: '', catalogSku: '', location: '', requesterName: '', plantConfirmed: false },
+        it: { location: '', issue: '', device: '', urgency: 'normal', details: '', requesterName: '' },
+        maintenance: { location: '', issue: '', urgency: 'normal', accessNotes: '', requesterName: '' }
+      };
+      const LOCAL_KEYS = {
+        supplies: 'request-manager:supplies',
+        it: 'request-manager:it',
+        maintenance: 'request-manager:maintenance'
+      };
+      const DEVICE_STORAGE_KEY = 'request-manager:device-id';
+      const EMPTY_REQUEST_MESSAGES = {
+        supplies: 'No supplies requests are pending right now.',
+        it: 'No IT tickets are in the queue right now.',
+        maintenance: 'No maintenance work orders are pending right now.'
+      };
+
+      const state = {
+        activeTab: 'supplies',
+        forms: {
+          supplies: Object.assign({}, FORM_TEMPLATES.supplies),
+          it: Object.assign({}, FORM_TEMPLATES.it),
+          maintenance: Object.assign({}, FORM_TEMPLATES.maintenance)
+        },
+        requesterName: '',
+        deviceId: '',
+        requests: {
+          supplies: [],
+          it: [],
+          maintenance: []
+        },
+        noteDrafts: {
+          it: {},
+          maintenance: {}
+        },
+        nextTokens: {
+          supplies: '',
+          it: '',
+          maintenance: ''
+        },
+        loading: {
+          supplies: false,
+          it: false,
+          maintenance: false
+        },
+        loaded: {
+          supplies: false,
+          it: false,
+          maintenance: false
+        },
+        catalog: {
+          items: [],
+          nextToken: '',
+          loading: false,
+          search: '',
+          fullyLoaded: false
+        },
+        dashboard: {
+          loading: false,
+          metrics: makeEmptyDashboardMetrics(),
+          totals: {
+            totalRequests: 0,
+            outstandingRequests: 0
           },
-          init() {
-            this.cacheDom();
-            this.bindEvents();
-            this.renderBranding();
-            this.renderRequests();
-            this.toggleLoadMore();
-          },
-          cacheDom() {
-            this.$form = document.getElementById("request-form");
-            this.$submitButton = document.getElementById("submit-button");
-            this.$resetButton = document.getElementById("reset-button");
-            this.$tableBody = document.getElementById("request-table-body");
-            this.$emptyState = document.getElementById("empty-state");
-            this.$loadMoreButton = document.getElementById("load-more-button");
-            this.$refreshButton = document.getElementById("refresh-button");
-            this.$toastLayer = document.getElementById("toast-layer");
-            this.$tableWrapper = document.querySelector(".table-wrapper");
-          },
-          bindEvents() {
-            this.$form.addEventListener("submit", (event) => {
-              event.preventDefault();
-              this.handleSubmit();
-            });
-            this.$resetButton.addEventListener("click", () => {
-              this.resetForm();
-            });
-            this.$loadMoreButton.addEventListener("click", () => {
-              this.loadMore();
-            });
-            this.$refreshButton.addEventListener("click", () => {
-              this.refreshData();
-            });
-            this.$form.addEventListener("input", (event) => {
-              const field = event.target && event.target.name;
-              if (field) {
-                this.clearFieldError(field);
-              }
-            });
-          },
-          renderBranding() {
-            const logo = document.getElementById("brand-logo");
-            const title = document.getElementById("app-title");
-            const email = document.getElementById("session-email");
-            if (logo) {
-              logo.src = this.state.brand.logoUrl;
-            }
-            if (title) {
-              title.textContent = this.state.brand.title;
-            }
-            if (email) {
-              const summary =
-                this.state.session && this.state.session.email
-                  ? `Signed in as ${this.state.session.email}`
-                  : "Signed in";
-              email.textContent = summary;
-            }
-          },
-          renderRequests() {
-            const tbody = this.$tableBody;
-            if (!tbody) {
-              return;
-            }
-            while (tbody.firstChild) {
-              tbody.removeChild(tbody.firstChild);
-            }
-            if (!this.state.requests.length) {
-              this.$emptyState.hidden = false;
-              return;
-            }
-            this.$emptyState.hidden = true;
-            this.state.requests.forEach((request) => {
-              tbody.appendChild(this.buildRow(request));
-            });
-          },
-          buildRow(request) {
-            const tr = document.createElement("tr");
-            tr.dataset.requestId = request.id;
-            tr.appendChild(this.buildCell(formatDate(request.ts)));
-            tr.appendChild(this.buildCell(request.description));
-            tr.appendChild(this.buildCell(String(request.qty || "")));
-            const statusCell = document.createElement("td");
-            const badge = document.createElement("span");
-            const statusValue = request.status || "New";
-            badge.className = "status-badge";
-            badge.dataset.status = statusValue;
-            badge.textContent = statusValue;
-            statusCell.appendChild(badge);
-            if (this.canManageStatuses()) {
-              const select = document.createElement("select");
-              select.className = "status-select";
-              select.setAttribute("aria-label", "Update status");
-              this.state.statusOptions.forEach((option) => {
-                const opt = document.createElement("option");
-                opt.value = option;
-                opt.textContent = option;
-                if (option === request.status) {
-                  opt.selected = true;
-                }
-                select.appendChild(opt);
-              });
-              select.addEventListener("change", () => {
-                this.updateStatus(request.id, select.value, select);
-              });
-              statusCell.appendChild(select);
-            }
-            tr.appendChild(statusCell);
-            tr.appendChild(this.buildCell(request.approver || "—"));
-            tr.appendChild(this.buildCell(request.location || "—"));
-            tr.appendChild(this.buildCell(request.notes || "—"));
-            return tr;
-          },
-          buildCell(value) {
-            const td = document.createElement("td");
-            td.textContent = value || "";
-            return td;
-          },
-          canManageStatuses() {
-            const roles =
-              this.state.session && Array.isArray(this.state.session.roles)
-                ? this.state.session.roles
-                : [];
-            return roles.includes("manager") || roles.includes("developer");
-          },
-          handleSubmit() {
-            if (this.state.submitting) {
-              return;
-            }
-            const formData = new FormData(this.$form);
-            const payload = {
-              description: formData.get("description"),
-              qty: formData.get("qty"),
-              location: formData.get("location"),
-              notes: formData.get("notes")
+          generatedAt: ''
+        }
+      };
+
+      const dom = {
+        tabButtons: Array.from(document.querySelectorAll('[data-tab-trigger]')),
+        panels: Array.from(document.querySelectorAll('[data-tab-panel]')),
+        statusNotice: document.getElementById('statusAuthNotice'),
+        toast: document.getElementById('toast'),
+        supplies: {
+          form: document.getElementById('suppliesForm'),
+          location: document.getElementById('suppliesLocation'),
+          qty: document.getElementById('suppliesQty'),
+          notes: document.getElementById('suppliesNotes'),
+          description: document.getElementById('suppliesDescription'),
+          requesterName: document.getElementById('suppliesRequesterName'),
+          requesterNameRow: document.querySelector('[data-name-field="supplies"]'),
+          submit: document.getElementById('suppliesSubmitButton'),
+          reset: document.getElementById('suppliesResetButton'),
+          list: document.getElementById('suppliesRequestsList'),
+          more: document.getElementById('suppliesMoreButton'),
+          catalogSearch: document.getElementById('catalogSearch'),
+          catalogOptions: document.getElementById('catalogOptions'),
+          catalogSku: document.getElementById('catalogSkuField'),
+          catalogList: document.getElementById('catalogList'),
+          catalogMore: document.getElementById('catalogMoreButton'),
+          catalogClear: document.getElementById('catalogClearButton'),
+          catalogScroll: document.getElementById('catalogScrollButton'),
+          plantCheck: document.getElementById('suppliesPlantCheck'),
+          catalogCard: document.getElementById('catalogCard'),
+          approverNotice: document.querySelector('[data-approver-notice="supplies"]')
+        },
+        it: {
+          form: document.getElementById('itForm'),
+          location: document.getElementById('itLocation'),
+          issue: document.getElementById('itIssue'),
+          device: document.getElementById('itDevice'),
+          urgency: document.getElementById('itUrgency'),
+          details: document.getElementById('itDetails'),
+          requesterName: document.getElementById('itRequesterName'),
+          requesterNameRow: document.querySelector('[data-name-field="it"]'),
+          submit: document.getElementById('itSubmitButton'),
+          reset: document.getElementById('itResetButton'),
+          list: document.getElementById('itRequestsList'),
+          more: document.getElementById('itMoreButton'),
+          approverNotice: document.querySelector('[data-approver-notice="it"]')
+        },
+        maintenance: {
+          form: document.getElementById('maintenanceForm'),
+          location: document.getElementById('maintenanceLocation'),
+          issue: document.getElementById('maintenanceIssue'),
+          urgency: document.getElementById('maintenanceUrgency'),
+          accessNotes: document.getElementById('maintenanceAccessNotes'),
+          requesterName: document.getElementById('maintenanceRequesterName'),
+          requesterNameRow: document.querySelector('[data-name-field="maintenance"]'),
+          submit: document.getElementById('maintenanceSubmitButton'),
+          reset: document.getElementById('maintenanceResetButton'),
+          list: document.getElementById('maintenanceRequestsList'),
+          more: document.getElementById('maintenanceMoreButton'),
+          approverNotice: document.querySelector('[data-approver-notice="maintenance"]')
+        },
+        dashboard: {
+          container: document.getElementById('heroDashboard'),
+          updatedAt: document.getElementById('dashboardUpdatedAt'),
+          empty: document.getElementById('dashboardEmptyMessage'),
+          pie: document.getElementById('dashboardPie'),
+          metrics: REQUEST_KEYS.reduce((acc, type) => {
+            acc[type] = {
+              total: document.querySelector(`[data-dashboard-total="${type}"]`),
+              outstanding: document.querySelector(`[data-dashboard-outstanding="${type}"]`)
             };
-            const validation = validatePayload(payload);
-            this.applyValidation(validation);
-            if (!validation.valid) {
-              this.showToast("Please fix the highlighted fields before submitting.");
-              return;
-            }
-            this.setSubmitting(true);
-            const clientRequestId = buildClientRequestId();
-            google.script.run
-              .withSuccessHandler((response) => {
-                this.setSubmitting(false);
-                if (!response || !response.ok) {
-                  this.handleError(
-                    response ? response.message : "Unable to submit request. Try again."
-                  );
-                  return;
-                }
-                if (response.request) {
-                  this.state.requests.unshift(response.request);
-                  this.renderRequests();
-                  this.showToast("Request submitted successfully.");
-                }
-                this.toggleLoadMore();
-                this.resetForm();
-              })
-              .withFailureHandler((err) => {
-                this.setSubmitting(false);
-                this.handleError(
-                  err && err.message ? err.message : "Submission failed. Try again."
-                );
-              })
-              .createRequest({
-                cid: this.state.cid,
-                clientRequestId,
-                request: payload
-              });
-          },
-          applyValidation(result) {
-            Object.keys(result.fields).forEach((key) => {
-              const message = result.fields[key];
-              const field = this.$form.querySelector(`[data-field="${key}"]`);
-              if (!field) {
-                return;
-              }
-              const errorEl = field.querySelector(".field-error");
-              if (message) {
-                field.dataset.invalid = "true";
-                if (errorEl) {
-                  errorEl.textContent = message;
-                }
+            return acc;
+          }, {}),
+          overall: {
+            total: document.querySelector('[data-dashboard-total="all"]'),
+            outstanding: document.querySelector('[data-dashboard-outstanding="all"]')
+          }
+        }
+      };
+
+      const initialSessionEmail = SESSION && SESSION.email ? String(SESSION.email) : '';
+      const canManageStatuses = Boolean(SESSION && SESSION.canManageStatuses);
+      const requiresRequesterName = !initialSessionEmail;
+      const statusAuth = SESSION && SESSION.statusAuth ? SESSION.statusAuth : null;
+
+      renderStatusAuthNotice(statusAuth);
+      configureRequesterNameRequirement();
+      attachNavHandlers();
+      attachFormHandlers();
+      ensureDeviceId();
+      REQUEST_KEYS.forEach(type => {
+        hydrateFormFromCache(type);
+      });
+      initializeRequesterName();
+      REQUEST_KEYS.forEach(type => {
+        renderForm(type);
+      });
+      setActiveTab(state.activeTab);
+      renderDashboard();
+      if (hasServer) {
+        loadDashboardMetrics({ silent: false });
+        startDashboardAutoRefresh();
+        loadCatalog({ append: false, fetchAll: true });
+        ensureRequestsLoaded('supplies');
+      } else {
+        renderCatalog();
+        REQUEST_KEYS.forEach(type => {
+          state.loaded[type] = true;
+          renderRequests(type);
+        });
+        showDashboardOfflineMessage();
+      }
+
+      function loadDashboardMetrics(options) {
+        if (!server) {
+          state.dashboard.loading = false;
+          renderDashboard();
+          return;
+        }
+        const silent = Boolean(options && options.silent);
+        if (!silent) {
+          state.dashboard.loading = true;
+          renderDashboard();
+        }
+        const payload = { cid: makeCid() };
+        server
+          .withSuccessHandler(response => {
+            state.dashboard.loading = false;
+            if (!response || !response.ok) {
+              if (!silent) {
+                handleError(response, 'getDashboardMetrics', payload);
               } else {
-                field.dataset.invalid = "false";
-                if (errorEl) {
-                  errorEl.textContent = "";
-                }
+                console.error('[RequestManager]', 'getDashboardMetrics', response);
               }
-            });
-          },
-          clearFieldError(key) {
-            const field = this.$form.querySelector(`[data-field="${key}"]`);
-            if (field) {
-              field.dataset.invalid = "false";
-              const errorEl = field.querySelector(".field-error");
-              if (errorEl) {
-                errorEl.textContent = "";
-              }
-            }
-          },
-          setSubmitting(isSubmitting) {
-            this.state.submitting = isSubmitting;
-            this.$submitButton.disabled = isSubmitting;
-            this.$resetButton.disabled = isSubmitting;
-            if (isSubmitting) {
-              this.$submitButton.innerHTML = "";
-              const spinner = document.createElement("span");
-              spinner.className = "button-spinner";
-              spinner.setAttribute("role", "status");
-              spinner.setAttribute("aria-label", "Submitting");
-              this.$submitButton.appendChild(spinner);
-              const label = document.createElement("span");
-              label.textContent = "Submitting…";
-              this.$submitButton.appendChild(label);
-            } else {
-              this.$submitButton.innerHTML = "";
-              const label = document.createElement("span");
-              label.className = "label";
-              label.textContent = "Submit Request";
-              this.$submitButton.appendChild(label);
-            }
-          },
-          resetForm() {
-            this.$form.reset();
-            ["description", "qty", "location", "notes"].forEach((field) =>
-              this.clearFieldError(field)
-            );
-            const focusable = this.$form.querySelector("textarea, input");
-            if (focusable) {
-              focusable.focus({ preventScroll: true });
-            }
-          },
-          loadMore() {
-            if (this.state.loadingMore || !this.state.nextCursor) {
               return;
             }
-            this.state.loadingMore = true;
-            this.$loadMoreButton.disabled = true;
-            this.$tableWrapper.setAttribute("aria-busy", "true");
-            google.script.run
-              .withSuccessHandler((response) => {
-                this.state.loadingMore = false;
-                this.$loadMoreButton.disabled = false;
-                this.$tableWrapper.setAttribute("aria-busy", "false");
-                if (!response || !response.ok) {
-                  this.handleError(response ? response.message : "Unable to load more requests.");
-                  return;
-                }
-                if (Array.isArray(response.requests) && response.requests.length) {
-                  this.state.requests = this.state.requests.concat(response.requests);
-                  this.renderRequests();
-                }
-                this.state.nextCursor = response.nextCursor || "";
-                this.toggleLoadMore();
-              })
-              .withFailureHandler((err) => {
-                this.state.loadingMore = false;
-                this.$loadMoreButton.disabled = false;
-                this.$tableWrapper.setAttribute("aria-busy", "false");
-                this.handleError(
-                  err && err.message ? err.message : "Unable to load more requests."
-                );
-              })
-              .listRequests({
-                cid: this.state.cid,
-                cursor: this.state.nextCursor,
-                pageSize: 10
-              });
-          },
-          refreshData() {
-            this.$refreshButton.disabled = true;
-            google.script.run
-              .withSuccessHandler((response) => {
-                this.$refreshButton.disabled = false;
-                if (!response || !response.ok) {
-                  this.handleError(response ? response.message : "Refresh failed.");
-                  return;
-                }
-                const data = response.bootstrap;
-                this.state.requests = Array.isArray(data.requests) ? data.requests : [];
-                this.state.nextCursor = data.nextCursor || "";
-                this.renderRequests();
-                this.toggleLoadMore();
-                this.showToast("Data refreshed.");
-              })
-              .withFailureHandler((err) => {
-                this.$refreshButton.disabled = false;
-                this.handleError(err && err.message ? err.message : "Refresh failed.");
-              })
-              .getBootstrap({ cid: this.state.cid });
-          },
-          updateStatus(requestId, status, select) {
-            if (!requestId || !status) {
-              return;
-            }
-            select.disabled = true;
-            google.script.run
-              .withSuccessHandler((response) => {
-                select.disabled = false;
-                if (!response || !response.ok) {
-                  this.handleError(response ? response.message : "Unable to update status.");
-                  return;
-                }
-                const updated = response.request;
-                const index = this.state.requests.findIndex((item) => item.id === updated.id);
-                if (index !== -1) {
-                  this.state.requests[index] = updated;
-                  this.renderRequests();
-                }
-                this.showToast("Status updated.");
-              })
-              .withFailureHandler((err) => {
-                select.disabled = false;
-                this.handleError(err && err.message ? err.message : "Unable to update status.");
-              })
-              .updateRequestStatus({
-                cid: this.state.cid,
-                requestId,
-                status
-              });
-          },
-          toggleLoadMore() {
-            if (!this.state.nextCursor) {
-              this.$loadMoreButton.disabled = true;
-              this.$loadMoreButton.textContent = "No more records";
+            const metrics = makeEmptyDashboardMetrics();
+            REQUEST_KEYS.forEach(type => {
+              const entry = response.metrics && response.metrics[type] ? response.metrics[type] : null;
+              const total = entry && Number(entry.total);
+              const outstanding = entry && Number(entry.outstanding);
+              metrics[type] = {
+                total: Number.isFinite(total) && total > 0 ? total : 0,
+                outstanding: Number.isFinite(outstanding) && outstanding > 0 ? outstanding : 0
+              };
+            });
+            state.dashboard.metrics = metrics;
+            const totals = response.totals || {};
+            const totalRequests = Number(totals.totalRequests);
+            const outstandingRequests = Number(totals.outstandingRequests);
+            state.dashboard.totals = {
+              totalRequests: Number.isFinite(totalRequests) && totalRequests >= 0
+                ? totalRequests
+                : REQUEST_KEYS.reduce((sum, type) => sum + metrics[type].total, 0),
+              outstandingRequests: Number.isFinite(outstandingRequests) && outstandingRequests >= 0
+                ? outstandingRequests
+                : REQUEST_KEYS.reduce((sum, type) => sum + metrics[type].outstanding, 0)
+            };
+            state.dashboard.generatedAt = typeof response.generatedAt === 'string' ? response.generatedAt : '';
+            renderDashboard();
+          })
+          .withFailureHandler(err => {
+            state.dashboard.loading = false;
+            if (!silent) {
+              handleError(err, 'getDashboardMetrics', payload);
             } else {
-              this.$loadMoreButton.disabled = false;
-              this.$loadMoreButton.textContent = "Load more";
+              console.error('[RequestManager]', 'getDashboardMetrics', err);
             }
-          },
-          handleError(message) {
-            const finalMessage = message || "Something went wrong. Try again.";
-            this.showToast(finalMessage);
-            google.script.run.logClientEvent({
-              cid: this.state.cid,
-              event: `client-error:${finalMessage}`
-            });
-          },
-          showToast(message) {
-            const toast = document.createElement("div");
-            toast.className = "toast";
-            toast.setAttribute("role", "status");
-            const text = document.createElement("span");
-            text.textContent = message;
-            toast.appendChild(text);
-            const dismiss = document.createElement("button");
-            dismiss.type = "button";
-            dismiss.textContent = "Dismiss";
-            dismiss.addEventListener("click", () => {
-              toast.remove();
-            });
-            toast.appendChild(dismiss);
-            this.$toastLayer.appendChild(toast);
-            setTimeout(() => {
-              toast.classList.add("is-visible");
-            }, 10);
-            setTimeout(() => {
-              toast.remove();
-            }, 6000);
-          }
-        };
+            renderDashboard();
+          })
+          .getDashboardMetrics(payload);
+      }
 
-        function sanitizeText(value) {
-          if (typeof value !== "string") {
-            return "";
-          }
-          return value.trim();
+      function renderDashboard() {
+        const container = dom.dashboard && dom.dashboard.container;
+        if (!container) {
+          return;
         }
-
-        function parseQty(value) {
-          const num = Number(value);
-          if (!Number.isFinite(num) || num < 1) {
-            return 0;
-          }
-          return Math.floor(num);
+        const loading = Boolean(state.dashboard.loading);
+        const metrics = state.dashboard.metrics || makeEmptyDashboardMetrics();
+        const totals = state.dashboard.totals || { totalRequests: 0, outstandingRequests: 0 };
+        container.setAttribute('aria-busy', loading ? 'true' : 'false');
+        if (dom.dashboard.overall.total) {
+          dom.dashboard.overall.total.textContent = loading ? '…' : formatDashboardCount(totals.totalRequests || 0);
         }
-
-        function validatePayload(payload) {
-          const result = {
-            valid: true,
-            fields: {
-              description: "",
-              qty: "",
-              location: "",
-              notes: ""
+        if (dom.dashboard.overall.outstanding) {
+          dom.dashboard.overall.outstanding.textContent = loading ? '…' : formatDashboardCount(totals.outstandingRequests || 0);
+        }
+        REQUEST_KEYS.forEach(type => {
+          const elements = dom.dashboard.metrics[type];
+          const entry = metrics[type] || { total: 0, outstanding: 0 };
+          const totalLabel = loading ? '…' : formatDashboardCount(entry.total);
+          const outstandingLabel = loading ? '…' : formatDashboardCount(entry.outstanding);
+          if (elements) {
+            if (elements.total) {
+              elements.total.textContent = totalLabel;
             }
-          };
-          const description = sanitizeText(payload.description || "");
-          if (!description) {
-            result.valid = false;
-            result.fields.description = "Describe what you need.";
-          } else if (description.length > 280) {
-            result.valid = false;
-            result.fields.description = "Keep the description under 280 characters.";
+            if (elements.outstanding) {
+              elements.outstanding.textContent = outstandingLabel;
+            }
           }
-          const qty = parseQty(payload.qty);
-          if (!qty) {
-            result.valid = false;
-            result.fields.qty = "Enter a quantity of at least 1.";
-          }
-          const location = sanitizeText(payload.location || "");
-          if (location.length > 120) {
-            result.valid = false;
-            result.fields.location = "Location is too long.";
-          }
-          const notes = sanitizeText(payload.notes || "");
-          if (notes.length > 500) {
-            result.valid = false;
-            result.fields.notes = "Notes must be 500 characters or fewer.";
-          }
-          result.value = {
-            description,
-            qty,
-            location,
-            notes
-          };
-          return result;
-        }
+        });
+        updateDashboardEmptyState(metrics, loading);
+        updateDashboardTimestamp();
+        drawDashboardPie();
+      }
 
-        function buildClientRequestId() {
-          if (window.crypto && typeof window.crypto.randomUUID === "function") {
-            return window.crypto.randomUUID();
-          }
-          const random = Math.random().toString(16).slice(2);
-          const time = Date.now().toString(16);
-          return `${time}-${random}`;
+      function updateDashboardEmptyState(metrics, loading) {
+        const empty = dom.dashboard && dom.dashboard.empty;
+        if (!empty) {
+          return;
         }
+        if (!hasServer) {
+          empty.hidden = false;
+          empty.textContent = 'Connect to Google Apps Script to load live data.';
+          return;
+        }
+        const hasRequests = REQUEST_KEYS.some(type => {
+          const entry = metrics[type] || { total: 0 };
+          return Number(entry.total) > 0;
+        });
+        if (!hasRequests) {
+          empty.hidden = false;
+          empty.textContent = loading && !state.dashboard.generatedAt ? 'Loading dashboard…' : 'No requests yet.';
+          return;
+        }
+        empty.hidden = true;
+      }
 
-        function formatDate(value) {
+      function updateDashboardTimestamp() {
+        const label = dom.dashboard && dom.dashboard.updatedAt;
+        if (!label) {
+          return;
+        }
+        if (!hasServer) {
+          label.textContent = 'Offline preview';
+          return;
+        }
+        if (state.dashboard.loading && !state.dashboard.generatedAt) {
+          label.textContent = 'Loading…';
+          return;
+        }
+        if (!state.dashboard.generatedAt) {
+          label.textContent = 'Awaiting data…';
+          return;
+        }
+        const timestamp = new Date(state.dashboard.generatedAt);
+        if (!Number.isNaN(timestamp.getTime())) {
+          label.textContent = `Updated ${timestamp.toLocaleString()}`;
+        } else {
+          label.textContent = 'Updated moments ago';
+        }
+      }
+
+      function drawDashboardPie() {
+        const canvas = dom.dashboard && dom.dashboard.pie;
+        if (!canvas || typeof canvas.getContext !== 'function') {
+          return;
+        }
+        const rect = canvas.getBoundingClientRect();
+        const displayWidth = rect.width || canvas.width || 220;
+        const displayHeight = rect.height || canvas.height || 220;
+        const ratio = window.devicePixelRatio || 1;
+        const targetWidth = Math.max(1, Math.round(displayWidth * ratio));
+        const targetHeight = Math.max(1, Math.round(displayHeight * ratio));
+        if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+        }
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          return;
+        }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        if (ratio !== 1) {
+          ctx.scale(ratio, ratio);
+        }
+        ctx.clearRect(0, 0, displayWidth, displayHeight);
+        const metrics = state.dashboard.metrics || makeEmptyDashboardMetrics();
+        const values = REQUEST_KEYS.map(type => {
+          const entry = metrics[type] || { outstanding: 0 };
+          const value = Number(entry.outstanding);
+          return Number.isFinite(value) && value > 0 ? value : 0;
+        });
+        const total = values.reduce((sum, value) => sum + value, 0);
+        const centerX = displayWidth / 2;
+        const centerY = displayHeight / 2;
+        const radius = Math.max(10, Math.min(centerX, centerY) - 6);
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#eef2f7';
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#d7dce1';
+        ctx.stroke();
+        if (!total) {
+          return;
+        }
+        let startAngle = -Math.PI / 2;
+        values.forEach((value, index) => {
           if (!value) {
-            return "";
+            return;
+          }
+          const type = REQUEST_KEYS[index];
+          const endAngle = startAngle + (value / total) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.arc(centerX, centerY, radius, startAngle, endAngle, false);
+          ctx.closePath();
+          ctx.fillStyle = DASHBOARD_COLORS[type] || '#0b57d0';
+          ctx.fill();
+          startAngle = endAngle;
+        });
+        const innerRadius = Math.max(radius * 0.55, radius - 44);
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.fillStyle = '#202731';
+        ctx.font = '600 16px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(formatDashboardCount(total), centerX, centerY - 8);
+        ctx.font = '500 12px "Segoe UI", sans-serif';
+        ctx.fillStyle = '#5c6774';
+        ctx.fillText('outstanding', centerX, centerY + 10);
+      }
+
+      function formatDashboardCount(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) {
+          return '0';
+        }
+        return number.toLocaleString();
+      }
+
+      function makeEmptyDashboardMetrics() {
+        return REQUEST_KEYS.reduce((acc, type) => {
+          acc[type] = { total: 0, outstanding: 0 };
+          return acc;
+        }, {});
+      }
+
+      function requestDashboardRefresh(delay) {
+        if (!hasServer) {
+          return;
+        }
+        const wait = typeof delay === 'number' && delay >= 0 ? delay : DASHBOARD_DEBOUNCE;
+        if (dashboardDeferredRefreshId) {
+          window.clearTimeout(dashboardDeferredRefreshId);
+        }
+        dashboardDeferredRefreshId = window.setTimeout(() => {
+          dashboardDeferredRefreshId = null;
+          loadDashboardMetrics({ silent: true });
+        }, wait);
+      }
+
+      function startDashboardAutoRefresh() {
+        if (!hasServer) {
+          return;
+        }
+        stopDashboardAutoRefresh();
+        dashboardAutoRefreshId = window.setInterval(() => {
+          loadDashboardMetrics({ silent: true });
+        }, DASHBOARD_REFRESH_INTERVAL);
+      }
+
+      function stopDashboardAutoRefresh() {
+        if (dashboardAutoRefreshId) {
+          window.clearInterval(dashboardAutoRefreshId);
+          dashboardAutoRefreshId = null;
+        }
+        if (dashboardDeferredRefreshId) {
+          window.clearTimeout(dashboardDeferredRefreshId);
+          dashboardDeferredRefreshId = null;
+        }
+      }
+
+      function showDashboardOfflineMessage() {
+        const empty = dom.dashboard && dom.dashboard.empty;
+        if (empty) {
+          empty.hidden = false;
+          empty.textContent = 'Connect to Google Apps Script to load live data.';
+        }
+        const label = dom.dashboard && dom.dashboard.updatedAt;
+        if (label) {
+          label.textContent = 'Offline preview';
+        }
+      }
+
+      function clearApproverNotices() {
+        REQUEST_KEYS.forEach(type => {
+          const container = dom[type] && dom[type].approverNotice;
+          if (!container) {
+            return;
+          }
+          while (container.firstChild) {
+            container.removeChild(container.firstChild);
+          }
+          delete container.dataset.variant;
+          container.hidden = true;
+        });
+      }
+
+function renderApproverUnavailable(auth) {
+        const messageText = auth && auth.reason === 'missing_email'
+          ? 'We could not confirm your Google Account email. To Approve a Request, Sign in with an authorized account.'
+          : `${auth && auth.email ? auth.email : 'This account'} is not on the approver allowlist.`;
+        const hintText = 'An administrator can add approver emails.';
+        REQUEST_KEYS.forEach(type => {
+          const container = dom[type] && dom[type].approverNotice;
+          if (!container) {
+            return;
+          }
+          container.dataset.variant = 'warning';
+          const title = document.createElement('strong');
+          title.textContent = 'Approver access unavailable';
+          container.appendChild(title);
+          const message = document.createElement('p');
+          message.textContent = messageText;
+          container.appendChild(message);
+          const hint = document.createElement('p');
+          hint.textContent = hintText;
+          container.appendChild(hint);
+          container.hidden = false;
+        });
+      }
+
+      function renderStatusAuthNotice(auth) {
+        const notice = dom.statusNotice;
+        if (notice) {
+          while (notice.firstChild) {
+            notice.removeChild(notice.firstChild);
+          }
+          delete notice.dataset.variant;
+          notice.hidden = true;
+        }
+        clearApproverNotices();
+        if (!auth) {
+          return;
+        }
+        if (!auth.authorized) {
+          renderApproverUnavailable(auth);
+          return;
+        }
+        if (auth.allowlistSource === 'script_property' && notice) {
+          notice.dataset.variant = 'info';
+          const title = document.createElement('strong');
+          title.textContent = 'Managed approver list active';
+          notice.appendChild(title);
+          const message = document.createElement('p');
+          message.textContent = 'Approver permissions are being served from the SUPPLIES_TRACKING_STATUS_EMAILS script property fallback.';
+          notice.appendChild(message);
+          notice.hidden = false;
+        }
+      }
+
+      function attachNavHandlers() {
+        dom.tabButtons.forEach(button => {
+          button.addEventListener('click', () => {
+            const type = button.getAttribute('data-tab-trigger');
+            if (type && REQUEST_KEYS.indexOf(type) !== -1) {
+              setActiveTab(type);
+            }
+          });
+        });
+      }
+
+      function attachFormHandlers() {
+        dom.supplies.form.addEventListener('submit', evt => handleSubmit(evt, 'supplies'));
+        dom.supplies.reset.addEventListener('click', () => {
+          resetForm('supplies');
+        });
+        dom.supplies.location.addEventListener('change', () => {
+          setFormState('supplies', { location: dom.supplies.location.value });
+          persistForm('supplies');
+        });
+        dom.supplies.qty.addEventListener('input', () => {
+          const qty = Number(dom.supplies.qty.value);
+          const sanitized = Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : 1;
+          setFormState('supplies', { qty: sanitized });
+          dom.supplies.qty.value = sanitized;
+          persistForm('supplies');
+        });
+        dom.supplies.notes.addEventListener('input', () => {
+          setFormState('supplies', { notes: dom.supplies.notes.value });
+          persistForm('supplies');
+        });
+        dom.supplies.description.addEventListener('input', () => {
+          const value = dom.supplies.description.value || '';
+          const trimmed = value.trim();
+          if (!syncingCatalogToDescription) {
+            let matchedSku = '';
+            if (trimmed) {
+              const match = state.catalog.items.find(item => item.description.toLowerCase() === trimmed.toLowerCase());
+              if (match) {
+                matchedSku = match.sku;
+              }
+            }
+            setFormState('supplies', { description: value, catalogSku: matchedSku });
+            dom.supplies.catalogSku.value = matchedSku;
+          } else {
+            setFormState('supplies', { description: value });
+          }
+          persistForm('supplies');
+          if (state.catalog.items.length) {
+            renderCatalog();
+          }
+        });
+        dom.supplies.catalogSearch.addEventListener('focus', () => {
+          ensureFullCatalogLoaded();
+          updateCatalogSearchAffordances();
+        });
+        dom.supplies.catalogSearch.addEventListener('click', () => {
+          ensureFullCatalogLoaded();
+        });
+        if (dom.supplies.requesterName) {
+          dom.supplies.requesterName.addEventListener('input', () => {
+            handleRequesterNameInput('supplies');
+          });
+        }
+        const handleCatalogSearchInput = () => {
+          const rawValue = dom.supplies.catalogSearch.value || '';
+          state.catalog.search = rawValue;
+          ensureFullCatalogLoaded();
+          const option = findCatalogOption(rawValue);
+          if (option) {
+            selectCatalogSku(option.dataset ? option.dataset.sku || '' : '', { searchValue: rawValue, updateSearch: false });
+          } else {
+            selectCatalogSku('', { searchValue: rawValue, updateSearch: false, preserveDescription: true });
+          }
+          if (state.catalog.items.length) {
+            renderCatalog();
+          }
+          updateCatalogSearchAffordances();
+        };
+        dom.supplies.catalogSearch.addEventListener('input', handleCatalogSearchInput);
+        dom.supplies.catalogSearch.addEventListener('change', handleCatalogSearchInput);
+        if (dom.supplies.catalogClear) {
+          dom.supplies.catalogClear.addEventListener('click', () => {
+            dom.supplies.catalogSearch.value = '';
+            state.catalog.search = '';
+            selectCatalogSku('', { updateSearch: false, preserveDescription: true });
+            renderCatalog();
+            updateCatalogSearchAffordances();
+            dom.supplies.catalogSearch.focus();
+          });
+        }
+        if (dom.supplies.catalogScroll) {
+          dom.supplies.catalogScroll.addEventListener('click', () => {
+            state.catalog.search = '';
+            if (dom.supplies.catalogSearch) {
+              dom.supplies.catalogSearch.value = '';
+            }
+            selectCatalogSku('', { updateSearch: false, preserveDescription: true });
+            ensureFullCatalogLoaded();
+            renderCatalog();
+            if (dom.supplies.catalogCard) {
+              window.requestAnimationFrame(() => {
+                dom.supplies.catalogCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+            }
+          });
+        }
+        if (dom.supplies.plantCheck) {
+          dom.supplies.plantCheck.addEventListener('change', () => {
+            setFormState('supplies', { plantConfirmed: dom.supplies.plantCheck.checked });
+            persistForm('supplies');
+          });
+        }
+        dom.supplies.more.addEventListener('click', () => {
+          if (!state.loading.supplies && state.nextTokens.supplies) {
+            loadRequests('supplies', { append: true });
+          }
+        });
+        dom.supplies.catalogMore.addEventListener('click', () => {
+          if (!state.catalog.loading) {
+            loadCatalog({ append: false, fetchAll: true });
+          }
+        });
+        dom.it.form.addEventListener('submit', evt => handleSubmit(evt, 'it'));
+        dom.it.reset.addEventListener('click', () => {
+          resetForm('it');
+        });
+        dom.it.location.addEventListener('change', () => {
+          setFormState('it', { location: dom.it.location.value });
+          persistForm('it');
+        });
+        if (dom.it.requesterName) {
+          dom.it.requesterName.addEventListener('input', () => {
+            handleRequesterNameInput('it');
+          });
+        }
+        dom.it.issue.addEventListener('input', () => {
+          setFormState('it', { issue: dom.it.issue.value });
+          persistForm('it');
+        });
+        dom.it.device.addEventListener('input', () => {
+          setFormState('it', { device: dom.it.device.value });
+          persistForm('it');
+        });
+        dom.it.urgency.addEventListener('change', () => {
+          setFormState('it', { urgency: dom.it.urgency.value });
+          persistForm('it');
+        });
+        dom.it.details.addEventListener('input', () => {
+          setFormState('it', { details: dom.it.details.value });
+          persistForm('it');
+        });
+        dom.it.more.addEventListener('click', () => {
+          if (!state.loading.it && state.nextTokens.it) {
+            loadRequests('it', { append: true });
+          }
+        });
+
+        dom.maintenance.form.addEventListener('submit', evt => handleSubmit(evt, 'maintenance'));
+        dom.maintenance.reset.addEventListener('click', () => {
+          resetForm('maintenance');
+        });
+        dom.maintenance.location.addEventListener('change', () => {
+          setFormState('maintenance', { location: dom.maintenance.location.value });
+          persistForm('maintenance');
+        });
+        if (dom.maintenance.requesterName) {
+          dom.maintenance.requesterName.addEventListener('input', () => {
+            handleRequesterNameInput('maintenance');
+          });
+        }
+        dom.maintenance.issue.addEventListener('input', () => {
+          setFormState('maintenance', { issue: dom.maintenance.issue.value });
+          persistForm('maintenance');
+        });
+        dom.maintenance.urgency.addEventListener('change', () => {
+          setFormState('maintenance', { urgency: dom.maintenance.urgency.value });
+          persistForm('maintenance');
+        });
+        dom.maintenance.accessNotes.addEventListener('input', () => {
+          setFormState('maintenance', { accessNotes: dom.maintenance.accessNotes.value });
+          persistForm('maintenance');
+        });
+        dom.maintenance.more.addEventListener('click', () => {
+          if (!state.loading.maintenance && state.nextTokens.maintenance) {
+            loadRequests('maintenance', { append: true });
+          }
+        });
+      }
+
+      function setActiveTab(type) {
+        state.activeTab = type;
+        dom.tabButtons.forEach(button => {
+          button.classList.toggle('active', button.getAttribute('data-tab-trigger') === type);
+        });
+        dom.panels.forEach(panel => {
+          panel.classList.toggle('active', panel.getAttribute('data-tab-panel') === type);
+        });
+        ensureRequestsLoaded(type);
+        scheduleWarmCache();
+      }
+
+      function ensureRequestsLoaded(type) {
+        if (state.loaded[type] || !hasServer) {
+          return;
+        }
+        loadRequests(type, { append: false });
+      }
+
+      function scheduleWarmCache() {
+        if (!hasServer || warmScheduled) {
+          return;
+        }
+        warmScheduled = true;
+        const idle = typeof window.requestIdleCallback === 'function'
+          ? window.requestIdleCallback
+          : callback => setTimeout(() => callback({ didTimeout: false }), 600);
+        idle(() => {
+          const others = REQUEST_KEYS.filter(tab => tab !== state.activeTab);
+          others.forEach((type, index) => {
+            setTimeout(() => {
+              if (!state.loaded[type]) {
+                loadRequests(type, { append: false });
+              }
+            }, index * 220);
+          });
+        });
+      }
+
+      function handleSubmit(event, type) {
+        event.preventDefault();
+        const formState = state.forms[type];
+        const validationError = validateForm(type, formState);
+        if (validationError) {
+          handleError({ message: validationError }, `${type}:validation`);
+          return;
+        }
+        const deviceId = ensureDeviceId();
+        if (!deviceId) {
+          handleError({ message: 'Unable to identify this device. Please enable local storage and try again.' }, `${type}:device`);
+          return;
+        }
+        if (!server) {
+          showToast('Connect to Google Apps Script to submit requests.');
+          return;
+        }
+        disableForm(type, true);
+        const payload = Object.assign({
+          cid: makeCid(),
+          clientRequestId: makeClientRequestId(type),
+          type,
+          deviceId
+        }, formState);
+        if (requiresRequesterName) {
+          payload.requesterName = state.requesterName || formState.requesterName || '';
+        }
+        server
+          .withSuccessHandler(response => {
+            disableForm(type, false);
+            if (!response || !response.ok || !response.request) {
+              handleError(response, 'createRequest', payload);
+              return;
+            }
+            showToast('Request submitted');
+            setRequesterName('', { skipPersist: true });
+            REQUEST_KEYS.forEach(key => {
+              resetForm(key, { preserveRequesterName: false });
+            });
+            state.requests[type].unshift(response.request);
+            renderRequests(type);
+            requestDashboardRefresh(DASHBOARD_DEBOUNCE);
+          })
+          .withFailureHandler(err => {
+            disableForm(type, false);
+            handleError(err, 'createRequest', payload);
+          })
+          .createRequest(payload);
+      }
+
+      function validateForm(type, formState) {
+        if (requiresRequesterName) {
+          const nameValue = (state.requesterName || formState.requesterName || '').trim();
+          if (!nameValue) {
+            return 'Your name is required.';
+          }
+        }
+        switch (type) {
+          case 'supplies':
+            if (!formState.location || !formState.location.trim()) {
+              return 'Location is required.';
+            }
+            if (!formState.description || !formState.description.trim()) {
+              return 'Item name is required.';
+            }
+            if (!formState.qty || Number(formState.qty) <= 0) {
+              return 'Quantity must be at least 1.';
+            }
+            if (!formState.plantConfirmed) {
+              return 'Please confirm you have checked with The Plant & our supplies cabinet first.';
+            }
+            return '';
+          case 'it':
+            if (!formState.location || !formState.location.trim()) {
+              return 'Location is required.';
+            }
+            if (!formState.issue || !formState.issue.trim()) {
+              return 'Issue summary is required.';
+            }
+            return '';
+          case 'maintenance':
+            if (!formState.location || !formState.location.trim()) {
+              return 'Location is required.';
+            }
+            if (!formState.issue || !formState.issue.trim()) {
+              return 'Issue description is required.';
+            }
+            return '';
+          default:
+            return 'Unsupported request type.';
+        }
+      }
+
+      function resetForm(type, options) {
+        const opts = options || {};
+        const preserveRequester = opts.preserveRequesterName !== false;
+        state.forms[type] = Object.assign({}, FORM_TEMPLATES[type]);
+        if (requiresRequesterName) {
+          state.forms[type].requesterName = preserveRequester ? (state.requesterName || '') : '';
+        }
+        if (type === 'supplies') {
+          state.catalog.search = '';
+          if (dom.supplies.catalogSearch) {
+            dom.supplies.catalogSearch.value = '';
+          }
+        }
+        renderForm(type);
+        if (type === 'supplies' && state.catalog.items.length) {
+          renderCatalog();
+        }
+        if (opts.skipPersistenceClear) {
+          if (opts.persistImmediately) {
+            persistForm(type, { immediate: true });
+          }
+        } else {
+          clearPersistedForm(type);
+        }
+      }
+
+      function renderForm(type) {
+        const formState = state.forms[type];
+        if (type === 'supplies') {
+          dom.supplies.catalogSku.value = formState.catalogSku || '';
+          dom.supplies.location.value = formState.location || '';
+          dom.supplies.qty.value = formState.qty || 1;
+          dom.supplies.description.value = formState.description || '';
+          dom.supplies.notes.value = formState.notes || '';
+          if (dom.supplies.plantCheck) {
+            dom.supplies.plantCheck.checked = Boolean(formState.plantConfirmed);
+          }
+          if (dom.supplies.requesterName) {
+            dom.supplies.requesterName.value = requiresRequesterName
+              ? (formState.requesterName || state.requesterName || '')
+              : '';
+          }
+        } else if (type === 'it') {
+          dom.it.location.value = formState.location || '';
+          dom.it.issue.value = formState.issue || '';
+          dom.it.device.value = formState.device || '';
+          const itUrgency = normalizeUrgency(formState.urgency) || 'normal';
+          dom.it.urgency.value = itUrgency;
+          state.forms.it.urgency = itUrgency;
+          dom.it.details.value = formState.details || '';
+          if (dom.it.requesterName) {
+            dom.it.requesterName.value = requiresRequesterName
+              ? (formState.requesterName || state.requesterName || '')
+              : '';
+          }
+        } else if (type === 'maintenance') {
+          dom.maintenance.location.value = formState.location || '';
+          dom.maintenance.issue.value = formState.issue || '';
+          const maintenanceUrgency = normalizeUrgency(formState.urgency) || 'normal';
+          dom.maintenance.urgency.value = maintenanceUrgency;
+          state.forms.maintenance.urgency = maintenanceUrgency;
+          dom.maintenance.accessNotes.value = formState.accessNotes || '';
+          if (dom.maintenance.requesterName) {
+            dom.maintenance.requesterName.value = requiresRequesterName
+              ? (formState.requesterName || state.requesterName || '')
+              : '';
+          }
+        }
+      }
+
+      function loadRequests(type, { append }) {
+        if (state.loading[type]) {
+          return;
+        }
+        if (!server) {
+          state.loaded[type] = true;
+          renderRequests(type);
+          return;
+        }
+        state.loading[type] = true;
+        const moreButton = dom[type].more;
+        if (moreButton) {
+          moreButton.disabled = true;
+        }
+        toggleRequestsSkeleton(type, true);
+        const payload = {
+          cid: makeCid(),
+          type,
+          pageSize: 10,
+          scope: 'all',
+          nextToken: append ? state.nextTokens[type] : ''
+        };
+        server
+          .withSuccessHandler(response => {
+            state.loading[type] = false;
+            state.loaded[type] = true;
+            toggleRequestsSkeleton(type, false);
+            if (!response || !response.ok) {
+              handleError(response, 'listRequests', payload);
+              return;
+            }
+            state.nextTokens[type] = response.nextToken || '';
+            const items = Array.isArray(response.requests) ? response.requests : [];
+            state.requests[type] = append ? state.requests[type].concat(items) : items;
+            renderRequests(type);
+          })
+          .withFailureHandler(err => {
+            state.loading[type] = false;
+            state.loaded[type] = true;
+            toggleRequestsSkeleton(type, false);
+            handleError(err, 'listRequests', payload);
+          })
+          .listRequests(payload);
+      }
+
+      function renderRequests(type) {
+        const list = dom[type].list;
+        const moreButton = dom[type].more;
+        list.textContent = '';
+        if (!state.requests[type].length) {
+          if (state.loading[type]) {
+            list.appendChild(buildSkeletonBlock());
+          } else {
+            const empty = document.createElement('p');
+            empty.className = 'empty';
+            const message = EMPTY_REQUEST_MESSAGES[type];
+            empty.textContent = hasServer ? message : 'Connect to Google Apps Script to load requests.';
+            list.appendChild(empty);
+          }
+          if (moreButton) {
+            moreButton.disabled = true;
+          }
+          return;
+        }
+        const fragment = document.createDocumentFragment();
+        state.requests[type].forEach(request => {
+          const item = document.createElement('article');
+          item.className = 'request-item';
+          item.dataset.requestType = type;
+          item.dataset.requestId = request.id;
+
+          const head = document.createElement('div');
+          head.className = 'request-item-head';
+
+          const title = document.createElement('strong');
+          title.className = 'request-item-title';
+          title.textContent = request.summary || 'Request';
+          head.appendChild(title);
+
+          if ((type === 'it' || type === 'maintenance') && request.fields) {
+            const urgencyKey = normalizeUrgency(request.fields.urgency);
+            if (urgencyKey) {
+              const urgencyBadge = document.createElement('span');
+              urgencyBadge.className = 'urgency-badge request-urgency';
+              urgencyBadge.dataset.urgency = urgencyKey;
+              urgencyBadge.textContent = formatUrgencyLabel(urgencyKey);
+              head.appendChild(urgencyBadge);
+            }
+          }
+
+          const status = document.createElement('span');
+          status.className = 'status';
+          const statusValue = String(request.status || '').toLowerCase();
+          const stateKey = statusValue.replace(/\s+/g, '_');
+          status.dataset.state = stateKey;
+          status.textContent = formatStatus(stateKey);
+          head.appendChild(status);
+          item.appendChild(head);
+
+          const info = document.createElement('div');
+          info.className = 'request-item-info';
+
+          const meta = document.createElement('span');
+          meta.className = 'meta';
+          meta.textContent = buildRequestMeta(request, type);
+          info.appendChild(meta);
+
+          if (Array.isArray(request.details)) {
+            request.details.forEach(detail => {
+              if (!detail) return;
+              const line = document.createElement('span');
+              line.className = 'detail-line';
+              line.textContent = detail;
+              info.appendChild(line);
+            });
+          }
+
+          const submittedLine = document.createElement('span');
+          submittedLine.className = 'detail-line';
+          submittedLine.textContent = `Submitted by: ${request.requester || 'Unknown requester'}`;
+          info.appendChild(submittedLine);
+
+          const statusLineText = buildStatusActorLine(type, stateKey, request.approver);
+          if (statusLineText) {
+            const statusLine = document.createElement('span');
+            statusLine.className = 'detail-line';
+            statusLine.textContent = statusLineText;
+            info.appendChild(statusLine);
+          }
+
+          item.appendChild(info);
+
+          if (supportsNotes(type)) {
+            const notesSection = buildRequestNotesSection(request, type);
+            if (notesSection) {
+              item.appendChild(notesSection);
+            }
+          }
+
+          const footer = document.createElement('div');
+          footer.className = 'request-item-footer';
+
+          const showEtaField = type === 'supplies' && shouldShowEtaField(stateKey);
+
+          if (showEtaField) {
+            const etaWrapper = document.createElement('label');
+            etaWrapper.className = 'eta-field';
+
+            const etaText = document.createElement('span');
+            etaText.textContent = 'ETA';
+            etaWrapper.appendChild(etaText);
+
+            const etaInput = document.createElement('input');
+            etaInput.type = 'date';
+            etaInput.autocomplete = 'off';
+            const previousEta = getRequestEta(request);
+            etaInput.value = previousEta;
+            etaInput.setAttribute('aria-label', `ETA for ${request.summary || 'request'}`);
+            const etaStatusAllowed = canEditEtaStatus(stateKey);
+            const etaEditable = server && canManageStatuses && etaStatusAllowed;
+            if (!etaEditable) {
+              etaInput.disabled = true;
+            }
+            if (!canManageStatuses) {
+              etaInput.title = 'Only authorized approvers can update ETA.';
+            } else if (!etaStatusAllowed) {
+              etaInput.title = 'ETA can be set after approval only.';
+            } else {
+              etaInput.title = '';
+            }
+            if (etaEditable) {
+              etaInput.addEventListener('change', () => {
+                const nextValue = etaInput.value;
+                if (nextValue === previousEta) {
+                  return;
+                }
+                handleUpdateEta(type, request, nextValue, etaInput, previousEta);
+              });
+            }
+            etaWrapper.appendChild(etaInput);
+            footer.appendChild(etaWrapper);
+          }
+
+          if (type === 'supplies' && canManageStatuses) {
+            const buttonRow = document.createElement('div');
+            buttonRow.className = 'inline-buttons';
+            let hasButtons = false;
+
+            if (stateKey === 'pending') {
+              const approved = document.createElement('button');
+              approved.type = 'button';
+              approved.className = 'secondary';
+              approved.textContent = 'Approved';
+              approved.addEventListener('click', () => handleUpdateStatus(type, request.id, 'approved'));
+              buttonRow.appendChild(approved);
+
+              const denied = document.createElement('button');
+              denied.type = 'button';
+              denied.className = 'secondary';
+              denied.textContent = 'Denied';
+              denied.addEventListener('click', () => handleUpdateStatus(type, request.id, 'denied'));
+              buttonRow.appendChild(denied);
+              hasButtons = true;
+            }
+
+            if (hasButtons) {
+              const controls = document.createElement('div');
+              controls.className = 'supplies-actions';
+              controls.appendChild(buttonRow);
+              footer.appendChild(controls);
+            }
+          } else if (canManageStatuses && (stateKey === 'pending' || stateKey === 'in_progress')) {
+            const actions = document.createElement('div');
+            actions.className = 'inline-buttons';
+            const complete = document.createElement('button');
+            complete.type = 'button';
+            complete.className = 'secondary';
+            complete.textContent = 'Complete';
+            complete.addEventListener('click', () => handleUpdateStatus(type, request.id, 'completed'));
+            actions.appendChild(complete);
+
+            const progress = document.createElement('button');
+            progress.type = 'button';
+            progress.className = 'secondary';
+            progress.textContent = 'In Progress';
+            progress.addEventListener('click', () => handleUpdateStatus(type, request.id, 'in_progress'));
+            progress.classList.toggle('active', stateKey === 'in_progress');
+            progress.setAttribute('aria-pressed', stateKey === 'in_progress' ? 'true' : 'false');
+            actions.appendChild(progress);
+
+            const denied = document.createElement('button');
+            denied.type = 'button';
+            denied.className = 'secondary';
+            denied.textContent = 'Denied';
+            denied.addEventListener('click', () => handleUpdateStatus(type, request.id, 'denied'));
+            actions.appendChild(denied);
+
+            footer.appendChild(actions);
+          }
+
+          if (footer.childElementCount) {
+            item.appendChild(footer);
+          }
+
+          fragment.appendChild(item);
+        });
+        list.appendChild(fragment);
+        if (moreButton) {
+          moreButton.disabled = !state.nextTokens[type];
+        }
+      }
+
+      function handleUpdateStatus(type, requestId, status) {
+        if (!canManageStatuses) {
+          showToast('You are not authorized to update requests.');
+          return;
+        }
+        if (!server) {
+          showToast('Connect to Google Apps Script to update statuses.');
+          return;
+        }
+        const payload = {
+          cid: makeCid(),
+          clientRequestId: makeClientRequestId(type),
+          type,
+          requestId,
+          status
+        };
+        const item = dom[type].list.querySelector(`article[data-request-id="${requestId}"]`);
+        const interactive = item
+          ? Array.from(item.querySelectorAll('button'))
+          : [];
+        interactive.forEach(element => { element.disabled = true; });
+        server
+          .withSuccessHandler(response => {
+            interactive.forEach(element => { element.disabled = false; });
+            if (!response || !response.ok || !response.request) {
+              handleError(response, 'updateRequestStatus', payload);
+              return;
+            }
+            const updated = response.request;
+            const index = state.requests[type].findIndex(entry => entry.id === updated.id);
+            if (index >= 0) {
+              state.requests[type][index] = updated;
+              renderRequests(type);
+            }
+            showToast('Request updated');
+            requestDashboardRefresh(DASHBOARD_DEBOUNCE);
+          })
+          .withFailureHandler(err => {
+            interactive.forEach(element => { element.disabled = false; });
+            handleError(err, 'updateRequestStatus', payload);
+          })
+          .updateRequestStatus(payload);
+      }
+
+      function handleAddNote(type, request, textarea, submitButton) {
+        if (!canManageStatuses) {
+          showToast('You are not authorized to add notes.');
+          return;
+        }
+        const currentValue = textarea.value || '';
+        setNoteDraft(type, request.id, currentValue);
+        const trimmed = currentValue.trim();
+        if (!trimmed) {
+          showToast('Add a note before submitting.');
+          return;
+        }
+        if (!server) {
+          showToast('Connect to Google Apps Script to add notes.');
+          return;
+        }
+        const payload = {
+          cid: makeCid(),
+          clientRequestId: makeClientRequestId(type),
+          type,
+          requestId: request.id,
+          note: trimmed
+        };
+        textarea.disabled = true;
+        submitButton.disabled = true;
+        server
+          .withSuccessHandler(response => {
+            textarea.disabled = false;
+            submitButton.disabled = false;
+            if (!response || !response.ok || !response.request) {
+              handleError(response, 'addRequestNote', payload);
+              return;
+            }
+            const updated = response.request;
+            const index = state.requests[type].findIndex(entry => entry.id === updated.id);
+            if (index >= 0) {
+              state.requests[type][index] = updated;
+            }
+            clearNoteDraft(type, request.id);
+            renderRequests(type);
+            showToast('Note added');
+          })
+          .withFailureHandler(err => {
+            textarea.disabled = false;
+            submitButton.disabled = false;
+            handleError(err, 'addRequestNote', payload);
+          })
+          .addRequestNote(payload);
+      }
+
+      function handleUpdateEta(type, request, etaValue, input, previousEta) {
+        if (!canManageStatuses) {
+          showToast('You are not authorized to update requests.');
+          input.value = previousEta;
+          return;
+        }
+        if (!server) {
+          showToast('Connect to Google Apps Script to update ETA dates.');
+          input.value = previousEta;
+          return;
+        }
+        if (!request || !request.id) {
+          input.value = previousEta;
+          handleError({ message: 'Request not found.' }, 'updateRequestEta');
+          return;
+        }
+        if (!canEditEtaStatus(request && request.status)) {
+          input.value = previousEta;
+          showToast('ETA can be set after approval only.');
+          return;
+        }
+        const payload = {
+          cid: makeCid(),
+          clientRequestId: makeClientRequestId(type),
+          type,
+          requestId: request.id,
+          status: request.status || 'pending',
+          eta: etaValue
+        };
+        input.disabled = true;
+        server
+          .withSuccessHandler(response => {
+            input.disabled = false;
+            if (!response || !response.ok || !response.request) {
+              input.value = previousEta;
+              handleError(response, 'updateRequestEta', payload);
+              return;
+            }
+            const updated = response.request;
+            const index = state.requests[type].findIndex(entry => entry.id === updated.id);
+            if (index >= 0) {
+              state.requests[type][index] = updated;
+              renderRequests(type);
+            }
+            const updatedEta = getRequestEta(updated);
+            showToast(updatedEta ? 'ETA updated' : 'ETA cleared');
+            requestDashboardRefresh(DASHBOARD_DEBOUNCE);
+          })
+          .withFailureHandler(err => {
+            input.disabled = false;
+            input.value = previousEta;
+            handleError(err, 'updateRequestEta', payload);
+          })
+          .updateRequestStatus(payload);
+      }
+
+      function shouldShowEtaField(status) {
+        const key = typeof status === 'string'
+          ? status.trim().toLowerCase().replace(/\s+/g, '_')
+          : '';
+        return key !== 'denied';
+      }
+
+      function canEditEtaStatus(status) {
+        const key = typeof status === 'string'
+          ? status.trim().toLowerCase().replace(/\s+/g, '_')
+          : '';
+        return key === 'approved' || key === 'ordered' || key === 'completed';
+      }
+
+      function buildRequestMeta(request, type) {
+        const parts = [];
+        if (request.ts) {
+          try {
+            parts.push(new Date(request.ts).toLocaleString());
+          } catch (err) {
+            parts.push(request.ts);
+          }
+        }
+        const scopeType = typeof type === 'string' ? type : '';
+        if (scopeType !== 'supplies' && request.requester) {
+          parts.push(request.requester);
+        }
+        return parts.join(' • ');
+      }
+
+      function normalizeUrgency(value) {
+        const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
+        if (!text) {
+          return '';
+        }
+        if (text === 'high') {
+          return 'critical';
+        }
+        if (text === 'medium') {
+          return 'normal';
+        }
+        return text === 'low' || text === 'normal' || text === 'critical' ? text : '';
+      }
+
+      function formatUrgencyLabel(value) {
+        switch (value) {
+          case 'low':
+            return 'Low';
+          case 'critical':
+            return 'Critical';
+          case 'normal':
+          default:
+            return 'Normal';
+        }
+      }
+
+      function getRequestEta(request) {
+        if (!request || !request.fields) {
+          return '';
+        }
+        return String(request.fields.eta || '');
+      }
+
+      function loadCatalog({ append, fetchAll }) {
+        if (state.catalog.loading || !server) {
+          if (!server) {
+            state.catalog.loading = false;
+            renderCatalog();
+          }
+          return;
+        }
+        state.catalog.loading = true;
+        if (fetchAll) {
+          state.catalog.fullyLoaded = false;
+        }
+        dom.supplies.catalogMore.disabled = true;
+        toggleCatalogSkeleton(true);
+        updateCatalogControls();
+        const payload = {
+          cid: makeCid()
+        };
+        if (fetchAll) {
+          payload.fetchAll = true;
+        } else {
+          payload.pageSize = 20;
+          payload.nextToken = append ? state.catalog.nextToken : '';
+        }
+        server
+          .withSuccessHandler(response => {
+            state.catalog.loading = false;
+            toggleCatalogSkeleton(false);
+            if (!response || !response.ok) {
+              handleError(response, 'listCatalog', payload);
+              return;
+            }
+            state.catalog.nextToken = response.nextToken || '';
+            const items = Array.isArray(response.items) ? response.items : [];
+            state.catalog.items = append && !fetchAll ? state.catalog.items.concat(items) : items;
+            state.catalog.fullyLoaded = fetchAll || !state.catalog.nextToken;
+            renderCatalog();
+            updateCatalogControls();
+          })
+          .withFailureHandler(err => {
+            state.catalog.loading = false;
+            toggleCatalogSkeleton(false);
+            handleError(err, 'listCatalog', payload);
+            updateCatalogControls();
+          })
+          .listCatalog(payload);
+      }
+
+      function renderCatalog() {
+        dom.supplies.catalogList.textContent = '';
+        if (dom.supplies.catalogOptions) {
+          dom.supplies.catalogOptions.textContent = '';
+        }
+        let selectedSku = state.forms.supplies.catalogSku || '';
+        const searchValue = state.catalog.search || '';
+        dom.supplies.catalogSearch.value = searchValue;
+        updateCatalogSearchAffordances();
+        updateCatalogControls();
+
+        if (!state.catalog.items.length) {
+          dom.supplies.catalogSearch.disabled = !state.catalog.loading;
+          if (state.catalog.loading) {
+            dom.supplies.catalogList.appendChild(buildSkeletonBlock());
+          } else {
+            const empty = document.createElement('p');
+            empty.className = 'empty';
+            empty.textContent = hasServer ? 'No catalog items found.' : 'Catalog requires Google Apps Script.';
+            dom.supplies.catalogList.appendChild(empty);
+          }
+          return;
+        }
+
+        dom.supplies.catalogSearch.disabled = false;
+
+        const descriptionValue = (state.forms.supplies.description || '').trim();
+        if (!selectedSku && descriptionValue) {
+          const match = state.catalog.items.find(item => item.description.toLowerCase() === descriptionValue.toLowerCase());
+          if (match) {
+            selectCatalogSku(match.sku, { updateSearch: false });
+            selectedSku = match.sku;
+          }
+        }
+
+        dom.supplies.catalogSku.value = selectedSku;
+
+        const normalizedSearch = searchValue.trim().toLowerCase();
+        let filteredItems = state.catalog.items.slice();
+        if (normalizedSearch) {
+          filteredItems = state.catalog.items.filter(item => {
+            const displayCost = formatCurrencyDisplay(item.estimatedCost);
+            const haystack = `${item.description} ${item.category} ${item.sku} ${item.supplier || ''} ${item.estimatedCost || ''} ${displayCost}`.toLowerCase();
+            return haystack.indexOf(normalizedSearch) !== -1;
+          });
+          const skuToHighlight = state.forms.supplies.catalogSku || '';
+          if (skuToHighlight && !filteredItems.some(item => item.sku === skuToHighlight)) {
+            const selectedItem = findCatalogItem(skuToHighlight);
+            if (selectedItem) {
+              filteredItems.unshift(selectedItem);
+            }
+          }
+        }
+
+        if (!filteredItems.length) {
+          const empty = document.createElement('p');
+          empty.className = 'empty';
+          if (normalizedSearch) {
+            empty.textContent = state.catalog.loading && !state.catalog.fullyLoaded
+              ? 'Loading more catalog items to finish your search…'
+              : 'No catalog items match your search. Try another keyword.';
+          } else {
+            empty.textContent = hasServer ? 'No catalog items found.' : 'Catalog requires Google Apps Script.';
+          }
+          dom.supplies.catalogList.appendChild(empty);
+          return;
+        }
+
+        const popularItems = state.catalog.items.filter(item => Number(item.usageCount) > 0);
+        const topRank = Math.min(5, popularItems.length);
+        const topSkuSet = new Set(popularItems.slice(0, topRank).map(item => item.sku));
+
+        if (dom.supplies.catalogOptions) {
+          const datalistFragment = document.createDocumentFragment();
+          const limit = 25;
+          const datalistItems = filteredItems.slice(0, limit);
+          if (selectedSku) {
+            const selectedItem = findCatalogItem(selectedSku);
+            if (selectedItem && !datalistItems.some(entry => entry.sku === selectedSku)) {
+              datalistItems.unshift(selectedItem);
+            }
+          }
+          datalistItems.slice(0, limit).forEach(item => {
+            const option = document.createElement('option');
+            option.value = formatCatalogOptionValue(item, topSkuSet.has(item.sku));
+            option.dataset.sku = item.sku;
+            option.dataset.description = item.description;
+            option.dataset.category = item.category || '';
+            datalistFragment.appendChild(option);
+          });
+          dom.supplies.catalogOptions.appendChild(datalistFragment);
+        }
+
+        const fragment = document.createDocumentFragment();
+        filteredItems.forEach(item => {
+          const card = document.createElement('article');
+          card.className = 'catalog-item';
+          if (item.sku === selectedSku) {
+            card.classList.add('selected');
+          }
+          card.tabIndex = 0;
+          card.setAttribute('role', 'listitem');
+
+          const costDisplay = formatCurrencyDisplay(item.estimatedCost);
+
+          const head = document.createElement('div');
+          head.className = 'catalog-item-head';
+
+          const name = document.createElement('strong');
+          name.className = 'catalog-item-title';
+          name.textContent = item.description;
+          head.appendChild(name);
+
+          const skuLabel = document.createElement('span');
+          skuLabel.className = 'catalog-item-sku';
+          skuLabel.textContent = item.sku || 'SKU pending';
+          head.appendChild(skuLabel);
+
+          card.appendChild(head);
+
+          if (topSkuSet.has(item.sku) && Number(item.usageCount) > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'catalog-badge';
+            badge.textContent = 'Most requested';
+            card.appendChild(badge);
+          }
+
+          const info = document.createElement('div');
+          info.className = 'catalog-item-info';
+
+          if (item.category) {
+            const category = document.createElement('span');
+            category.className = 'meta';
+            category.textContent = `Category: ${item.category}`;
+            info.appendChild(category);
+          }
+
+          if (item.supplier) {
+            const supplier = document.createElement('span');
+            supplier.className = 'detail-line';
+            supplier.textContent = `Supplier: ${item.supplier}`;
+            info.appendChild(supplier);
+          }
+
+          if (costDisplay) {
+            const cost = document.createElement('span');
+            cost.className = 'detail-line';
+            cost.textContent = `Estimated cost: ${costDisplay}`;
+            info.appendChild(cost);
+          }
+
+          if (Number(item.usageCount) > 0) {
+            const usage = document.createElement('span');
+            usage.className = 'detail-line usage';
+            usage.textContent = item.usageCount === 1 ? 'Requested 1 time' : `Requested ${item.usageCount} times`;
+            info.appendChild(usage);
+          }
+
+          card.appendChild(info);
+          const handleSelect = () => {
+            selectCatalogSku(item.sku);
+            renderCatalog();
+          };
+          card.addEventListener('click', () => {
+            handleSelect();
+          });
+          card.addEventListener('keydown', evt => {
+            if (evt.key === 'Enter' || evt.key === ' ') {
+              evt.preventDefault();
+              handleSelect();
+            }
+          });
+          fragment.appendChild(card);
+        });
+        dom.supplies.catalogList.appendChild(fragment);
+        if (state.catalog.loading && !state.catalog.fullyLoaded) {
+          const loading = document.createElement('p');
+          loading.className = 'meta';
+          loading.textContent = 'Loading remaining catalog items…';
+          dom.supplies.catalogList.appendChild(loading);
+        }
+      }
+
+      function updateCatalogSearchAffordances() {
+        if (!dom.supplies.catalogClear) {
+          return;
+        }
+        const hasValue = Boolean(dom.supplies.catalogSearch.value);
+        const hasSelection = Boolean(dom.supplies.catalogSku.value);
+        dom.supplies.catalogClear.classList.toggle('visible', hasValue || hasSelection);
+      }
+
+      function selectCatalogSku(sku, options) {
+        const opts = options || {};
+        const item = sku ? findCatalogItem(sku) : null;
+        const shouldUpdateSearch = opts.updateSearch !== false;
+        const searchValue = 'searchValue' in opts
+          ? opts.searchValue
+          : item
+            ? formatCatalogOptionValue(item, false)
+            : '';
+        if (shouldUpdateSearch) {
+          state.catalog.search = searchValue;
+          dom.supplies.catalogSearch.value = searchValue;
+        }
+        const preserveDescription = Boolean(opts.preserveDescription);
+        const nextDescription = item && !preserveDescription ? item.description : dom.supplies.description.value;
+        if (item && !preserveDescription) {
+          syncingCatalogToDescription = true;
+          dom.supplies.description.value = item.description;
+          syncingCatalogToDescription = false;
+        }
+        dom.supplies.catalogSku.value = sku || '';
+        setFormState('supplies', { catalogSku: sku || '', description: nextDescription });
+        updateCatalogSearchAffordances();
+        if (opts.persist !== false) {
+          persistForm('supplies');
+        }
+      }
+
+      function formatCurrencyDisplay(value, decimalsHint) {
+        const text = value === undefined || value === null ? '' : String(value).trim();
+        if (!text) {
+          return '';
+        }
+        const numericPart = text.replace(/[^0-9.,-]/g, '');
+        if (!numericPart) {
+          if (/^\$/i.test(text)) {
+            return text;
+          }
+          if (/[A-Za-z]/.test(text) || /[^0-9.,\s-]/.test(text)) {
+            return text;
+          }
+          return `$${text}`;
+        }
+        const normalized = numericPart.replace(/,/g, '');
+        const amount = Number(normalized);
+        if (!Number.isFinite(amount)) {
+          if (/^\$/i.test(text)) {
+            return text;
+          }
+          return `$${text}`;
+        }
+        const decimalMatch = normalized.match(/\.(\d+)/);
+        const decimalsRaw = decimalMatch ? decimalMatch[1].length : 0;
+        const safeDecimals = decimalsRaw > 0
+          ? Math.min(decimalsRaw, 4)
+          : (typeof decimalsHint === 'number' && decimalsHint >= 0 ? decimalsHint : 2);
+        let formatted;
+        try {
+          formatted = amount.toLocaleString('en-US', {
+            minimumFractionDigits: safeDecimals,
+            maximumFractionDigits: safeDecimals
+          });
+        } catch (err) {
+          formatted = amount.toFixed(safeDecimals);
+        }
+        const prefixMatch = text.match(/^[^0-9-]*/);
+        const prefix = prefixMatch ? prefixMatch[0] : '';
+        const suffixMatch = text.match(/[^0-9.,-]*$/);
+        const suffix = suffixMatch ? suffixMatch[0] : '';
+        const labelPrefix = prefix || '$';
+        const labelSuffix = suffix || '';
+        return `${labelPrefix}${formatted}${labelSuffix}`.trim();
+      }
+
+      function formatCatalogOptionValue(item, highlight) {
+        if (!item) {
+          return '';
+        }
+        const prefix = highlight ? '★ ' : '';
+        const categoryLabel = item.category ? ` · ${item.category}` : '';
+        const supplierLabel = item.supplier ? ` · ${item.supplier}` : '';
+        const costDisplay = formatCurrencyDisplay(item.estimatedCost);
+        const costLabel = costDisplay ? ` (${costDisplay})` : '';
+        return `${prefix}${item.description}${categoryLabel}${supplierLabel} — ${item.sku}${costLabel}`;
+      }
+
+      function findCatalogOption(value) {
+        if (!dom.supplies.catalogOptions) {
+          return null;
+        }
+        const options = Array.from(dom.supplies.catalogOptions.querySelectorAll('option'));
+        return options.find(option => option.value === value) || null;
+      }
+      function findCatalogItem(sku) {
+        if (!sku) {
+          return null;
+        }
+        const item = state.catalog.items.find(entry => entry.sku === sku);
+        return item || null;
+      }
+
+      function ensureFullCatalogLoaded() {
+        if (!hasServer) {
+          return;
+        }
+        if (state.catalog.fullyLoaded || state.catalog.loading) {
+          return;
+        }
+        loadCatalog({ append: false, fetchAll: true });
+      }
+
+      function updateCatalogControls() {
+        const button = dom.supplies.catalogMore;
+        if (!button) {
+          return;
+        }
+        if (!hasServer) {
+          button.hidden = true;
+          return;
+        }
+        button.hidden = false;
+        if (state.catalog.loading) {
+          button.disabled = true;
+          button.textContent = state.catalog.fullyLoaded ? 'Refreshing…' : 'Loading all items…';
+          return;
+        }
+        if (state.catalog.fullyLoaded) {
+          button.disabled = false;
+          button.textContent = 'Refresh catalog';
+        } else {
+          button.disabled = false;
+          button.textContent = 'Load all items';
+        }
+      }
+
+      function setFormState(type, partial) {
+        state.forms[type] = Object.assign({}, state.forms[type], partial);
+      }
+
+      function handleRequesterNameInput(type) {
+        if (!requiresRequesterName) {
+          return;
+        }
+        const input = dom[type] && dom[type].requesterName;
+        if (!input) {
+          return;
+        }
+        setRequesterName(input.value || '', { sourceType: type });
+      }
+
+      function setRequesterName(value, options) {
+        const sourceType = options && options.sourceType;
+        const skipPersist = Boolean(options && options.skipPersist);
+        const text = typeof value === 'string' ? value : '';
+        state.requesterName = text;
+        REQUEST_KEYS.forEach(type => {
+          state.forms[type] = Object.assign({}, state.forms[type], { requesterName: text });
+          const input = dom[type] && dom[type].requesterName;
+          if (input) {
+            if (!requiresRequesterName) {
+              input.value = '';
+            } else if (type !== sourceType || document.activeElement !== input) {
+              input.value = text;
+            }
+          }
+          if (!skipPersist) {
+            persistForm(type);
+          }
+        });
+      }
+
+      function initializeRequesterName() {
+        if (!requiresRequesterName) {
+          setRequesterName('', { skipPersist: true });
+          return;
+        }
+        const cached = REQUEST_KEYS
+          .map(type => state.forms[type] && state.forms[type].requesterName ? String(state.forms[type].requesterName) : '')
+          .find(name => typeof name === 'string' && name.trim());
+        if (cached) {
+          setRequesterName(cached, { skipPersist: true });
+        } else {
+          setRequesterName('', { skipPersist: true });
+        }
+      }
+
+      function configureRequesterNameRequirement() {
+        if (!requiresRequesterName) {
+          state.requesterName = '';
+        }
+        REQUEST_KEYS.forEach(type => {
+          const wrapper = dom[type] && dom[type].requesterNameRow;
+          const input = dom[type] && dom[type].requesterName;
+          if (!wrapper || !input) {
+            return;
+          }
+          if (requiresRequesterName) {
+            wrapper.hidden = false;
+            input.required = true;
+            input.disabled = false;
+          } else {
+            wrapper.hidden = true;
+            input.required = false;
+            input.disabled = true;
+            input.value = '';
+          }
+        });
+      }
+
+      function sanitizeDeviceId(value) {
+        return typeof value === 'string' ? value.replace(/[^0-9A-Za-z_-]/g, '').slice(0, 80) : '';
+      }
+
+      function generateDeviceId() {
+        try {
+          if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+            const buffer = new Uint8Array(16);
+            window.crypto.getRandomValues(buffer);
+            return Array.from(buffer, byte => byte.toString(16).padStart(2, '0')).join('');
+          }
+        } catch (err) {
+          // ignore crypto errors
+        }
+        return `dev-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+      }
+
+      function ensureDeviceId() {
+        if (state.deviceId) {
+          return state.deviceId;
+        }
+        let stored = '';
+        try {
+          stored = localStorage.getItem(DEVICE_STORAGE_KEY) || '';
+        } catch (err) {
+          stored = '';
+        }
+        let deviceId = sanitizeDeviceId(stored);
+        if (!deviceId) {
+          deviceId = sanitizeDeviceId(generateDeviceId());
+          if (!deviceId) {
+            return '';
           }
           try {
-            const date = new Date(value);
-            return date.toLocaleString([], {
-              month: "short",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit"
-            });
+            localStorage.setItem(DEVICE_STORAGE_KEY, deviceId);
           } catch (err) {
-            return value;
+            // ignore storage errors
           }
         }
+        state.deviceId = deviceId;
+        return deviceId;
+      }
 
-        window.RequestsApp = app;
-        window.RequestsAppHelpers = {
-          sanitizeText,
-          parseQty,
-          validatePayload,
-          buildClientRequestId,
-          formatDate
+      function persistForm(type, options) {
+        const immediate = options && options.immediate;
+        if (immediate) {
+          flushPersist(type);
+          return;
+        }
+        clearTimeout(persistTimers[type]);
+        persistTimers[type] = setTimeout(() => {
+          flushPersist(type);
+        }, PERSIST_DELAY);
+      }
+
+      function flushPersist(type) {
+        try {
+          localStorage.setItem(LOCAL_KEYS[type], JSON.stringify(state.forms[type]));
+        } catch (err) {
+          // ignore storage errors
+        }
+      }
+
+      function clearPersistedForm(type) {
+        if (persistTimers[type]) {
+          clearTimeout(persistTimers[type]);
+          persistTimers[type] = null;
+        }
+        try {
+          localStorage.removeItem(LOCAL_KEYS[type]);
+        } catch (err) {
+          // ignore storage errors
+        }
+      }
+
+      function flushAllPersists() {
+        REQUEST_KEYS.forEach(type => {
+          if (persistTimers[type]) {
+            clearTimeout(persistTimers[type]);
+            persistTimers[type] = null;
+          }
+          flushPersist(type);
+        });
+      }
+
+      function hydrateFormFromCache(type) {
+        try {
+          const raw = localStorage.getItem(LOCAL_KEYS[type]);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+              state.forms[type] = Object.assign({}, FORM_TEMPLATES[type], parsed);
+              if (type === 'it') {
+                const form = state.forms[type];
+                if ((!form.urgency || form.urgency === undefined) && form.impact) {
+                  form.urgency = form.impact;
+                }
+                delete form.impact;
+                form.urgency = normalizeUrgency(form.urgency) || 'normal';
+              } else if (type === 'maintenance') {
+                state.forms[type].urgency = normalizeUrgency(state.forms[type].urgency) || 'normal';
+              }
+            }
+          }
+        } catch (err) {
+          // ignore cache issues
+        }
+      }
+
+      window.addEventListener('beforeunload', () => {
+        stopDashboardAutoRefresh();
+        flushAllPersists();
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          flushAllPersists();
+          stopDashboardAutoRefresh();
+        } else if (document.visibilityState === 'visible') {
+          if (hasServer) {
+            requestDashboardRefresh(0);
+            startDashboardAutoRefresh();
+          }
+        }
+      });
+
+      function toggleRequestsSkeleton(type, active) {
+        if (!active || state.requests[type].length) {
+          return;
+        }
+        const list = dom[type].list;
+        list.textContent = '';
+        list.appendChild(buildSkeletonBlock());
+        const moreButton = dom[type].more;
+        if (moreButton) {
+          moreButton.disabled = true;
+        }
+      }
+
+      function toggleCatalogSkeleton(active) {
+        if (!active || state.catalog.items.length) {
+          return;
+        }
+        dom.supplies.catalogList.textContent = '';
+        dom.supplies.catalogList.appendChild(buildSkeletonBlock());
+        dom.supplies.catalogMore.disabled = true;
+      }
+
+      function buildSkeletonBlock() {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'request-item';
+        const title = document.createElement('div');
+        title.className = 'skeleton';
+        title.style.height = '20px';
+        wrapper.appendChild(title);
+        const line = document.createElement('div');
+        line.className = 'skeleton sm';
+        wrapper.appendChild(line);
+        return wrapper;
+      }
+
+      function formatStatus(status) {
+        switch (status) {
+          case 'completed':
+            return 'Completed';
+          case 'in_progress':
+            return 'In progress';
+          case 'ordered':
+            return 'Ordered';
+          case 'approved':
+            return 'Approved';
+          case 'denied':
+            return 'Denied';
+          case 'declined':
+            return 'Declined';
+          default:
+            return 'Pending review';
+        }
+      }
+
+      function supportsNotes(type) {
+        return NOTE_SUPPORTED_TYPES.has(type);
+      }
+
+      function getNoteDraft(type, requestId) {
+        if (!supportsNotes(type)) {
+          return '';
+        }
+        const drafts = state.noteDrafts[type];
+        if (!drafts) {
+          return '';
+        }
+        return drafts[requestId] || '';
+      }
+
+      function setNoteDraft(type, requestId, value) {
+        if (!supportsNotes(type)) {
+          return;
+        }
+        if (!state.noteDrafts[type]) {
+          state.noteDrafts[type] = {};
+        }
+        state.noteDrafts[type][requestId] = value;
+      }
+
+      function clearNoteDraft(type, requestId) {
+        if (!supportsNotes(type)) {
+          return;
+        }
+        const drafts = state.noteDrafts[type];
+        if (drafts && Object.prototype.hasOwnProperty.call(drafts, requestId)) {
+          delete drafts[requestId];
+        }
+      }
+
+      function formatNoteTimestamp(ts) {
+        if (!ts) {
+          return 'Unknown time';
+        }
+        const parsed = new Date(ts);
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toLocaleString();
+        }
+        return ts;
+      }
+
+      function buildStatusActorLine(type, statusKey, approver) {
+        const actorName = approver ? approver : 'Not recorded';
+        switch (statusKey) {
+          case 'denied':
+          case 'declined':
+            return `Denied by: ${actorName}`;
+          case 'approved':
+            return `Approved by: ${actorName}`;
+          case 'ordered':
+            return `Ordered by: ${actorName}`;
+          case 'completed':
+            return `Completed by: ${actorName}`;
+          case 'in_progress':
+            return `In progress by: ${actorName}`;
+          case 'pending':
+            return type === 'supplies' ? 'Approval decision pending' : 'Update pending';
+          default:
+            return `Status: ${formatStatus(statusKey)}${approver ? ` by ${actorName}` : ''}`;
+        }
+      }
+
+      function buildRequestNotesSection(request, type) {
+        const notes = Array.isArray(request.notes) ? request.notes : [];
+        const wrapper = document.createElement('section');
+        wrapper.className = 'request-notes';
+
+        const header = document.createElement('div');
+        header.className = 'request-notes-header';
+
+        const title = document.createElement('span');
+        title.className = 'request-notes-title';
+        title.textContent = 'Notes';
+        header.appendChild(title);
+
+        const count = document.createElement('span');
+        count.className = 'request-notes-count';
+        if (notes.length) {
+          count.textContent = `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`;
+        } else {
+          count.textContent = 'No notes yet';
+        }
+        header.appendChild(count);
+
+        wrapper.appendChild(header);
+
+        const list = document.createElement('div');
+        list.className = 'request-notes-list';
+        if (notes.length) {
+          notes.forEach(note => {
+            const entry = buildRequestNoteEntry(note);
+            list.appendChild(entry);
+          });
+        } else {
+          const empty = document.createElement('p');
+          empty.className = 'request-notes-empty';
+          empty.textContent = 'No notes yet.';
+          list.appendChild(empty);
+        }
+        wrapper.appendChild(list);
+
+        if (canManageStatuses) {
+          const form = document.createElement('form');
+          form.className = 'request-note-form';
+          form.noValidate = true;
+
+          const textarea = document.createElement('textarea');
+          textarea.placeholder = 'Add a note for this request…';
+          textarea.value = getNoteDraft(type, request.id);
+          textarea.addEventListener('input', () => {
+            setNoteDraft(type, request.id, textarea.value);
+          });
+          if (!server) {
+            textarea.disabled = true;
+          }
+          form.appendChild(textarea);
+
+          if (!server) {
+            const helper = document.createElement('p');
+            helper.className = 'request-note-helper';
+            helper.textContent = 'Connect to Google Apps Script to add notes.';
+            form.appendChild(helper);
+          }
+
+          const actions = document.createElement('div');
+          actions.className = 'request-note-actions';
+
+          const submit = document.createElement('button');
+          submit.type = 'submit';
+          submit.className = 'secondary';
+          submit.textContent = 'Add note';
+          if (!server) {
+            submit.disabled = true;
+          }
+          actions.appendChild(submit);
+          form.appendChild(actions);
+
+          form.addEventListener('submit', event => {
+            event.preventDefault();
+            handleAddNote(type, request, textarea, submit);
+          });
+
+          wrapper.appendChild(form);
+        }
+
+        return wrapper;
+      }
+
+      function buildRequestNoteEntry(note) {
+        const entry = document.createElement('article');
+        entry.className = 'request-note';
+
+        const meta = document.createElement('div');
+        meta.className = 'request-note-meta';
+
+        const actorText = typeof note.actor === 'string' ? note.actor.trim() : '';
+        if (actorText) {
+          const actor = document.createElement('span');
+          actor.textContent = actorText;
+          meta.appendChild(actor);
+        }
+
+        const timestampRaw = typeof note.ts === 'string' ? note.ts : '';
+        const timestampLabel = timestampRaw ? formatNoteTimestamp(timestampRaw) : '';
+        if (timestampLabel) {
+          if (meta.childElementCount) {
+            meta.appendChild(makeMetaDot());
+          }
+          const time = document.createElement('time');
+          time.className = 'request-note-ts';
+          time.dateTime = timestampRaw;
+          time.textContent = timestampLabel;
+          meta.appendChild(time);
+        }
+
+        if (!meta.childElementCount) {
+          meta.textContent = 'Note';
+        }
+
+        entry.appendChild(meta);
+
+        const bodyText = typeof note.note === 'string' ? note.note : '';
+        if (bodyText) {
+          const body = document.createElement('p');
+          body.className = 'request-note-body';
+          body.textContent = bodyText;
+          entry.appendChild(body);
+        }
+
+        return entry;
+      }
+
+      function makeMetaDot() {
+        const dot = document.createElement('span');
+        dot.className = 'request-note-dot';
+        dot.textContent = '•';
+        dot.setAttribute('aria-hidden', 'true');
+        return dot;
+      }
+
+      function disableForm(type, disabled) {
+        if (type === 'supplies') {
+          dom.supplies.submit.disabled = disabled;
+          dom.supplies.location.disabled = disabled;
+          dom.supplies.qty.disabled = disabled;
+          dom.supplies.notes.disabled = disabled;
+          dom.supplies.catalogSearch.disabled = disabled;
+          dom.supplies.reset.disabled = disabled;
+          if (dom.supplies.requesterName && requiresRequesterName) {
+            dom.supplies.requesterName.disabled = disabled;
+          }
+        } else if (type === 'it') {
+          dom.it.submit.disabled = disabled;
+          dom.it.location.disabled = disabled;
+          dom.it.issue.disabled = disabled;
+          dom.it.device.disabled = disabled;
+          dom.it.urgency.disabled = disabled;
+          dom.it.details.disabled = disabled;
+          dom.it.reset.disabled = disabled;
+          if (dom.it.requesterName && requiresRequesterName) {
+            dom.it.requesterName.disabled = disabled;
+          }
+        } else if (type === 'maintenance') {
+          dom.maintenance.submit.disabled = disabled;
+          dom.maintenance.location.disabled = disabled;
+          dom.maintenance.issue.disabled = disabled;
+          dom.maintenance.urgency.disabled = disabled;
+          dom.maintenance.accessNotes.disabled = disabled;
+          dom.maintenance.reset.disabled = disabled;
+          if (dom.maintenance.requesterName && requiresRequesterName) {
+            dom.maintenance.requesterName.disabled = disabled;
+          }
+        }
+      }
+
+      function showToast(message) {
+        dom.toast.textContent = message;
+        dom.toast.style.display = 'block';
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => {
+          dom.toast.style.display = 'none';
+        }, 2800);
+      }
+
+      function resolveErrorMessage(err) {
+        if (!err) {
+          return 'Something went wrong. Please try again.';
+        }
+        if (typeof err === 'string') {
+          return err;
+        }
+        if (typeof err.message === 'string' && err.message.trim()) {
+          return err.message.trim();
+        }
+        if (typeof err.statusText === 'string' && err.statusText.trim()) {
+          return err.statusText.trim();
+        }
+        if (typeof err.details === 'string' && err.details.trim()) {
+          return err.details.trim();
+        }
+        if (Array.isArray(err.details) && err.details.length) {
+          const firstDetail = err.details.find(detail => typeof detail === 'string' && detail.trim());
+          if (firstDetail) {
+            return firstDetail.trim();
+          }
+        }
+        if (Array.isArray(err.errors) && err.errors.length) {
+          const firstError = err.errors.find(detail => typeof detail === 'string' && detail.trim());
+          if (firstError) {
+            return firstError.trim();
+          }
+        }
+        if (typeof err.error === 'string' && err.error.trim()) {
+          return err.error.trim();
+        }
+        return 'Something went wrong. Please try again.';
+      }
+
+      function handleError(err, context, payload) {
+        const message = resolveErrorMessage(err);
+        console.error('[RequestManager]', context, message, err);
+        showToast(message);
+        if (!server) {
+          return;
+        }
+        try {
+          server
+            .withFailureHandler(() => { })
+            .logClientError({
+              cid: makeCid(),
+              context,
+              message,
+              stack: err && err.stack ? String(err.stack) : '',
+              payload
+            });
+        } catch (loggingError) {
+          // ignore logging issues
+        }
+      }
+
+      function makeCid() {
+        return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      }
+
+      function makeClientRequestId(type) {
+        return `${initialSessionEmail || 'user'}-${type}-${makeCid()}`;
+      }
+    })();
+  </script>
+
+  <script>
+    (function() {
+      function sanitizeText(value) {
+        if (typeof value !== 'string') {
+          return '';
+        }
+        return value.trim();
+      }
+
+      function parseQty(value) {
+        const num = Number(value);
+        if (!Number.isFinite(num) || num < 1) {
+          return 0;
+        }
+        return Math.floor(num);
+      }
+
+      function validatePayload(payload) {
+        const fields = {
+          description: '',
+          qty: '',
+          location: '',
+          notes: ''
         };
+        const value = {
+          description: sanitizeText(payload && payload.description),
+          qty: parseQty(payload && payload.qty),
+          location: sanitizeText(payload && payload.location),
+          notes: sanitizeText(payload && payload.notes)
+        };
+        if (!value.description) {
+          fields.description = 'Describe what you need.';
+        }
+        if (!value.qty) {
+          fields.qty = 'Quantity must be at least 1.';
+        }
+        const valid = !fields.description && !fields.qty;
+        return { valid, fields, value };
+      }
 
-        document.addEventListener("DOMContentLoaded", () => app.init());
-      })();
-    </script>
-  </body>
+      function buildClientRequestId() {
+        const buffer = new Uint32Array(4);
+        if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+          window.crypto.getRandomValues(buffer);
+          return Array.from(buffer).map(num => num.toString(16).padStart(8, '0')).join('');
+        }
+        return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      }
+
+      function formatDate(value) {
+        if (!value) {
+          return '';
+        }
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+          return String(value);
+        }
+        return date.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+      }
+
+      window.RequestsAppHelpers = {
+        sanitizeText,
+        parseQty,
+        validatePayload,
+        buildClientRequestId,
+        formatDate
+      };
+    })();
+  </script>
+</body>
 </html>
