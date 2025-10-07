@@ -1959,6 +1959,10 @@
                   <strong data-dashboard-total="it">—</strong>
                   Logged total
                 </span>
+                <span class="metric" data-dashboard-avg-start-wrapper="it">
+                  <strong data-dashboard-avg-start="it">—</strong>
+                  Avg time till work started
+                </span>
                 <span class="metric" data-dashboard-avg-completion-wrapper="it">
                   <strong data-dashboard-avg-completion="it">—</strong>
                   Avg completion time
@@ -1975,6 +1979,10 @@
                 <span class="metric">
                   <strong data-dashboard-total="maintenance">—</strong>
                   Logged total
+                </span>
+                <span class="metric" data-dashboard-avg-start-wrapper="maintenance">
+                  <strong data-dashboard-avg-start="maintenance">—</strong>
+                  Avg time till work started
                 </span>
                 <span class="metric" data-dashboard-avg-completion-wrapper="maintenance">
                   <strong data-dashboard-avg-completion="maintenance">—</strong>
@@ -2524,6 +2532,8 @@
             acc[type] = {
               total: document.querySelector(`[data-dashboard-total="${type}"]`),
               outstanding: document.querySelector(`[data-dashboard-outstanding="${type}"]`),
+              avgStart: document.querySelector(`[data-dashboard-avg-start="${type}"]`),
+              avgStartWrapper: document.querySelector(`[data-dashboard-avg-start-wrapper="${type}"]`),
               avgCompletion: document.querySelector(`[data-dashboard-avg-completion="${type}"]`),
               avgCompletionWrapper: document.querySelector(`[data-dashboard-avg-completion-wrapper="${type}"]`)
             };
@@ -2615,12 +2625,18 @@
               const outstanding = entry && Number(entry.outstanding);
               const avgCompletionMs = entry && Number(entry.avgCompletionMs);
               const completionCount = entry && Number(entry.completionCount);
+              const avgStartMs = entry && Number(entry.avgStartMs);
+              const startCount = entry && Number(entry.startCount);
               metrics[type] = {
                 total: Number.isFinite(total) && total > 0 ? total : 0,
                 outstanding: Number.isFinite(outstanding) && outstanding > 0 ? outstanding : 0,
                 avgCompletionMs: Number.isFinite(avgCompletionMs) && avgCompletionMs > 0 ? avgCompletionMs : 0,
                 completionCount: Number.isFinite(completionCount) && completionCount > 0
                   ? Math.max(1, Math.round(completionCount))
+                  : 0,
+                avgStartMs: Number.isFinite(avgStartMs) && avgStartMs > 0 ? avgStartMs : 0,
+                startCount: Number.isFinite(startCount) && startCount > 0
+                  ? Math.max(1, Math.round(startCount))
                   : 0
               };
             });
@@ -2668,7 +2684,14 @@
         }
         REQUEST_KEYS.forEach(type => {
           const elements = dom.dashboard.metrics[type];
-          const entry = metrics[type] || { total: 0, outstanding: 0, avgCompletionMs: 0, completionCount: 0 };
+          const entry = metrics[type] || {
+            total: 0,
+            outstanding: 0,
+            avgCompletionMs: 0,
+            completionCount: 0,
+            avgStartMs: 0,
+            startCount: 0
+          };
           const totalLabel = loading ? '…' : formatDashboardCount(entry.total);
           const outstandingLabel = loading ? '…' : formatDashboardCount(entry.outstanding);
           const hasCompletionData = !loading && Number(entry.completionCount) > 0;
@@ -2677,12 +2700,37 @@
             : hasCompletionData
               ? formatDashboardDuration(entry.avgCompletionMs)
               : '—';
+          const hasStartData = !loading && Number(entry.startCount) > 0;
+          const startLabel = loading
+            ? '…'
+            : hasStartData
+              ? formatDashboardDuration(entry.avgStartMs)
+              : '—';
           if (elements) {
             if (elements.total) {
               elements.total.textContent = totalLabel;
             }
             if (elements.outstanding) {
               elements.outstanding.textContent = outstandingLabel;
+            }
+            if (elements.avgStart) {
+              elements.avgStart.textContent = startLabel;
+            }
+            if (elements.avgStartWrapper) {
+              if (loading) {
+                elements.avgStartWrapper.dataset.state = 'loading';
+                elements.avgStartWrapper.removeAttribute('title');
+              } else if (hasStartData) {
+                elements.avgStartWrapper.dataset.state = 'ready';
+                const startCountLabel = formatDashboardCount(entry.startCount);
+                const startBasisText = Number(entry.startCount) === 1
+                  ? 'Based on 1 started request.'
+                  : `Based on ${startCountLabel} started requests.`;
+                elements.avgStartWrapper.setAttribute('title', startBasisText);
+              } else {
+                elements.avgStartWrapper.dataset.state = 'empty';
+                elements.avgStartWrapper.setAttribute('title', 'No started requests yet.');
+              }
             }
             if (elements.avgCompletion) {
               elements.avgCompletion.textContent = averageLabel;
@@ -2880,7 +2928,14 @@
 
       function makeEmptyDashboardMetrics() {
         return REQUEST_KEYS.reduce((acc, type) => {
-          acc[type] = { total: 0, outstanding: 0, avgCompletionMs: 0, completionCount: 0 };
+          acc[type] = {
+            total: 0,
+            outstanding: 0,
+            avgCompletionMs: 0,
+            completionCount: 0,
+            avgStartMs: 0,
+            startCount: 0
+          };
           return acc;
         }, {});
       }
