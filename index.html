@@ -670,7 +670,7 @@
 
     .dashboard-card .metric-group {
       display: grid;
-      gap: 0.25rem;
+      gap: 0;
     }
 
     .dashboard-card .metric {
@@ -678,6 +678,20 @@
       gap: 0.15rem;
       color: var(--muted);
       font-size: clamp(0.72rem, 2.1vw, 0.82rem);
+      padding: clamp(0.35rem, 1.4vw, 0.55rem) 0;
+    }
+
+    .dashboard-card .metric:first-child {
+      padding-top: 0;
+    }
+
+    .dashboard-card .metric:last-child {
+      padding-bottom: 0;
+    }
+
+    .dashboard-card .metric + .metric {
+      border-top: 1px solid var(--card-outline);
+      margin-top: clamp(0.2rem, 1vw, 0.3rem);
     }
 
     .dashboard-card .metric strong {
