@@ -234,6 +234,265 @@
       --button-shadow-active: rgba(242, 153, 0, 0.6);
     }
 
+    .feedback-fab {
+      position: fixed;
+      right: clamp(1rem, 4vw, 1.75rem);
+      bottom: clamp(1rem, 6vw, 2rem);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      border: none;
+      border-radius: 999px;
+      padding: 0.75rem 1.35rem;
+      background: linear-gradient(135deg, #0b57d0, #5b8def);
+      color: #fff;
+      font-weight: 600;
+      font-size: clamp(0.85rem, 2.8vw, 0.95rem);
+      box-shadow: 0 18px 38px -24px rgba(11, 87, 208, 0.85);
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease;
+      z-index: 40;
+    }
+
+    .feedback-fab:hover,
+    .feedback-fab:focus-visible {
+      transform: translateY(-2px);
+      box-shadow: 0 26px 48px -22px rgba(11, 87, 208, 0.9);
+    }
+
+    .feedback-fab:focus-visible {
+      outline: 3px solid rgba(11, 87, 208, 0.35);
+      outline-offset: 3px;
+    }
+
+    .feedback-fab-emoji {
+      font-size: 1.25em;
+    }
+
+    .feedback-dialog {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(1rem, 5vw, 2.5rem);
+      background: rgba(16, 24, 40, 0.55);
+      z-index: 50;
+    }
+
+    .feedback-dialog[hidden] {
+      display: none;
+    }
+
+    .feedback-card {
+      position: relative;
+      width: min(100%, 480px);
+      background: var(--surface);
+      border-radius: 20px;
+      box-shadow: var(--shadow-soft);
+      padding: clamp(1.2rem, 5vw, 1.9rem);
+      display: grid;
+      gap: 1.1rem;
+    }
+
+    .feedback-close {
+      position: absolute;
+      top: 0.9rem;
+      right: 0.9rem;
+      border: none;
+      background: rgba(15, 23, 42, 0.06);
+      border-radius: 999px;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 160ms ease, color 160ms ease;
+    }
+
+    .feedback-close:hover,
+    .feedback-close:focus-visible {
+      background: rgba(11, 87, 208, 0.12);
+      color: var(--accent-strong);
+    }
+
+    .feedback-close:focus-visible {
+      outline: 3px solid rgba(11, 87, 208, 0.25);
+      outline-offset: 3px;
+    }
+
+    .feedback-header h2 {
+      margin: 0;
+      font-size: clamp(1.35rem, 4vw, 1.7rem);
+    }
+
+    .feedback-header p {
+      margin: 0.35rem 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .feedback-form {
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    .feedback-form fieldset {
+      border: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .feedback-form legend {
+      font-weight: 600;
+      font-size: 0.92rem;
+    }
+
+    .feedback-type-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .feedback-chip {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .feedback-chip input {
+      appearance: none;
+      width: 1px;
+      height: 1px;
+      position: absolute;
+      inset: 0;
+      margin: 0;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .feedback-chip-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.5rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .feedback-chip[data-selected="true"] .feedback-chip-label {
+      background: var(--accent-soft);
+      border-color: rgba(11, 87, 208, 0.4);
+      color: var(--accent-strong);
+    }
+
+    .feedback-chip[data-focused="true"] .feedback-chip-label {
+      box-shadow: 0 0 0 3px rgba(11, 87, 208, 0.18);
+    }
+
+    .feedback-form label {
+      display: grid;
+      gap: 0.35rem;
+      font-size: 0.92rem;
+    }
+
+    .feedback-form input[type="text"],
+    .feedback-form textarea {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.65rem 0.75rem;
+      font: inherit;
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+      resize: vertical;
+      min-height: 44px;
+    }
+
+    .feedback-form textarea {
+      min-height: 110px;
+    }
+
+    .feedback-form input:focus-visible,
+    .feedback-form textarea:focus-visible {
+      outline: none;
+      border-color: rgba(11, 87, 208, 0.65);
+      box-shadow: 0 0 0 3px rgba(11, 87, 208, 0.15);
+    }
+
+    .feedback-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      justify-content: flex-end;
+      margin-top: 0.3rem;
+    }
+
+    .feedback-actions button[type="submit"] {
+      border: none;
+      border-radius: 12px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      padding: 0.6rem 1.25rem;
+      cursor: pointer;
+      transition: background 160ms ease, transform 160ms ease;
+    }
+
+    .feedback-actions button[type="submit"]:hover,
+    .feedback-actions button[type="submit"]:focus-visible {
+      background: var(--accent-strong);
+      transform: translateY(-1px);
+    }
+
+    .feedback-actions .secondary {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 12px;
+      padding: 0.6rem 1.05rem;
+      font-weight: 600;
+    }
+
+    .feedback-status {
+      border-radius: 12px;
+      padding: 0.65rem 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    .feedback-status[data-state="success"] {
+      background: rgba(15, 157, 88, 0.12);
+      color: #0b8043;
+    }
+
+    .feedback-status[data-state="error"] {
+      background: rgba(217, 48, 37, 0.12);
+      color: #b31412;
+    }
+
+    @media (max-width: 600px) {
+      .feedback-fab {
+        right: 1rem;
+        bottom: 1rem;
+        padding-inline: 1.05rem;
+      }
+
+      .feedback-fab .feedback-fab-label {
+        font-size: 0.86rem;
+      }
+
+      .feedback-card {
+        border-radius: 16px;
+      }
+    }
+
     @media (max-width: 540px) {
       .hero-actions {
         gap: 0.45rem;
@@ -1694,6 +1953,97 @@
       </div>
     </div>
   </header>
+  <button
+    type="button"
+    id="feedbackLauncher"
+    class="feedback-fab"
+    aria-haspopup="dialog"
+    aria-controls="feedbackDialog"
+    aria-expanded="false"
+  >
+    <span class="feedback-fab-emoji" aria-hidden="true">💡</span>
+    <span class="feedback-fab-label">Share an idea</span>
+  </button>
+
+  <div
+    id="feedbackDialog"
+    class="feedback-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="feedbackTitle"
+    hidden
+  >
+    <div class="feedback-card" role="document">
+      <button type="button" id="feedbackCloseButton" class="feedback-close" aria-label="Close feedback form">×</button>
+      <div class="feedback-header">
+        <h2 id="feedbackTitle">Help us shine brighter ✨</h2>
+        <p class="feedback-subtitle">Spotted a bug or dreaming up an improvement? Tell us what would make the app feel even smoother.</p>
+      </div>
+      <form id="feedbackForm" class="feedback-form" novalidate>
+        <fieldset>
+          <legend>I'm sharing</legend>
+          <div class="feedback-type-options">
+            <label class="feedback-chip" data-selected="false">
+              <input type="radio" name="feedbackType" value="improvement" required>
+              <span class="feedback-chip-label">Improvement 🌟</span>
+            </label>
+            <label class="feedback-chip" data-selected="false">
+              <input type="radio" name="feedbackType" value="bug" required>
+              <span class="feedback-chip-label">Bug 🐞</span>
+            </label>
+            <label class="feedback-chip" data-selected="false">
+              <input type="radio" name="feedbackType" value="other" required>
+              <span class="feedback-chip-label">Other idea 💬</span>
+            </label>
+          </div>
+        </fieldset>
+        <label>
+          <span>Catchy headline</span>
+          <input
+            id="feedbackSummary"
+            name="summary"
+            type="text"
+            maxlength="120"
+            placeholder="e.g., Faster search results for catalog items"
+            required
+          >
+        </label>
+        <label>
+          <span>What's happening?</span>
+          <textarea
+            id="feedbackDetails"
+            name="details"
+            placeholder="Share steps, screens, or context so we can experience it too."
+            required
+          ></textarea>
+        </label>
+        <label>
+          <span>What would make it awesome?</span>
+          <textarea
+            id="feedbackWish"
+            name="wish"
+            placeholder="Describe the ideal outcome or specific improvements you'd love to see."
+            required
+          ></textarea>
+        </label>
+        <label>
+          <span>Your name (optional)</span>
+          <input
+            id="feedbackName"
+            name="name"
+            type="text"
+            autocomplete="name"
+            placeholder="We'll sign the thank-you note!"
+          >
+        </label>
+        <div id="feedbackStatus" class="feedback-status" role="status" aria-live="polite" hidden></div>
+        <div class="feedback-actions">
+          <button type="button" id="feedbackCancelButton" class="secondary">Not now</button>
+          <button type="submit" id="feedbackSubmitButton">Send to the crew 🚀</button>
+        </div>
+      </form>
+    </div>
+  </div>
   <div class="page-shell">
     <nav class="tab-nav" aria-label="Request types">
       <button type="button" data-tab-trigger="supplies" class="active">Supplies</button>
@@ -2145,6 +2495,21 @@
             total: document.querySelector('[data-dashboard-total="all"]'),
             outstanding: document.querySelector('[data-dashboard-outstanding="all"]')
           }
+        },
+        feedback: {
+          launcher: document.getElementById('feedbackLauncher'),
+          dialog: document.getElementById('feedbackDialog'),
+          form: document.getElementById('feedbackForm'),
+          close: document.getElementById('feedbackCloseButton'),
+          cancel: document.getElementById('feedbackCancelButton'),
+          submit: document.getElementById('feedbackSubmitButton'),
+          status: document.getElementById('feedbackStatus'),
+          summary: document.getElementById('feedbackSummary'),
+          details: document.getElementById('feedbackDetails'),
+          wish: document.getElementById('feedbackWish'),
+          name: document.getElementById('feedbackName'),
+          chips: Array.from(document.querySelectorAll('.feedback-chip')),
+          typeInputs: Array.from(document.querySelectorAll('input[name="feedbackType"]'))
         }
       };
 
@@ -2152,11 +2517,14 @@
       const canManageStatuses = Boolean(SESSION && SESSION.canManageStatuses);
       const requiresRequesterName = !initialSessionEmail;
       const statusAuth = SESSION && SESSION.statusAuth ? SESSION.statusAuth : null;
+      const sessionFriendlyName = deriveFriendlyNameFromEmail(initialSessionEmail);
+      const feedbackState = { open: false, submitting: false, closeTimer: null };
 
       renderStatusAuthNotice(statusAuth);
       configureRequesterNameRequirement();
       attachNavHandlers();
       attachFormHandlers();
+      attachFeedbackHandlers();
       ensureDeviceId();
       REQUEST_KEYS.forEach(type => {
         hydrateFormFromCache(type);
@@ -2749,6 +3117,330 @@ function renderApproverUnavailable(auth) {
             loadRequests('maintenance', { append: true });
           }
         });
+      }
+
+      function attachFeedbackHandlers() {
+        const feedback = dom.feedback;
+        if (!feedback || !feedback.launcher || !feedback.dialog || !feedback.form) {
+          return;
+        }
+        if (feedback.submit && !feedback.submit.dataset.defaultLabel) {
+          feedback.submit.dataset.defaultLabel = feedback.submit.textContent || 'Send';
+        }
+        feedback.launcher.addEventListener('click', () => {
+          if (feedbackState.submitting) {
+            return;
+          }
+          openFeedbackDialog();
+        });
+        if (feedback.close) {
+          feedback.close.addEventListener('click', () => {
+            closeFeedbackDialog({ restoreFocus: true });
+          });
+        }
+        if (feedback.cancel) {
+          feedback.cancel.addEventListener('click', () => {
+            closeFeedbackDialog({ restoreFocus: true });
+          });
+        }
+        feedback.dialog.addEventListener('click', evt => {
+          if (feedbackState.submitting) {
+            return;
+          }
+          if (evt.target === feedback.dialog) {
+            closeFeedbackDialog({ restoreFocus: true });
+          }
+        });
+        if (feedback.name) {
+          feedback.name.addEventListener('input', () => {
+            const text = sanitizeFeedbackText(feedback.name.value);
+            if (requiresRequesterName && text && text !== state.requesterName) {
+              setRequesterName(text, { sourceType: 'feedback' });
+            }
+          });
+        }
+        feedback.form.addEventListener('submit', handleFeedbackSubmit);
+        const typeInputs = feedback.typeInputs || [];
+        typeInputs.forEach(input => {
+          const chip = input.closest('.feedback-chip');
+          updateFeedbackChipState(chip, Boolean(input.checked));
+          input.addEventListener('change', () => {
+            typeInputs.forEach(other => {
+              const otherChip = other.closest('.feedback-chip');
+              updateFeedbackChipState(otherChip, Boolean(other.checked));
+            });
+          });
+          input.addEventListener('focus', () => {
+            const owner = input.closest('.feedback-chip');
+            if (owner) {
+              owner.dataset.focused = 'true';
+            }
+          });
+          input.addEventListener('blur', () => {
+            const owner = input.closest('.feedback-chip');
+            if (owner) {
+              delete owner.dataset.focused;
+            }
+          });
+        });
+        document.addEventListener('keydown', handleFeedbackKeydown);
+      }
+
+      function openFeedbackDialog() {
+        const feedback = dom.feedback;
+        if (!feedback || !feedback.dialog) {
+          return;
+        }
+        if (feedbackState.closeTimer) {
+          window.clearTimeout(feedbackState.closeTimer);
+          feedbackState.closeTimer = null;
+        }
+        feedbackState.open = true;
+        feedback.dialog.hidden = false;
+        if (feedback.launcher) {
+          feedback.launcher.setAttribute('aria-expanded', 'true');
+        }
+        clearFeedbackStatus();
+        prefillFeedbackName();
+        window.requestAnimationFrame(() => {
+          if (feedback.summary) {
+            feedback.summary.focus();
+          }
+        });
+      }
+
+      function closeFeedbackDialog(options) {
+        const feedback = dom.feedback;
+        if (!feedback || !feedback.dialog) {
+          return;
+        }
+        if (feedbackState.closeTimer) {
+          window.clearTimeout(feedbackState.closeTimer);
+          feedbackState.closeTimer = null;
+        }
+        feedbackState.open = false;
+        feedback.dialog.hidden = true;
+        if (feedback.launcher) {
+          feedback.launcher.setAttribute('aria-expanded', 'false');
+        }
+        if (options && options.restoreFocus && feedback.launcher) {
+          feedback.launcher.focus();
+        }
+        if (options && options.reset) {
+          resetFeedbackForm();
+        }
+        clearFeedbackStatus();
+      }
+
+      function handleFeedbackKeydown(evt) {
+        if (!feedbackState.open || feedbackState.submitting || evt.defaultPrevented) {
+          return;
+        }
+        if (evt.key === 'Escape') {
+          evt.preventDefault();
+          closeFeedbackDialog({ restoreFocus: true });
+        }
+      }
+
+      function handleFeedbackSubmit(evt) {
+        evt.preventDefault();
+        const feedback = dom.feedback;
+        if (!feedback || !feedback.form || feedbackState.submitting) {
+          return;
+        }
+        if (!feedback.form.checkValidity()) {
+          feedback.form.reportValidity();
+          return;
+        }
+        clearFeedbackStatus();
+        setFeedbackSubmitting(true);
+        const selectedType = getSelectedFeedbackType();
+        const payload = {
+          cid: makeCid(),
+          clientRequestId: makeClientRequestId('feedback'),
+          feedback: {
+            type: selectedType,
+            summary: sanitizeFeedbackText(feedback.summary && feedback.summary.value),
+            details: sanitizeFeedbackText(feedback.details && feedback.details.value),
+            wish: sanitizeFeedbackText(feedback.wish && feedback.wish.value),
+            name: sanitizeFeedbackText(feedback.name && feedback.name.value),
+            fromEmail: initialSessionEmail
+          }
+        };
+        const onSuccess = () => {
+          setFeedbackSubmitting(false);
+          setFeedbackStatus('Love it! We\'ll make sure the team sees this insight.', 'success');
+          resetFeedbackForm({ preserveStatus: true });
+          feedbackState.closeTimer = window.setTimeout(() => {
+            closeFeedbackDialog({ restoreFocus: true, reset: true });
+          }, 2400);
+          showToast('Thanks! Your idea is on its way ✉️');
+        };
+        const onError = err => {
+          setFeedbackSubmitting(false);
+          const message = resolveErrorMessage(err);
+          setFeedbackStatus(message, 'error');
+        };
+        if (!server) {
+          window.setTimeout(onSuccess, 300);
+          return;
+        }
+        server
+          .withSuccessHandler(response => {
+            if (!response || !response.ok) {
+              onError(response);
+              return;
+            }
+            onSuccess();
+          })
+          .withFailureHandler(onError)
+          .submitAppFeedback(payload);
+      }
+
+      function setFeedbackSubmitting(submitting) {
+        const feedback = dom.feedback;
+        feedbackState.submitting = Boolean(submitting);
+        if (!feedback) {
+          return;
+        }
+        const typeInputs = feedback.typeInputs || [];
+        typeInputs.forEach(input => {
+          input.disabled = feedbackState.submitting;
+        });
+        ['summary', 'details', 'wish', 'name'].forEach(key => {
+          const field = feedback[key];
+          if (field) {
+            field.disabled = feedbackState.submitting;
+          }
+        });
+        if (feedback.submit) {
+          const defaultLabel = feedback.submit.dataset.defaultLabel || 'Send';
+          feedback.submit.disabled = feedbackState.submitting;
+          feedback.submit.textContent = feedbackState.submitting ? 'Sending…' : defaultLabel;
+        }
+        if (feedback.cancel) {
+          feedback.cancel.disabled = feedbackState.submitting;
+        }
+        if (feedback.close) {
+          feedback.close.disabled = feedbackState.submitting;
+        }
+      }
+
+      function setFeedbackStatus(message, state) {
+        const feedback = dom.feedback;
+        if (!feedback || !feedback.status) {
+          return;
+        }
+        if (!message) {
+          clearFeedbackStatus();
+          return;
+        }
+        feedback.status.hidden = false;
+        feedback.status.dataset.state = state === 'error' ? 'error' : 'success';
+        feedback.status.textContent = message;
+      }
+
+      function clearFeedbackStatus() {
+        const feedback = dom.feedback;
+        if (!feedback || !feedback.status) {
+          return;
+        }
+        feedback.status.hidden = true;
+        feedback.status.textContent = '';
+        delete feedback.status.dataset.state;
+      }
+
+      function resetFeedbackForm(options) {
+        const feedback = dom.feedback;
+        if (!feedback || !feedback.form) {
+          return;
+        }
+        feedback.form.reset();
+        const typeInputs = feedback.typeInputs || [];
+        typeInputs.forEach(input => {
+          const chip = input.closest('.feedback-chip');
+          updateFeedbackChipState(chip, Boolean(input.checked));
+        });
+        if (!options || !options.preserveStatus) {
+          clearFeedbackStatus();
+        }
+      }
+
+      function updateFeedbackChipState(chip, selected) {
+        if (!chip) {
+          return;
+        }
+        chip.dataset.selected = selected ? 'true' : 'false';
+      }
+
+      function getSelectedFeedbackType() {
+        const feedback = dom.feedback;
+        if (!feedback) {
+          return '';
+        }
+        const match = (feedback.typeInputs || []).find(input => input.checked);
+        return match ? sanitizeFeedbackText(match.value) : '';
+      }
+
+      function sanitizeFeedbackText(value) {
+        return typeof value === 'string' ? value.trim() : '';
+      }
+
+      function prefillFeedbackName() {
+        const feedback = dom.feedback;
+        if (!feedback || !feedback.name) {
+          return;
+        }
+        const existing = sanitizeFeedbackText(feedback.name.value);
+        if (existing) {
+          return;
+        }
+        if (sanitizeFeedbackText(state.requesterName)) {
+          updateFeedbackName(state.requesterName);
+          return;
+        }
+        if (sessionFriendlyName) {
+          updateFeedbackName(sessionFriendlyName, { force: true });
+        }
+      }
+
+      function updateFeedbackName(value, options) {
+        const feedback = dom.feedback;
+        if (!feedback || !feedback.name) {
+          return;
+        }
+        const input = feedback.name;
+        const text = sanitizeFeedbackText(value);
+        const shouldForce = Boolean(options && options.force);
+        const overrideActive = Boolean(options && options.overrideActive);
+        const isActive = document.activeElement === input;
+        if (!shouldForce) {
+          const existing = sanitizeFeedbackText(input.value);
+          if (existing && (!text || existing === text)) {
+            return;
+          }
+          if (!overrideActive && isActive) {
+            return;
+          }
+        }
+        input.value = text;
+      }
+
+      function deriveFriendlyNameFromEmail(email) {
+        const safeEmail = sanitizeFeedbackText(email);
+        if (!safeEmail) {
+          return '';
+        }
+        const local = safeEmail.split('@')[0] || '';
+        if (!local) {
+          return '';
+        }
+        const words = local
+          .replace(/[._-]+/g, ' ')
+          .split(' ')
+          .filter(Boolean)
+          .map(segment => segment.charAt(0).toUpperCase() + segment.slice(1));
+        return words.join(' ');
       }
 
       function setActiveTab(type) {
@@ -3830,6 +4522,7 @@ function renderApproverUnavailable(auth) {
             persistForm(type);
           }
         });
+        updateFeedbackName(text);
       }
 
       function initializeRequesterName() {
