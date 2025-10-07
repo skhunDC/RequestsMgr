@@ -471,6 +471,7 @@ function listRequests(request) {
 function getDashboardMetrics(request) {
   return withErrorHandling_('getDashboardMetrics', request && request.cid, request, () => {
     ensureSetup_();
+    const completionTimesByType = getRequestCompletionTimesByType_();
     const metrics = {};
     let totalRequests = 0;
     let outstandingRequests = 0;
@@ -478,13 +479,33 @@ function getDashboardMetrics(request) {
       const records = getAllRequestsForType_(type);
       const total = records.length;
       const outstanding = records.reduce((count, record) => {
-        const status = String(record && record.status || '').trim().toLowerCase();
-        if (status === 'approved' || status === 'completed') {
+        const statusKey = toStatusKey_(record && record.status);
+        if (statusKey === 'approved' || statusKey === 'completed' || statusKey === 'closed') {
           return count;
         }
         return count + 1;
       }, 0);
-      metrics[type] = { total, outstanding };
+      const completionIndex = completionTimesByType[type] || {};
+      let completionMsTotal = 0;
+      let completionCount = 0;
+      records.forEach(record => {
+        const statusKey = toStatusKey_(record && record.status);
+        if (statusKey === 'denied') {
+          return;
+        }
+        const openedMs = toTimestampMs_(record && record.ts);
+        if (!openedMs) {
+          return;
+        }
+        const completionMs = completionIndex[record && record.id];
+        if (!completionMs || completionMs <= openedMs) {
+          return;
+        }
+        completionMsTotal += completionMs - openedMs;
+        completionCount++;
+      });
+      const avgCompletionMs = completionCount > 0 ? completionMsTotal / completionCount : 0;
+      metrics[type] = { total, outstanding, avgCompletionMs, completionCount };
       totalRequests += total;
       outstandingRequests += outstanding;
     });
@@ -1513,6 +1534,66 @@ function recordStatusAction_(type, requestId, status, actor) {
   withLock_(() => {
     sheet.appendRow(entry);
   });
+}
+
+function getRequestCompletionTimesByType_() {
+  const completionStatuses = { approved: true, completed: true, closed: true };
+  const sheet = getSheet_(SHEETS.STATUS_LOG, STATUS_LOG_HEADERS);
+  const rows = readTable_(sheet, STATUS_LOG_HEADERS);
+  return rows.reduce((acc, row) => {
+    const type = String(row && row.type || '').trim().toLowerCase();
+    if (!type || !REQUEST_TYPES[type]) {
+      return acc;
+    }
+    const statusKey = toStatusKey_(row && row.status);
+    if (!completionStatuses[statusKey]) {
+      return acc;
+    }
+    const requestId = String(row && row.requestId || '').trim();
+    if (!requestId) {
+      return acc;
+    }
+    const timestampMs = toTimestampMs_(row && row.ts);
+    if (!timestampMs) {
+      return acc;
+    }
+    if (!acc[type]) {
+      acc[type] = {};
+    }
+    const existing = acc[type][requestId];
+    if (!existing || timestampMs < existing) {
+      acc[type][requestId] = timestampMs;
+    }
+    return acc;
+  }, {});
+}
+
+function toTimestampMs_(value) {
+  if (value === null || value === undefined || value === '') {
+    return 0;
+  }
+  if (Object.prototype.toString.call(value) === '[object Date]') {
+    const ms = value.getTime();
+    return Number.isFinite(ms) ? ms : 0;
+  }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+    if (value > 1e11) {
+      return Math.floor(value);
+    }
+    const excelEpochMs = Date.UTC(1899, 11, 30);
+    const converted = excelEpochMs + Math.round(value * 24 * 60 * 60 * 1000);
+    return Number.isFinite(converted) ? converted : 0;
+  }
+  const text = String(value).trim();
+  if (!text) {
+    return 0;
+  }
+  const parsed = new Date(text);
+  const ms = parsed.getTime();
+  return Number.isNaN(ms) ? 0 : ms;
 }
 
 function sendNewRequestNotification_(type, record) {

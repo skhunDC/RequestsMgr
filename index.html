@@ -686,6 +686,11 @@
       color: var(--text);
     }
 
+    .dashboard-card .metric[data-state="loading"] strong,
+    .dashboard-card .metric[data-state="empty"] strong {
+      color: var(--muted);
+    }
+
     .dashboard-card .metric.highlight {
       color: var(--card-color);
     }
@@ -1937,6 +1942,10 @@
                   <strong data-dashboard-total="supplies">—</strong>
                   Logged total
                 </span>
+                <span class="metric" data-dashboard-avg-completion-wrapper="supplies">
+                  <strong data-dashboard-avg-completion="supplies">—</strong>
+                  Avg completion time
+                </span>
               </div>
             </article>
             <article class="dashboard-card" data-dashboard-card="it">
@@ -1950,6 +1959,10 @@
                   <strong data-dashboard-total="it">—</strong>
                   Logged total
                 </span>
+                <span class="metric" data-dashboard-avg-completion-wrapper="it">
+                  <strong data-dashboard-avg-completion="it">—</strong>
+                  Avg completion time
+                </span>
               </div>
             </article>
             <article class="dashboard-card" data-dashboard-card="maintenance">
@@ -1962,6 +1975,10 @@
                 <span class="metric">
                   <strong data-dashboard-total="maintenance">—</strong>
                   Logged total
+                </span>
+                <span class="metric" data-dashboard-avg-completion-wrapper="maintenance">
+                  <strong data-dashboard-avg-completion="maintenance">—</strong>
+                  Avg completion time
                 </span>
               </div>
             </article>
@@ -2017,7 +2034,10 @@
         </fieldset>
         <p class="feedback-note">Pick the option that fits best. We just need the story—no personal details required.</p>
         <label>
-          <span>Quick headline <span class="feedback-optional">(optional)</span></span>
+          <span>
+            Quick headline
+            <span class="feedback-optional">(optional)</span>
+          </span>
           <input
             id="feedbackSummary"
             name="summary"
@@ -2027,7 +2047,10 @@
           >
         </label>
         <label>
-          <span>Tell us what happened<span class="feedback-required" aria-hidden="true">*</span></span>
+          <span>
+            Tell us what happened
+            <span class="feedback-required" aria-hidden="true">*</span>
+          </span>
           <textarea
             id="feedbackDetails"
             name="details"
@@ -2036,7 +2059,10 @@
           ></textarea>
         </label>
         <label>
-          <span>How can we follow up? <span class="feedback-optional">(optional)</span></span>
+          <span>
+            How can we follow up?
+            <span class="feedback-optional">(optional)</span>
+          </span>
           <input
             id="feedbackContact"
             name="contact"
@@ -2497,7 +2523,9 @@
           metrics: REQUEST_KEYS.reduce((acc, type) => {
             acc[type] = {
               total: document.querySelector(`[data-dashboard-total="${type}"]`),
-              outstanding: document.querySelector(`[data-dashboard-outstanding="${type}"]`)
+              outstanding: document.querySelector(`[data-dashboard-outstanding="${type}"]`),
+              avgCompletion: document.querySelector(`[data-dashboard-avg-completion="${type}"]`),
+              avgCompletionWrapper: document.querySelector(`[data-dashboard-avg-completion-wrapper="${type}"]`)
             };
             return acc;
           }, {}),
@@ -2585,9 +2613,15 @@
               const entry = response.metrics && response.metrics[type] ? response.metrics[type] : null;
               const total = entry && Number(entry.total);
               const outstanding = entry && Number(entry.outstanding);
+              const avgCompletionMs = entry && Number(entry.avgCompletionMs);
+              const completionCount = entry && Number(entry.completionCount);
               metrics[type] = {
                 total: Number.isFinite(total) && total > 0 ? total : 0,
-                outstanding: Number.isFinite(outstanding) && outstanding > 0 ? outstanding : 0
+                outstanding: Number.isFinite(outstanding) && outstanding > 0 ? outstanding : 0,
+                avgCompletionMs: Number.isFinite(avgCompletionMs) && avgCompletionMs > 0 ? avgCompletionMs : 0,
+                completionCount: Number.isFinite(completionCount) && completionCount > 0
+                  ? Math.max(1, Math.round(completionCount))
+                  : 0
               };
             });
             state.dashboard.metrics = metrics;
@@ -2634,15 +2668,40 @@
         }
         REQUEST_KEYS.forEach(type => {
           const elements = dom.dashboard.metrics[type];
-          const entry = metrics[type] || { total: 0, outstanding: 0 };
+          const entry = metrics[type] || { total: 0, outstanding: 0, avgCompletionMs: 0, completionCount: 0 };
           const totalLabel = loading ? '…' : formatDashboardCount(entry.total);
           const outstandingLabel = loading ? '…' : formatDashboardCount(entry.outstanding);
+          const hasCompletionData = !loading && Number(entry.completionCount) > 0;
+          const averageLabel = loading
+            ? '…'
+            : hasCompletionData
+              ? formatDashboardDuration(entry.avgCompletionMs)
+              : '—';
           if (elements) {
             if (elements.total) {
               elements.total.textContent = totalLabel;
             }
             if (elements.outstanding) {
               elements.outstanding.textContent = outstandingLabel;
+            }
+            if (elements.avgCompletion) {
+              elements.avgCompletion.textContent = averageLabel;
+            }
+            if (elements.avgCompletionWrapper) {
+              if (loading) {
+                elements.avgCompletionWrapper.dataset.state = 'loading';
+                elements.avgCompletionWrapper.removeAttribute('title');
+              } else if (hasCompletionData) {
+                elements.avgCompletionWrapper.dataset.state = 'ready';
+                const countLabel = formatDashboardCount(entry.completionCount);
+                const basisText = Number(entry.completionCount) === 1
+                  ? 'Based on 1 completed request.'
+                  : `Based on ${countLabel} completed requests.`;
+                elements.avgCompletionWrapper.setAttribute('title', basisText);
+              } else {
+                elements.avgCompletionWrapper.dataset.state = 'empty';
+                elements.avgCompletionWrapper.setAttribute('title', 'No completed requests yet.');
+              }
             }
           }
         });
@@ -2780,9 +2839,48 @@
         return number.toLocaleString();
       }
 
+      function formatDashboardDuration(ms) {
+        const value = Number(ms);
+        if (!Number.isFinite(value) || value <= 0) {
+          return '—';
+        }
+        const minutes = value / 60000;
+        if (minutes < 1) {
+          return '<1 min';
+        }
+        if (minutes < 60) {
+          const roundedMinutes = Math.max(1, Math.round(minutes));
+          return `${roundedMinutes.toLocaleString()} min`;
+        }
+        const hours = minutes / 60;
+        if (hours < 48) {
+          return formatDashboardDurationLabel(hours, 'hr');
+        }
+        const days = hours / 24;
+        return formatDashboardDurationLabel(days, 'day');
+      }
+
+      function formatDashboardDurationLabel(value, unit) {
+        const normalized = Number(value);
+        if (!Number.isFinite(normalized) || normalized <= 0) {
+          return '—';
+        }
+        let display;
+        if (normalized >= 10) {
+          display = Math.round(normalized);
+        } else {
+          display = Math.round(normalized * 10) / 10;
+        }
+        const formatted = Number.isInteger(display)
+          ? display.toLocaleString()
+          : display.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        const plural = Math.abs(display) === 1 ? '' : 's';
+        return `${formatted} ${unit}${plural}`;
+      }
+
       function makeEmptyDashboardMetrics() {
         return REQUEST_KEYS.reduce((acc, type) => {
-          acc[type] = { total: 0, outstanding: 0 };
+          acc[type] = { total: 0, outstanding: 0, avgCompletionMs: 0, completionCount: 0 };
           return acc;
         }, {});
       }
