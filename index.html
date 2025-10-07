@@ -2456,19 +2456,30 @@ function renderApproverUnavailable(auth) {
 
       function scrollToTab(type) {
         const anchor = dom.tabAnchors && dom.tabAnchors[type];
-        if (!anchor || typeof anchor.getBoundingClientRect !== 'function') {
+        const nav = document.querySelector('.tab-nav');
+        if (
+          !anchor ||
+          !nav ||
+          typeof anchor.getBoundingClientRect !== 'function' ||
+          typeof nav.getBoundingClientRect !== 'function'
+        ) {
           return;
         }
 
-        const nav = document.querySelector('.tab-nav');
-        const navRect = nav && typeof nav.getBoundingClientRect === 'function' ? nav.getBoundingClientRect() : null;
-        const navStyles = nav && typeof window.getComputedStyle === 'function' ? window.getComputedStyle(nav) : null;
+        const navRect = nav.getBoundingClientRect();
+        const navStyles = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(nav) : null;
         const navSpacing = navStyles ? parseFloat(navStyles.marginBottom || '0') : 0;
-        const navOffset = navRect ? navRect.height + navSpacing : 0;
+        const navOffset = navRect.height + navSpacing;
         const extraSpacing = 16;
+        const navSafePadding = 12;
 
-        const anchorTop = anchor.getBoundingClientRect().top + window.pageYOffset;
-        const targetTop = Math.max(anchorTop - navOffset - extraSpacing, 0);
+        const anchorRect = anchor.getBoundingClientRect();
+        const anchorTop = anchorRect.top + window.pageYOffset;
+        const navTop = navRect.top + window.pageYOffset;
+
+        const anchorTarget = anchorTop - navOffset - extraSpacing;
+        const navTarget = navTop - navSafePadding;
+        const targetTop = Math.max(Math.min(anchorTarget, navTarget), 0);
 
         window.scrollTo({ top: targetTop, behavior: 'smooth' });
       }
