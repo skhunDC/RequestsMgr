@@ -9,12 +9,16 @@
       color-scheme: light;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       --surface: #ffffff;
-      --surface-alt: #f5f6f8;
-      --border: #d7dce1;
-      --text: #202731;
+      --surface-alt: #f6f7fb;
+      --surface-elevated: rgba(255, 255, 255, 0.85);
+      --border: #d6dde7;
+      --border-strong: #b7c2d3;
+      --text: #1f2733;
       --muted: #5c6774;
       --accent: #0b57d0;
       --accent-strong: #0a47ac;
+      --accent-soft: rgba(11, 87, 208, 0.12);
+      --hero-kicker: rgba(11, 87, 208, 0.14);
       --supplies-color: #0b57d0;
       --supplies-color-strong: #0a47ac;
       --supplies-soft: rgba(11, 87, 208, 0.12);
@@ -29,7 +33,10 @@
       --maintenance-outline: rgba(242, 153, 0, 0.3);
       --success: #0f9d58;
       --danger: #d93025;
-      --dashboard-pie-size: 100px;
+      --page-gradient-start: #f3f6ff;
+      --page-gradient-end: #ffffff;
+      --shadow-soft: 0 24px 60px -40px rgba(20, 36, 63, 0.65);
+      --dashboard-pie-size: 120px;
     }
 
     * {
@@ -38,7 +45,8 @@
 
     body {
       margin: 0;
-      background: var(--surface-alt);
+      min-height: 100vh;
+      background: linear-gradient(180deg, var(--page-gradient-start) 0%, var(--page-gradient-end) 45%);
       color: var(--text);
       font-size: clamp(16px, 4.6vw, 19px);
       line-height: 1.6;
@@ -46,50 +54,153 @@
     }
 
     header {
-      padding: clamp(0.85rem, 5vw, 1.25rem) clamp(0.9rem, 5vw, 1.65rem) clamp(0.55rem, 3vw, 0.9rem);
-      display: flex;
-      flex-direction: column;
-      gap: clamp(0.75rem, 3vw, 1.1rem);
-      align-items: stretch;
+      position: relative;
+      padding: clamp(1.75rem, 5vw, 2.75rem) 0 clamp(2.4rem, 7vw, 3.5rem);
+      overflow: hidden;
+    }
+
+    header::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(120% 140% at 0% 0%, rgba(11, 87, 208, 0.12), transparent 60%),
+        radial-gradient(100% 120% at 100% 0%, rgba(15, 157, 88, 0.12), transparent 60%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.65) 100%);
+      pointer-events: none;
     }
 
     header .hero-inner {
-      width: min(100%, 1080px);
+      position: relative;
+      z-index: 1;
+      width: min(100%, 1100px);
       margin: 0 auto;
+      padding: 0 clamp(1.1rem, 5vw, 2.2rem);
+      display: grid;
+      gap: clamp(2rem, 6vw, 3rem);
+      align-items: center;
+    }
+
+    .hero-copy {
+      display: grid;
+      gap: clamp(1rem, 3vw, 1.6rem);
+      align-content: start;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      background: var(--hero-kicker);
+      color: var(--accent-strong);
+      font-size: clamp(0.78rem, 2.8vw, 0.9rem);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: clamp(2.05rem, 6vw, 2.9rem);
+      font-weight: 700;
+      line-height: 1.1;
+      color: var(--text);
+    }
+
+    .hero-description {
+      margin: 0;
+      font-size: clamp(1.05rem, 3.6vw, 1.25rem);
+      color: var(--muted);
+      max-width: 38ch;
+    }
+
+    .hero-actions {
       display: flex;
-      flex-direction: column;
-      gap: clamp(0.75rem, 3vw, 1.15rem);
-      align-items: stretch;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .hero-actions button {
+      font-size: clamp(0.95rem, 3.4vw, 1.1rem);
+      padding-inline: clamp(1.1rem, 4vw, 1.6rem);
+      box-shadow: 0 18px 45px -30px rgba(11, 87, 208, 0.65);
+    }
+
+    .hero-actions .secondary {
+      --button-bg: rgba(255, 255, 255, 0.75);
+      --button-hover-bg: rgba(255, 255, 255, 0.9);
+      --button-fg: var(--accent);
+      border: 1px solid rgba(11, 87, 208, 0.2);
+      box-shadow: none;
+      backdrop-filter: blur(4px);
+    }
+
+    .hero-actions button.active {
+      box-shadow: 0 22px 55px -30px rgba(11, 87, 208, 0.7);
+    }
+
+    .hero-actions .secondary.active {
+      background: rgba(11, 87, 208, 0.08);
+      border-color: rgba(11, 87, 208, 0.28);
+      color: var(--accent-strong);
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .hero-stat {
+      padding: 0.9rem 1.1rem;
+      border-radius: 16px;
+      background: var(--surface-elevated);
+      border: 1px solid rgba(14, 31, 53, 0.08);
+      box-shadow: var(--shadow-soft);
+      display: grid;
+      gap: 0.35rem;
+      align-content: start;
+    }
+
+    .hero-stat strong {
+      font-size: clamp(1.45rem, 4.2vw, 1.95rem);
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .hero-stat span {
+      color: var(--muted);
+      font-size: clamp(0.85rem, 3vw, 0.98rem);
     }
 
     .hero-dashboard-shell {
       width: 100%;
-      margin: 0 auto;
       display: grid;
-      grid-template-columns: 1fr;
-      align-items: center;
+      gap: clamp(1.1rem, 3.2vw, 1.8rem);
+      align-items: start;
       justify-items: center;
-      gap: clamp(0.75rem, 3vw, 1.5rem);
     }
 
     .hero-dashboard-logo {
-      width: clamp(150px, 32vw, 210px);
+      width: clamp(150px, 28vw, 210px);
       max-width: 100%;
       height: auto;
+      filter: drop-shadow(0 18px 30px rgba(15, 33, 66, 0.18));
     }
 
     .hero-dashboard {
-      background: var(--surface);
-      border-radius: 14px;
+      width: min(100%, 540px);
+      margin: 0;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.8));
+      border-radius: 22px;
       border: 1px solid rgba(14, 31, 53, 0.08);
-      padding: clamp(0.75rem, 2.8vw, 1rem);
-      box-shadow: 0 10px 20px -18px rgba(13, 34, 78, 0.25);
+      box-shadow: 0 28px 60px -32px rgba(12, 26, 52, 0.55);
+      padding: clamp(1.15rem, 3.5vw, 1.8rem);
       display: grid;
-      gap: clamp(0.65rem, 2.8vw, 0.9rem);
-      width: min(100%, 720px);
-      margin: 0 auto;
-      background-image: radial-gradient(circle at top left, rgba(11, 87, 208, 0.06), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(15, 157, 88, 0.06), transparent 60%);
+      gap: clamp(0.75rem, 2.6vw, 1.2rem);
+      backdrop-filter: blur(6px);
     }
 
     .hero-dashboard .dashboard-header {
@@ -116,31 +227,10 @@
       font-size: clamp(0.82rem, 2.6vw, 0.95rem);
     }
 
-    .dashboard-summary {
-      display: grid;
-      gap: clamp(0.3rem, 2vw, 0.6rem);
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      font-size: clamp(0.82rem, 2.4vw, 0.92rem);
-    }
-
-    .dashboard-summary span {
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
+    .dashboard-subcopy {
+      margin: 0;
+      font-size: clamp(0.85rem, 3vw, 0.98rem);
       color: var(--muted);
-      background: var(--surface-alt);
-      border-radius: 10px;
-      border: 1px solid rgba(14, 31, 53, 0.05);
-      padding: 0.5rem 0.65rem;
-    }
-
-    .dashboard-summary span strong {
-      font-size: clamp(1.2rem, 4vw, 1.45rem);
-      color: var(--text);
-    }
-
-    .dashboard-summary span.highlight strong {
-      color: var(--accent);
     }
 
     .dashboard-top {
@@ -243,14 +333,27 @@
       font-size: clamp(0.9rem, 3.2vw, 1rem);
     }
 
+    .page-shell {
+      width: min(100%, 1100px);
+      margin: 0 auto;
+      padding: 0 clamp(1.1rem, 5vw, 2.2rem) clamp(3rem, 7vw, 4rem);
+      display: grid;
+      gap: clamp(1.75rem, 5vw, 2.75rem);
+    }
+
     nav.tab-nav {
-      display: flex;
+      display: inline-flex;
+      align-items: center;
       gap: 0.35rem;
-      padding: 0 clamp(0.75rem, 6vw, 1.35rem) clamp(0.75rem, 4vw, 1rem);
+      padding: 0.4rem;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid rgba(14, 31, 53, 0.1);
+      box-shadow: 0 24px 45px -32px rgba(20, 36, 63, 0.45);
       overflow-x: auto;
       scrollbar-width: none;
-      width: min(100%, 1080px);
-      margin: 0 auto;
+      justify-self: center;
+      max-width: 100%;
     }
 
     nav.tab-nav::-webkit-scrollbar {
@@ -258,9 +361,9 @@
     }
 
     main {
-      padding: 0 clamp(0.75rem, 6vw, 2rem) 2.5rem;
-      width: min(100%, 720px);
-      margin: 0 auto;
+      width: 100%;
+      margin: 0;
+      padding-bottom: clamp(1.5rem, 5vw, 2.5rem);
     }
 
     .tab-panel {
@@ -274,8 +377,8 @@
     }
 
     .notice {
-      width: min(100%, 720px);
-      margin: 0 auto clamp(0.75rem, 4vw, 1.2rem);
+      width: 100%;
+      margin: 0;
       padding: clamp(0.85rem, 4vw, 1.2rem);
       border-radius: 12px;
       border: 1px solid var(--border);
@@ -296,36 +399,28 @@
       }
     }
 
-    @media (min-width: 900px) {
+    @media (min-width: 880px) {
+      header .hero-inner {
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+        align-items: stretch;
+      }
+
       .hero-dashboard-shell {
-        grid-template-columns: 1fr auto 1fr;
-        gap: clamp(1rem, 3vw, 2.5rem);
+        justify-items: end;
       }
 
-      .hero-dashboard-shell .hero-dashboard {
-        grid-column: 2;
-        justify-self: center;
-      }
-
-      .hero-dashboard-logo {
-        grid-column: 1;
-        justify-self: end;
+      .hero-dashboard {
+        width: min(100%, 520px);
       }
     }
 
-    @media (min-width: 1024px) {
-      .hero-dashboard {
-        width: clamp(420px, 52vw, 760px);
-      }
-
-      nav.tab-nav,
-      main,
-      .notice {
-        width: min(100%, 960px);
+    @media (min-width: 1080px) {
+      .page-shell {
+        padding: 0 clamp(1.6rem, 4vw, 3rem) clamp(3.75rem, 6vw, 4.75rem);
       }
 
       section.card {
-        padding: clamp(1.25rem, 3vw, 2rem);
+        padding: clamp(1.4rem, 3vw, 2.1rem);
       }
     }
 
@@ -398,9 +493,10 @@
 
     section.card {
       background: var(--surface);
-      border-radius: 16px;
-      padding: clamp(1.1rem, 5.8vw, 1.65rem);
-      box-shadow: 0 12px 24px -18px rgba(23, 32, 42, 0.3);
+      border-radius: 20px;
+      padding: clamp(1.25rem, 5vw, 1.9rem);
+      box-shadow: 0 28px 60px -45px rgba(15, 33, 66, 0.5);
+      border: 1px solid rgba(14, 31, 53, 0.08);
       display: flex;
       flex-direction: column;
       gap: 0;
@@ -586,15 +682,15 @@
       --tab-color: var(--accent);
       --tab-color-strong: var(--accent-strong);
       --tab-soft: rgba(11, 87, 208, 0.12);
-      --tab-border: rgba(11, 87, 208, 0.32);
-      --button-bg: var(--surface);
+      --tab-border: rgba(11, 87, 208, 0.18);
+      --button-bg: transparent;
       --button-hover-bg: var(--tab-soft);
-      --button-fg: var(--tab-color);
+      --button-fg: var(--muted);
       flex: 1 1 0;
       min-width: 0;
       padding: 0.65rem 1rem;
       border-radius: 999px;
-      border: 1px solid var(--tab-border);
+      border: 1px solid transparent;
       background: var(--button-bg);
       color: var(--button-fg);
       font-weight: 600;
@@ -605,6 +701,7 @@
 
     .tab-nav button:not(.active):hover {
       background: var(--tab-soft);
+      border-color: var(--tab-border);
     }
 
     .tab-nav button.active {
@@ -613,7 +710,7 @@
       --button-fg: #fff;
       border-color: var(--tab-color);
       color: var(--button-fg);
-      box-shadow: 0 10px 20px -14px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 16px 35px -24px rgba(11, 36, 82, 0.6);
     }
 
     .tab-nav button:focus-visible {
@@ -1149,15 +1246,26 @@
 
     @media (max-width: 520px) {
       header {
-        padding: clamp(1.35rem, 6vw, 1.75rem) clamp(1.1rem, 7vw, 1.65rem) clamp(0.85rem, 5vw, 1.35rem);
+        padding: clamp(1.45rem, 7vw, 2rem) 0 clamp(2rem, 9vw, 2.6rem);
+      }
+
+      header .hero-inner {
+        padding: 0 clamp(1rem, 6vw, 1.4rem);
+      }
+
+      .page-shell {
+        padding: 0 clamp(1rem, 6vw, 1.4rem) clamp(3rem, 9vw, 3.6rem);
+        gap: clamp(1.35rem, 6vw, 2rem);
       }
 
       nav.tab-nav {
+        width: 100%;
+        justify-self: stretch;
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 0.35rem;
-        padding: 0 clamp(0.75rem, 6vw, 1rem) clamp(0.75rem, 4vw, 0.9rem);
-        overflow: visible;
+        padding: 0.35rem;
+        box-shadow: none;
       }
 
       .tab-nav button {
@@ -1166,13 +1274,7 @@
       }
 
       main {
-        padding: 0 clamp(0.85rem, 6vw, 1.15rem) 2.15rem;
-        width: min(100%, 640px);
-      }
-
-      section.card {
-        border-radius: 20px;
-        padding: clamp(1.15rem, 6.5vw, 1.75rem);
+        padding-bottom: clamp(2rem, 8vw, 2.85rem);
       }
 
       .catalog-clear {
@@ -1294,33 +1396,16 @@
     }
 
     @media (min-width: 720px) {
-      main {
-        width: min(100%, 900px);
-      }
-
       header {
-        padding-bottom: clamp(1.1rem, 3vw, 1.8rem);
+        padding-bottom: clamp(2.2rem, 6vw, 3.25rem);
       }
 
-      header .hero-inner {
-        align-items: stretch;
-        justify-content: center;
-      }
-
-      .hero-dashboard {
-        width: clamp(420px, 62vw, 760px);
-      }
-
-      .dashboard-summary {
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      .page-shell {
+        gap: clamp(1.75rem, 4vw, 2.5rem);
       }
     }
 
     @media (min-width: 1200px) {
-      main {
-        width: min(100%, 1080px);
-      }
-
       .tab-panel.active {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -1345,6 +1430,28 @@
 <body>
   <header>
     <div class="hero-inner">
+      <div class="hero-copy">
+        <span class="hero-eyebrow">Operations hub</span>
+        <h1 class="hero-title">Manage every request from one streamlined workspace</h1>
+        <p class="hero-description">
+          Submit supplies, IT, and maintenance needs in seconds. Track approvals and follow-ups without bouncing between
+          sheets or inboxes.
+        </p>
+        <div class="hero-actions">
+          <button type="button" data-tab-trigger="supplies" class="active">Start a supplies request</button>
+          <button type="button" data-tab-trigger="maintenance" class="secondary">Log a maintenance issue</button>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <strong data-dashboard-outstanding="all">—</strong>
+            <span>Awaiting action</span>
+          </div>
+          <div class="hero-stat">
+            <strong data-dashboard-total="all">—</strong>
+            <span>Total requests logged</span>
+          </div>
+        </div>
+      </div>
       <div class="hero-dashboard-shell">
         <img
           class="hero-dashboard-logo"
@@ -1360,80 +1467,72 @@
           aria-label="Request activity dashboard"
           aria-live="polite"
         >
-        <div class="dashboard-top">
-          <div class="dashboard-header">
-            <div class="dashboard-header-top">
-              <h1 class="dashboard-title">Request overview</h1>
-              <p class="meta" id="dashboardUpdatedAt">Awaiting data…</p>
+          <div class="dashboard-top">
+            <div class="dashboard-header">
+              <div class="dashboard-header-top">
+                <h2 class="dashboard-title">Live request health</h2>
+                <p class="meta" id="dashboardUpdatedAt">Awaiting data…</p>
+              </div>
+              <p class="dashboard-subcopy">Monitor throughput across every team and quickly spot bottlenecks.</p>
             </div>
-            <div class="dashboard-summary">
-              <span class="highlight">
-                <strong data-dashboard-outstanding="all">—</strong>
-                awaiting approval/completion
-              </span>
-              <span>
-                <strong data-dashboard-total="all">—</strong>
-                total requests
-              </span>
+            <div class="dashboard-visual">
+              <canvas id="dashboardPie" width="260" height="260" role="img" aria-label="Outstanding requests by type"></canvas>
             </div>
           </div>
-          <div class="dashboard-visual">
-            <canvas id="dashboardPie" width="260" height="260" role="img" aria-label="Outstanding requests by type"></canvas>
+          <div class="dashboard-grid">
+            <article class="dashboard-card" data-dashboard-card="supplies">
+              <h3>Supplies</h3>
+              <div class="metric-group">
+                <span class="metric highlight">
+                  <strong data-dashboard-outstanding="supplies">—</strong>
+                  Awaiting approval/completion
+                </span>
+                <span class="metric">
+                  <strong data-dashboard-total="supplies">—</strong>
+                  Total requests
+                </span>
+              </div>
+            </article>
+            <article class="dashboard-card" data-dashboard-card="it">
+              <h3>IT</h3>
+              <div class="metric-group">
+                <span class="metric highlight">
+                  <strong data-dashboard-outstanding="it">—</strong>
+                  Awaiting approval/completion
+                </span>
+                <span class="metric">
+                  <strong data-dashboard-total="it">—</strong>
+                  Total requests
+                </span>
+              </div>
+            </article>
+            <article class="dashboard-card" data-dashboard-card="maintenance">
+              <h3>Maintenance</h3>
+              <div class="metric-group">
+                <span class="metric highlight">
+                  <strong data-dashboard-outstanding="maintenance">—</strong>
+                  Awaiting approval/completion
+                </span>
+                <span class="metric">
+                  <strong data-dashboard-total="maintenance">—</strong>
+                  Total requests
+                </span>
+              </div>
+            </article>
           </div>
-        </div>
-        <div class="dashboard-grid">
-          <article class="dashboard-card" data-dashboard-card="supplies">
-            <h3>Supplies</h3>
-            <div class="metric-group">
-              <span class="metric highlight">
-                <strong data-dashboard-outstanding="supplies">—</strong>
-                Awaiting approval/completion
-              </span>
-              <span class="metric">
-                <strong data-dashboard-total="supplies">—</strong>
-                Total requests
-              </span>
-            </div>
-          </article>
-          <article class="dashboard-card" data-dashboard-card="it">
-            <h3>IT</h3>
-            <div class="metric-group">
-              <span class="metric highlight">
-                <strong data-dashboard-outstanding="it">—</strong>
-                Awaiting approval/completion
-              </span>
-              <span class="metric">
-                <strong data-dashboard-total="it">—</strong>
-                Total requests
-              </span>
-            </div>
-          </article>
-          <article class="dashboard-card" data-dashboard-card="maintenance">
-            <h3>Maintenance</h3>
-            <div class="metric-group">
-              <span class="metric highlight">
-                <strong data-dashboard-outstanding="maintenance">—</strong>
-                Awaiting approval/completion
-              </span>
-              <span class="metric">
-                <strong data-dashboard-total="maintenance">—</strong>
-                Total requests
-              </span>
-            </div>
-          </article>
-        </div>
-        <p class="dashboard-empty" id="dashboardEmptyMessage" hidden>No requests yet.</p>
-      </section>
+          <p class="dashboard-empty" id="dashboardEmptyMessage" hidden>No requests yet.</p>
+        </section>
       </div>
     </div>
   </header>
-  <nav class="tab-nav" aria-label="Request types">
-    <button type="button" data-tab-trigger="supplies" class="active">Supplies</button>
-    <button type="button" data-tab-trigger="it">IT</button>
-    <button type="button" data-tab-trigger="maintenance">Maintenance</button>
-  </nav>
-  <div id="statusAuthNotice" class="notice" hidden></div>
-  <main>
+  <div class="page-shell">
+    <nav class="tab-nav" aria-label="Request types">
+      <button type="button" data-tab-trigger="supplies" class="active">Supplies</button>
+      <button type="button" data-tab-trigger="it">IT</button>
+      <button type="button" data-tab-trigger="maintenance">Maintenance</button>
+    </nav>
+    <div id="statusAuthNotice" class="notice" hidden></div>
+    <main>
     <div class="tab-panel active" data-tab-panel="supplies">
       <section class="card" id="suppliesFormCard">
         <div class="card-header">
@@ -1705,6 +1804,7 @@
       </section>
     </div>
   </main>
+  </div>
   <div id="toast" role="status" aria-live="polite"></div>
 
   <script>
