@@ -2427,6 +2427,9 @@
         it: 'No IT tickets are in the queue right now.',
         maintenance: 'No maintenance work orders are pending right now.'
       };
+      const EMAIL_DISPLAY_OVERRIDES = Object.freeze({
+        'skhun@dublincleaners.com': 'Sea Khun'
+      });
 
       const state = {
         activeTab: 'supplies',
@@ -3124,9 +3127,10 @@
       }
 
 function renderApproverUnavailable(auth) {
+        const accountLabel = formatActorName(auth && auth.email) || 'This account';
         const messageText = auth && auth.reason === 'missing_email'
           ? 'We could not confirm your Google Account email. To Approve a Request, Sign in with an authorized account.'
-          : `${auth && auth.email ? auth.email : 'This account'} is not on the approver allowlist.`;
+          : `${accountLabel} is not on the approver allowlist.`;
         const hintText = 'An administrator can add approver emails.';
         REQUEST_KEYS.forEach(type => {
           const container = dom[type] && dom[type].approverNotice;
@@ -3984,7 +3988,8 @@ function renderApproverUnavailable(auth) {
 
           const submittedLine = document.createElement('span');
           submittedLine.className = 'detail-line';
-          submittedLine.textContent = `Submitted by: ${request.requester || 'Unknown requester'}`;
+          const requesterLabel = formatActorName(request.requester) || 'Unknown requester';
+          submittedLine.textContent = `Submitted by: ${requesterLabel}`;
           info.appendChild(submittedLine);
 
           const statusLineText = buildStatusActorLine(type, stateKey, request.approver);
@@ -4291,8 +4296,11 @@ function renderApproverUnavailable(auth) {
           }
         }
         const scopeType = typeof type === 'string' ? type : '';
-        if (scopeType !== 'supplies' && request.requester) {
-          parts.push(request.requester);
+        if (scopeType !== 'supplies') {
+          const requesterLabel = formatActorName(request.requester);
+          if (requesterLabel) {
+            parts.push(requesterLabel);
+          }
         }
         return parts.join(' • ');
       }
@@ -4939,6 +4947,18 @@ function renderApproverUnavailable(auth) {
         return wrapper;
       }
 
+      function formatActorName(value) {
+        const text = typeof value === 'string' ? value.trim() : '';
+        if (!text) {
+          return '';
+        }
+        const normalized = text.toLowerCase();
+        if (Object.prototype.hasOwnProperty.call(EMAIL_DISPLAY_OVERRIDES, normalized)) {
+          return EMAIL_DISPLAY_OVERRIDES[normalized];
+        }
+        return text;
+      }
+
       function formatStatus(status) {
         switch (status) {
           case 'completed':
@@ -5005,7 +5025,9 @@ function renderApproverUnavailable(auth) {
       }
 
       function buildStatusActorLine(type, statusKey, approver) {
-        const actorName = approver ? approver : 'Not recorded';
+        const trimmedApprover = typeof approver === 'string' ? approver.trim() : '';
+        const actorName = formatActorName(trimmedApprover) || 'Not recorded';
+        const hasApprover = Boolean(trimmedApprover);
         switch (statusKey) {
           case 'denied':
           case 'declined':
@@ -5021,7 +5043,7 @@ function renderApproverUnavailable(auth) {
           case 'pending':
             return type === 'supplies' ? 'Approval decision pending' : 'Update pending';
           default:
-            return `Status: ${formatStatus(statusKey)}${approver ? ` by ${actorName}` : ''}`;
+            return `Status: ${formatStatus(statusKey)}${hasApprover ? ` by ${actorName}` : ''}`;
         }
       }
 
@@ -5151,7 +5173,7 @@ function renderApproverUnavailable(auth) {
         const meta = document.createElement('div');
         meta.className = 'request-note-meta';
 
-        const actorText = typeof note.actor === 'string' ? note.actor.trim() : '';
+        const actorText = formatActorName(note && note.actor);
         if (actorText) {
           const actor = document.createElement('span');
           actor.textContent = actorText;
