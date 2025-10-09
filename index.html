@@ -606,11 +606,17 @@
       --button-bg: transparent;
       --button-hover-bg: rgba(11, 87, 208, 0.08);
       --button-fg: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      flex-shrink: 0;
       padding: 0.38rem 0.75rem;
       border-radius: 999px;
       border: 1px solid var(--accent);
       background: var(--button-bg);
       color: var(--button-fg);
+      min-height: 0;
       font-size: clamp(0.74rem, 2.2vw, 0.86rem);
       font-weight: 600;
       letter-spacing: 0.01em;
