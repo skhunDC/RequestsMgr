@@ -691,6 +691,122 @@
       font-size: clamp(0.76rem, 2.3vw, 0.88rem);
     }
 
+    .insights-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: grid;
+      align-items: center;
+      justify-items: center;
+      padding: clamp(1.2rem, 6vw, 2.5rem);
+      background: rgba(15, 33, 66, 0.58);
+      backdrop-filter: blur(3px);
+    }
+
+    .insights-modal[hidden] {
+      display: none;
+    }
+
+    .insights-modal-card {
+      width: min(100%, 720px);
+      max-height: min(80vh, 720px);
+      background: var(--surface);
+      border-radius: 20px;
+      border: 1px solid rgba(12, 32, 55, 0.14);
+      box-shadow: 0 32px 60px -32px rgba(12, 26, 52, 0.55);
+      padding: clamp(1rem, 3vw, 1.6rem);
+      display: grid;
+      gap: clamp(0.75rem, 2.5vw, 1.2rem);
+      overflow: hidden;
+    }
+
+    .insights-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .insights-modal-header h2 {
+      margin: 0;
+      font-size: clamp(1.05rem, 3.2vw, 1.35rem);
+    }
+
+    .insights-modal-close {
+      border: none;
+      border-radius: 999px;
+      background: rgba(15, 33, 66, 0.08);
+      color: var(--text);
+      font-size: 1.2rem;
+      width: 2.4rem;
+      height: 2.4rem;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .insights-modal-close:hover,
+    .insights-modal-close:focus-visible {
+      background: rgba(11, 87, 208, 0.12);
+      color: var(--accent-strong);
+      outline: none;
+    }
+
+    .insights-modal-description {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.82rem, 2.6vw, 0.95rem);
+    }
+
+    .insights-modal-body {
+      overflow-y: auto;
+      border-radius: 16px;
+      border: 1px solid rgba(16, 42, 67, 0.08);
+      background: rgba(16, 42, 67, 0.04);
+      padding: clamp(0.75rem, 2.4vw, 1.1rem);
+    }
+
+    .insights-modal-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: clamp(0.78rem, 2.4vw, 0.94rem);
+    }
+
+    .insights-modal-table thead th {
+      text-align: left;
+      font-weight: 600;
+      color: var(--muted);
+      padding-bottom: 0.55rem;
+    }
+
+    .insights-modal-table tbody tr + tr {
+      border-top: 1px solid rgba(16, 42, 67, 0.12);
+    }
+
+    .insights-modal-table td {
+      padding: 0.65rem 0;
+      vertical-align: top;
+    }
+
+    .insights-modal-table td strong {
+      color: var(--text);
+    }
+
+    .insights-modal-meta {
+      display: block;
+      margin-top: 0.18rem;
+      color: var(--muted);
+      font-weight: 500;
+      font-size: clamp(0.72rem, 2.1vw, 0.82rem);
+    }
+
+    .insights-modal-empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.82rem, 2.5vw, 0.95rem);
+    }
+
     .hero-stat strong {
       font-size: clamp(1.45rem, 4.2vw, 1.95rem);
       font-weight: 700;
@@ -2086,7 +2202,7 @@
             <article class="hero-insight-panel" data-insight-panel="supplies">
               <div class="hero-insight-header">
                 <h3>Top requested items</h3>
-                <button type="button" class="insight-action" data-insights-export="supplies">Export PDF</button>
+                <button type="button" class="insight-action" data-insights-view="supplies">View details</button>
               </div>
               <p class="hero-insight-subtitle">Top 5 Items requested, ranked by total quantity/Location.</p>
               <ol class="insight-list" id="topSuppliesByLocation"></ol>
@@ -2095,7 +2211,7 @@
             <article class="hero-insight-panel" data-insight-panel="technical">
               <div class="hero-insight-header">
                 <h3>Top IT/Maintenance requests</h3>
-                <button type="button" class="insight-action" data-insights-export="technical">Export PDF</button>
+                <button type="button" class="insight-action" data-insights-view="technical">View details</button>
               </div>
               <p class="hero-insight-subtitle">Top 5 locations by combined IT &amp; Maintenance volume.</p>
               <ol class="insight-list" id="topTechByLocation"></ol>
@@ -2291,6 +2407,34 @@
           <button type="submit" id="feedbackSubmitButton">Send to the crew 🚀</button>
         </div>
       </form>
+    </div>
+  </div>
+  <div
+    id="insightsModal"
+    class="insights-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="insightsModalTitle"
+    aria-describedby="insightsModalDescription"
+    hidden
+  >
+    <div id="insightsModalCard" class="insights-modal-card" role="document" tabindex="-1">
+      <div class="insights-modal-header">
+        <h2 id="insightsModalTitle">Location insights</h2>
+        <button
+          type="button"
+          id="insightsModalClose"
+          class="insights-modal-close"
+          aria-label="Close insights"
+        >
+          ×
+        </button>
+      </div>
+      <p id="insightsModalDescription" class="insights-modal-description">
+        Review the latest ranking of requests without leaving the page.
+      </p>
+      <div class="insights-modal-body" id="insightsModalBody" role="presentation"></div>
+      <p id="insightsModalEmpty" class="insights-modal-empty" hidden>No insights to show yet.</p>
     </div>
   </div>
   <div class="page-shell">
@@ -2669,7 +2813,6 @@
             supplies: [],
             itMaintenance: []
           },
-          exportingInsights: false,
           generatedAt: ''
         }
       };
@@ -2747,7 +2890,16 @@
             suppliesEmpty: document.getElementById('topSuppliesEmpty'),
             technicalList: document.getElementById('topTechByLocation'),
             technicalEmpty: document.getElementById('topTechEmpty'),
-            exportButtons: Array.from(document.querySelectorAll('[data-insights-export]'))
+            viewButtons: Array.from(document.querySelectorAll('[data-insights-view]')),
+            modal: {
+              container: document.getElementById('insightsModal'),
+              card: document.getElementById('insightsModalCard'),
+              body: document.getElementById('insightsModalBody'),
+              empty: document.getElementById('insightsModalEmpty'),
+              title: document.getElementById('insightsModalTitle'),
+              description: document.getElementById('insightsModalDescription'),
+              close: document.getElementById('insightsModalClose')
+            }
           },
           metrics: REQUEST_KEYS.reduce((acc, type) => {
             acc[type] = {
@@ -2788,6 +2940,7 @@
       const requiresRequesterName = !initialSessionEmail;
       const statusAuth = SESSION && SESSION.statusAuth ? SESSION.statusAuth : null;
       const feedbackState = { open: false, submitting: false, closeTimer: null };
+      const insightModalState = { open: false, type: 'supplies', trigger: null };
 
       renderStatusAuthNotice(statusAuth);
       configureRequesterNameRequirement();
@@ -3849,21 +4002,239 @@ function renderApproverUnavailable(auth) {
         if (!insights) {
           return;
         }
-        const buttons = insights.exportButtons || [];
+        const buttons = insights.viewButtons || [];
         buttons.forEach(button => {
           if (!button) {
             return;
           }
           const label = button.textContent ? button.textContent.trim() : '';
           if (!button.dataset.defaultLabel) {
-            button.dataset.defaultLabel = label || 'Export PDF';
+            button.dataset.defaultLabel = label || 'View details';
           }
-          if (!hasServer) {
-            button.disabled = true;
-            button.title = 'Connect to Google Apps Script to export insights.';
-          }
-          button.addEventListener('click', handleInsightExport);
+          button.addEventListener('click', () => {
+            const targetType = button.getAttribute('data-insights-view');
+            openInsightsModal(typeof targetType === 'string' ? targetType : '', button);
+          });
         });
+
+        const modal = insights.modal || {};
+        if (modal.close) {
+          modal.close.addEventListener('click', () => {
+            closeInsightsModal({ restoreFocus: true });
+          });
+        }
+        if (modal.container) {
+          modal.container.addEventListener('click', evt => {
+            if (evt.target === modal.container) {
+              closeInsightsModal({ restoreFocus: true });
+            }
+          });
+        }
+        document.addEventListener('keydown', handleInsightsModalKeydown);
+      }
+
+      function openInsightsModal(type, trigger) {
+        const insights = dom.dashboard && dom.dashboard.insights;
+        if (!insights || !insights.modal || !insights.modal.container) {
+          return;
+        }
+        const modal = insights.modal;
+        const normalizedType = type === 'technical' ? 'technical' : 'supplies';
+        insightModalState.open = true;
+        insightModalState.type = normalizedType;
+        insightModalState.trigger = trigger && typeof trigger.focus === 'function' ? trigger : null;
+        modal.container.hidden = false;
+        renderInsightsModal(normalizedType);
+        window.requestAnimationFrame(() => {
+          if (modal.card && typeof modal.card.focus === 'function') {
+            modal.card.focus();
+          }
+        });
+      }
+
+      function closeInsightsModal(options) {
+        const insights = dom.dashboard && dom.dashboard.insights;
+        if (!insights || !insights.modal || !insights.modal.container) {
+          return;
+        }
+        if (!insightModalState.open) {
+          return;
+        }
+        const modal = insights.modal;
+        insightModalState.open = false;
+        modal.container.hidden = true;
+        if (modal.body) {
+          while (modal.body.firstChild) {
+            modal.body.removeChild(modal.body.firstChild);
+          }
+          modal.body.hidden = false;
+        }
+        if (modal.empty) {
+          modal.empty.hidden = true;
+        }
+        const shouldRestoreFocus = options && options.restoreFocus;
+        if (shouldRestoreFocus && insightModalState.trigger) {
+          insightModalState.trigger.focus();
+        }
+        insightModalState.trigger = null;
+      }
+
+      function handleInsightsModalKeydown(evt) {
+        if (!insightModalState.open || evt.defaultPrevented) {
+          return;
+        }
+        if (evt.key === 'Escape') {
+          evt.preventDefault();
+          closeInsightsModal({ restoreFocus: true });
+        }
+      }
+
+      function renderInsightsModal(type) {
+        const insights = dom.dashboard && dom.dashboard.insights;
+        if (!insights || !insights.modal) {
+          return;
+        }
+        const modal = insights.modal;
+        const body = modal.body;
+        const empty = modal.empty;
+        if (!body || !empty) {
+          return;
+        }
+        while (body.firstChild) {
+          body.removeChild(body.firstChild);
+        }
+        const normalizedType = type === 'technical' ? 'technical' : 'supplies';
+        const insightState = state.dashboard.insights || { supplies: [], itMaintenance: [] };
+        const entries = normalizedType === 'technical'
+          ? Array.isArray(insightState.itMaintenance) ? insightState.itMaintenance : []
+          : Array.isArray(insightState.supplies) ? insightState.supplies : [];
+        const hasEntries = Array.isArray(entries) && entries.length > 0;
+        if (modal.title) {
+          modal.title.textContent = normalizedType === 'technical'
+            ? 'IT & Maintenance insights'
+            : 'Supplies insights';
+        }
+        if (modal.description) {
+          modal.description.textContent = normalizedType === 'technical'
+            ? 'See the locations logging the most IT and Maintenance requests.'
+            : 'See the catalog items most requested across locations.';
+        }
+        if (!hasEntries) {
+          body.hidden = true;
+          empty.hidden = false;
+          empty.textContent = !hasServer
+            ? 'Connect to Google Apps Script to load live data.'
+            : normalizedType === 'technical'
+              ? 'No IT or Maintenance requests yet.'
+              : 'No supplies requests yet.';
+          return;
+        }
+        body.hidden = false;
+        empty.hidden = true;
+        const table = buildInsightsModalTable(normalizedType, entries);
+        if (table) {
+          body.appendChild(table);
+        }
+      }
+
+      function buildInsightsModalTable(type, entries) {
+        const table = document.createElement('table');
+        table.className = 'insights-modal-table';
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const headers = type === 'technical'
+          ? ['Location', 'Total requests', 'IT', 'Maintenance']
+          : ['Location', 'Catalog item', 'Quantity requested', 'Requests submitted'];
+        headers.forEach(label => {
+          const th = document.createElement('th');
+          th.scope = 'col';
+          th.textContent = label;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        entries.forEach(entry => {
+          const row = type === 'technical'
+            ? buildTechnicalModalRow(entry)
+            : buildSuppliesModalRow(entry);
+          if (row) {
+            tbody.appendChild(row);
+          }
+        });
+        table.appendChild(tbody);
+        return table;
+      }
+
+      function buildSuppliesModalRow(entry) {
+        if (!entry) {
+          return null;
+        }
+        const row = document.createElement('tr');
+        const locationCell = document.createElement('td');
+        locationCell.textContent = typeof entry.location === 'string' && entry.location.trim()
+          ? entry.location.trim()
+          : 'Unknown';
+        const itemCell = document.createElement('td');
+        const itemName = document.createElement('strong');
+        itemName.textContent = typeof entry.item === 'string' && entry.item.trim() ? entry.item.trim() : '—';
+        itemCell.appendChild(itemName);
+        const sku = typeof entry.catalogSku === 'string' && entry.catalogSku.trim() ? entry.catalogSku.trim() : '';
+        if (sku) {
+          const skuLine = document.createElement('span');
+          skuLine.className = 'insights-modal-meta';
+          skuLine.textContent = `SKU ${sku}`;
+          itemCell.appendChild(skuLine);
+        }
+        const quantityCell = document.createElement('td');
+        const quantityValue = Number(entry.quantity);
+        quantityCell.textContent = Number.isFinite(quantityValue) && quantityValue > 0
+          ? formatDashboardCount(quantityValue)
+          : '0';
+        const requestsCell = document.createElement('td');
+        const requestValue = Number(entry.requestCount);
+        requestsCell.textContent = Number.isFinite(requestValue) && requestValue > 0
+          ? formatDashboardCount(requestValue)
+          : '0';
+        row.appendChild(locationCell);
+        row.appendChild(itemCell);
+        row.appendChild(quantityCell);
+        row.appendChild(requestsCell);
+        return row;
+      }
+
+      function buildTechnicalModalRow(entry) {
+        if (!entry) {
+          return null;
+        }
+        const row = document.createElement('tr');
+        const locationCell = document.createElement('td');
+        locationCell.textContent = typeof entry.location === 'string' && entry.location.trim()
+          ? entry.location.trim()
+          : 'Unknown';
+        const totalCell = document.createElement('td');
+        const totalValue = Number(entry.count);
+        const totalLabel = Number.isFinite(totalValue) && totalValue > 0
+          ? formatDashboardCount(totalValue)
+          : '0';
+        const totalStrong = document.createElement('strong');
+        totalStrong.textContent = totalLabel;
+        totalCell.appendChild(totalStrong);
+        const itCell = document.createElement('td');
+        const itValue = Number(entry.itCount);
+        itCell.textContent = Number.isFinite(itValue) && itValue > 0
+          ? formatDashboardCount(itValue)
+          : '0';
+        const maintenanceCell = document.createElement('td');
+        const maintenanceValue = Number(entry.maintenanceCount);
+        maintenanceCell.textContent = Number.isFinite(maintenanceValue) && maintenanceValue > 0
+          ? formatDashboardCount(maintenanceValue)
+          : '0';
+        row.appendChild(locationCell);
+        row.appendChild(totalCell);
+        row.appendChild(itCell);
+        row.appendChild(maintenanceCell);
+        return row;
       }
 
       function openFeedbackDialog() {
@@ -5617,85 +5988,6 @@ function renderApproverUnavailable(auth) {
         dot.textContent = '•';
         dot.setAttribute('aria-hidden', 'true');
         return dot;
-      }
-
-      function handleInsightExport() {
-        if (!hasServer) {
-          showToast('Connect to Google Apps Script to export insights.');
-          return;
-        }
-        if (state.dashboard.exportingInsights) {
-          return;
-        }
-        state.dashboard.exportingInsights = true;
-        setInsightExportLoading(true);
-        const payload = { cid: makeCid() };
-        server
-          .withSuccessHandler(response => {
-            state.dashboard.exportingInsights = false;
-            setInsightExportLoading(false);
-            if (!response || !response.ok || !response.data) {
-              handleError(response || 'Unable to export insights.', 'exportDashboardInsightsPdf', payload);
-              return;
-            }
-            const fileName = typeof response.fileName === 'string' && response.fileName.trim()
-              ? response.fileName.trim()
-              : 'location-insights.pdf';
-            const mimeType = typeof response.mimeType === 'string' && response.mimeType.trim()
-              ? response.mimeType.trim()
-              : 'application/pdf';
-            try {
-              downloadFileFromBase64(fileName, response.data, mimeType);
-              showToast('Insights exported to PDF.');
-            } catch (err) {
-              handleError(err, 'exportDashboardInsightsPdf', payload);
-            }
-          })
-          .withFailureHandler(err => {
-            state.dashboard.exportingInsights = false;
-            setInsightExportLoading(false);
-            handleError(err, 'exportDashboardInsightsPdf', payload);
-          })
-          .exportDashboardInsightsPdf(payload);
-      }
-
-      function setInsightExportLoading(loading) {
-        const insights = dom.dashboard && dom.dashboard.insights;
-        const buttons = insights && insights.exportButtons ? insights.exportButtons : [];
-        buttons.forEach(button => {
-          if (!button) {
-            return;
-          }
-          const defaultLabel = button.dataset.defaultLabel || 'Export PDF';
-          if (loading) {
-            button.disabled = true;
-            button.textContent = 'Preparing…';
-          } else {
-            button.textContent = defaultLabel;
-            button.disabled = !hasServer;
-          }
-        });
-      }
-
-      function downloadFileFromBase64(fileName, base64Data, mimeType) {
-        if (typeof base64Data !== 'string' || !base64Data) {
-          throw new Error('Unable to download file.');
-        }
-        const binary = window.atob(base64Data);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-          bytes[i] = binary.charCodeAt(i);
-        }
-        const blob = new Blob([bytes], { type: mimeType || 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName || 'export.pdf';
-        link.rel = 'noopener';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
       }
 
       function disableForm(type, disabled) {
