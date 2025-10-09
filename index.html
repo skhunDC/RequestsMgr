@@ -609,18 +609,24 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      white-space: nowrap;
-      flex-shrink: 0;
       padding: 0.38rem 0.75rem;
       border-radius: 999px;
       border: 1px solid var(--accent);
       background: var(--button-bg);
       color: var(--button-fg);
-      min-height: 0;
       font-size: clamp(0.74rem, 2.2vw, 0.86rem);
       font-weight: 600;
       letter-spacing: 0.01em;
+      line-height: 1.1;
+      text-align: center;
       transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .insight-action-text {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.05rem;
     }
 
     .insight-action[disabled] {
@@ -2210,7 +2216,18 @@
             <article class="hero-insight-panel" data-insight-panel="supplies">
               <div class="hero-insight-header">
                 <h3>Top Supplies</h3>
-                <button type="button" class="insight-action" data-insights-view="supplies">View details</button>
+                <button
+                  type="button"
+                  class="insight-action"
+                  data-insights-view="supplies"
+                  data-default-label="View details"
+                  aria-label="View details"
+                >
+                  <span class="insight-action-text" aria-hidden="true">
+                    <span>View</span>
+                    <span>details</span>
+                  </span>
+                </button>
               </div>
               <p class="hero-insight-subtitle">Top 5 Supplies Req., ranked by total quantity &amp; Location.</p>
               <ol class="insight-list" id="topSuppliesByLocation"></ol>
@@ -2219,7 +2236,18 @@
             <article class="hero-insight-panel" data-insight-panel="technical">
               <div class="hero-insight-header">
                 <h3>Top IT/Maintenance</h3>
-                <button type="button" class="insight-action" data-insights-view="technical">View details</button>
+                <button
+                  type="button"
+                  class="insight-action"
+                  data-insights-view="technical"
+                  data-default-label="View details"
+                  aria-label="View details"
+                >
+                  <span class="insight-action-text" aria-hidden="true">
+                    <span>View</span>
+                    <span>details</span>
+                  </span>
+                </button>
               </div>
               <p class="hero-insight-subtitle">Top 5 IT &amp; Maintenance Req. by Volume/Location.</p>
               <ol class="insight-list" id="topTechByLocation"></ol>
