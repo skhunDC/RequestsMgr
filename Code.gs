@@ -475,10 +475,12 @@ function getDashboardMetrics(request) {
     const completionTimesByType = milestoneTimesByType && milestoneTimesByType.completion ? milestoneTimesByType.completion : {};
     const inProgressTimesByType = milestoneTimesByType && milestoneTimesByType.inProgress ? milestoneTimesByType.inProgress : {};
     const metrics = {};
+    const recordsByType = {};
     let totalRequests = 0;
     let outstandingRequests = 0;
     Object.keys(REQUEST_TYPES).forEach(type => {
       const records = getAllRequestsForType_(type);
+      recordsByType[type] = records;
       const total = records.length;
       const outstanding = records.reduce((count, record) => {
         const statusKey = toStatusKey_(record && record.status);
@@ -536,6 +538,7 @@ function getDashboardMetrics(request) {
       totalRequests += total;
       outstandingRequests += outstanding;
     });
+    const insights = computeDashboardTopInsights_(recordsByType);
     return {
       ok: true,
       metrics,
@@ -543,8 +546,254 @@ function getDashboardMetrics(request) {
         totalRequests,
         outstandingRequests
       },
+      insights,
       generatedAt: toIsoString_(new Date())
     };
+  });
+}
+
+function computeDashboardTopInsights_(recordsByType) {
+  const suppliesRecords = recordsByType && Array.isArray(recordsByType.supplies)
+    ? recordsByType.supplies
+    : getAllRequestsForType_('supplies');
+  const itRecords = recordsByType && Array.isArray(recordsByType.it)
+    ? recordsByType.it
+    : getAllRequestsForType_('it');
+  const maintenanceRecords = recordsByType && Array.isArray(recordsByType.maintenance)
+    ? recordsByType.maintenance
+    : getAllRequestsForType_('maintenance');
+  return {
+    suppliesTopByLocation: summarizeSuppliesTopByLocation_(suppliesRecords),
+    itMaintenanceTopByLocation: summarizeTechnicalTopByLocation_(itRecords, maintenanceRecords)
+  };
+}
+
+function summarizeSuppliesTopByLocation_(records) {
+  const entries = Array.isArray(records) ? records : [];
+  const locationItemTotals = entries.reduce((acc, record) => {
+    if (!record || !record.fields) {
+      return acc;
+    }
+    const fields = record.fields;
+    const location = sanitizeString_(fields.location);
+    const description = sanitizeString_(fields.description);
+    const fallbackLabel = sanitizeString_(fields.catalogSku);
+    const itemLabel = description || fallbackLabel;
+    if (!location || !itemLabel) {
+      return acc;
+    }
+    const qty = parsePositiveInteger_(fields.qty);
+    if (!qty) {
+      return acc;
+    }
+    const key = [location.toLowerCase(), itemLabel.toLowerCase()].join('::');
+    if (!acc[key]) {
+      acc[key] = {
+        location,
+        item: itemLabel,
+        catalogSku: fallbackLabel,
+        quantity: 0,
+        requestCount: 0
+      };
+    }
+    acc[key].quantity += qty;
+    acc[key].requestCount += 1;
+    if (!acc[key].catalogSku && fallbackLabel) {
+      acc[key].catalogSku = fallbackLabel;
+    }
+    return acc;
+  }, {});
+  const bestByLocation = {};
+  Object.keys(locationItemTotals).forEach(key => {
+    const entry = locationItemTotals[key];
+    const locationKey = entry.location.toLowerCase();
+    const current = bestByLocation[locationKey];
+    if (!current) {
+      bestByLocation[locationKey] = entry;
+      return;
+    }
+    if ((entry.quantity || 0) > (current.quantity || 0)) {
+      bestByLocation[locationKey] = entry;
+      return;
+    }
+    if ((entry.quantity || 0) === (current.quantity || 0)) {
+      const entryCount = entry.requestCount || 0;
+      const currentCount = current.requestCount || 0;
+      if (entryCount > currentCount) {
+        bestByLocation[locationKey] = entry;
+        return;
+      }
+      if (entryCount === currentCount) {
+        if (entry.item.toLowerCase() < current.item.toLowerCase()) {
+          bestByLocation[locationKey] = entry;
+        }
+      }
+    }
+  });
+  return Object.keys(bestByLocation)
+    .map(key => bestByLocation[key])
+    .sort((a, b) => {
+      const quantityDiff = (b.quantity || 0) - (a.quantity || 0);
+      if (quantityDiff !== 0) {
+        return quantityDiff;
+      }
+      const requestDiff = (b.requestCount || 0) - (a.requestCount || 0);
+      if (requestDiff !== 0) {
+        return requestDiff;
+      }
+      return a.location.localeCompare(b.location);
+    });
+}
+
+function summarizeTechnicalTopByLocation_(itRecords, maintenanceRecords) {
+  const counts = {};
+  const appendRecords = (records, type) => {
+    if (!Array.isArray(records)) {
+      return;
+    }
+    records.forEach(record => {
+      if (!record || !record.fields) {
+        return;
+      }
+      const location = sanitizeString_(record.fields.location);
+      if (!location) {
+        return;
+      }
+      if (!counts[location]) {
+        counts[location] = { location, count: 0, itCount: 0, maintenanceCount: 0 };
+      }
+      counts[location].count += 1;
+      if (type === 'it') {
+        counts[location].itCount += 1;
+      } else if (type === 'maintenance') {
+        counts[location].maintenanceCount += 1;
+      }
+    });
+  };
+  appendRecords(itRecords, 'it');
+  appendRecords(maintenanceRecords, 'maintenance');
+  return Object.keys(counts)
+    .map(key => counts[key])
+    .sort((a, b) => {
+      const totalDiff = (b.count || 0) - (a.count || 0);
+      if (totalDiff !== 0) {
+        return totalDiff;
+      }
+      const itDiff = (b.itCount || 0) - (a.itCount || 0);
+      if (itDiff !== 0) {
+        return itDiff;
+      }
+      return a.location.localeCompare(b.location);
+    });
+}
+
+function exportDashboardInsightsPdf(request) {
+  return withErrorHandling_('exportDashboardInsightsPdf', request && request.cid, request, () => {
+    ensureSetup_();
+    const recordsByType = {};
+    Object.keys(REQUEST_TYPES).forEach(type => {
+      recordsByType[type] = getAllRequestsForType_(type);
+    });
+    const insights = computeDashboardTopInsights_(recordsByType);
+    const suppliesEntries = Array.isArray(insights.suppliesTopByLocation) ? insights.suppliesTopByLocation : [];
+    const technicalEntries = Array.isArray(insights.itMaintenanceTopByLocation) ? insights.itMaintenanceTopByLocation : [];
+    const doc = DocumentApp.create('Request Manager Location Insights');
+    const docId = doc.getId();
+    const tz = Session.getScriptTimeZone() || 'UTC';
+    const generatedAt = new Date();
+    let file;
+    try {
+      const body = doc.getBody();
+      body.clear();
+      body.appendParagraph('Location Insights Summary').setHeading(DocumentApp.ParagraphHeading.HEADING1);
+      body.appendParagraph(`Generated ${Utilities.formatDate(generatedAt, tz, "MMM d, yyyy h:mm a")}`);
+
+      body.appendParagraph('Top Requested Supplies Item by Location')
+        .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+      if (suppliesEntries.length) {
+        const suppliesTable = body.appendTable([
+          ['Location', 'Catalog item', 'Quantity requested', 'Requests submitted']
+        ]);
+        const suppliesHeader = suppliesTable.getRow(0);
+        for (let i = 0; i < suppliesHeader.getNumCells(); i++) {
+          suppliesHeader.getCell(i).getText().setBold(true);
+        }
+        suppliesEntries.forEach(entry => {
+          const labelParts = [sanitizeString_(entry.item)];
+          if (entry.catalogSku) {
+            labelParts.push(`SKU: ${entry.catalogSku}`);
+          }
+          const itemLabel = labelParts.filter(Boolean).join('\n');
+          const row = suppliesTable.appendTableRow([
+            entry.location || 'Unknown',
+            itemLabel || '—',
+            String(entry.quantity || 0),
+            String(entry.requestCount || 0)
+          ]);
+          for (let i = 0; i < row.getNumCells(); i++) {
+            const cell = row.getCell(i);
+            cell.setPaddingTop(6);
+            cell.setPaddingBottom(6);
+          }
+        });
+      } else {
+        body.appendParagraph('No supplies requests have been submitted yet.').setSpacingAfter(12);
+      }
+
+      body.appendParagraph('Top IT & Maintenance Requests by Location')
+        .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+      if (technicalEntries.length) {
+        const technicalTable = body.appendTable([
+          ['Location', 'Total requests', 'IT', 'Maintenance']
+        ]);
+        const technicalHeader = technicalTable.getRow(0);
+        for (let i = 0; i < technicalHeader.getNumCells(); i++) {
+          technicalHeader.getCell(i).getText().setBold(true);
+        }
+        technicalEntries.forEach(entry => {
+          const row = technicalTable.appendTableRow([
+            entry.location || 'Unknown',
+            String(entry.count || 0),
+            String(entry.itCount || 0),
+            String(entry.maintenanceCount || 0)
+          ]);
+          for (let i = 0; i < row.getNumCells(); i++) {
+            const cell = row.getCell(i);
+            cell.setPaddingTop(6);
+            cell.setPaddingBottom(6);
+          }
+        });
+      } else {
+        body.appendParagraph('No IT or Maintenance requests have been submitted yet.').setSpacingAfter(12);
+      }
+
+      doc.saveAndClose();
+      file = DriveApp.getFileById(docId);
+      const fileName = `location-insights-${Utilities.formatDate(generatedAt, tz, 'yyyyMMdd-HHmmss')}.pdf`;
+      const pdfBlob = file.getBlob().getAs('application/pdf');
+      pdfBlob.setName(fileName);
+      const data = Utilities.base64Encode(pdfBlob.getBytes());
+      return {
+        ok: true,
+        fileName,
+        mimeType: pdfBlob.getContentType() || 'application/pdf',
+        data
+      };
+    } finally {
+      if (file) {
+        try {
+          file.setTrashed(true);
+        } catch (err) {
+          // Ignore cleanup failures.
+        }
+      } else {
+        try {
+          DriveApp.getFileById(docId).setTrashed(true);
+        } catch (err) {
+          // Ignore cleanup failures.
+        }
+      }
+    }
   });
 }
 

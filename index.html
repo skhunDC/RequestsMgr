@@ -539,6 +539,155 @@
       align-content: start;
     }
 
+    .hero-insights-card {
+      margin-top: clamp(0.85rem, 2.6vw, 1.2rem);
+      background: var(--surface);
+      border-radius: 20px;
+      border: 1px solid rgba(14, 31, 53, 0.08);
+      box-shadow: 0 26px 52px -40px rgba(12, 26, 52, 0.5);
+      padding: clamp(1.1rem, 3.4vw, 1.6rem);
+      display: grid;
+      gap: clamp(0.85rem, 2.4vw, 1.2rem);
+    }
+
+    .hero-insights-heading {
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .hero-insights-heading h2 {
+      margin: 0;
+      font-size: clamp(1.2rem, 4vw, 1.45rem);
+      font-weight: 600;
+    }
+
+    .hero-insights-heading p {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.82rem, 2.8vw, 0.95rem);
+    }
+
+    .hero-insights-panels {
+      display: grid;
+      gap: clamp(0.75rem, 2.4vw, 1.1rem);
+    }
+
+    .hero-insight-panel {
+      background: var(--surface-alt);
+      border-radius: 16px;
+      border: 1px solid rgba(16, 42, 67, 0.12);
+      padding: clamp(0.95rem, 3vw, 1.25rem);
+      display: grid;
+      gap: clamp(0.55rem, 2.2vw, 0.85rem);
+    }
+
+    .hero-insight-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .hero-insight-header h3 {
+      margin: 0;
+      font-size: clamp(1.02rem, 3.6vw, 1.22rem);
+      font-weight: 600;
+    }
+
+    .hero-insight-subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.8rem, 2.6vw, 0.92rem);
+    }
+
+    .insight-action {
+      --button-bg: transparent;
+      --button-hover-bg: rgba(11, 87, 208, 0.08);
+      --button-fg: var(--accent);
+      padding: 0.42rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--accent);
+      background: var(--button-bg);
+      color: var(--button-fg);
+      font-size: clamp(0.78rem, 2.6vw, 0.9rem);
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .insight-action[disabled] {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .insight-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.55rem;
+      counter-reset: insight-rank;
+    }
+
+    .insight-list li {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.55rem 0.75rem 0.55rem 2.45rem;
+      border-radius: 14px;
+      border: 1px solid rgba(16, 42, 67, 0.08);
+      background: rgba(16, 42, 67, 0.04);
+      font-size: clamp(0.88rem, 2.9vw, 1rem);
+    }
+
+    .insight-list li::before {
+      counter-increment: insight-rank;
+      content: counter(insight-rank);
+      position: absolute;
+      left: 0.95rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-weight: 600;
+      color: var(--accent-strong);
+      font-size: clamp(0.88rem, 3vw, 1rem);
+    }
+
+    .insight-list .insight-location {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .insight-list .insight-value {
+      justify-self: end;
+      text-align: right;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .insight-list .insight-value strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .insight-list li.skeleton {
+      padding: 0;
+      border: none;
+      background: none;
+      display: block;
+    }
+
+    .insight-list li.skeleton::before {
+      display: none;
+    }
+
+    .insight-empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(0.8rem, 2.6vw, 0.92rem);
+    }
+
     .hero-stat strong {
       font-size: clamp(1.45rem, 4.2vw, 1.95rem);
       font-weight: 700;
@@ -1867,6 +2016,10 @@
       .page-shell {
         gap: clamp(1.75rem, 4vw, 2.5rem);
       }
+
+      .hero-insights-panels {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
     }
 
     @media (min-width: 1200px) {
@@ -1916,6 +2069,36 @@
             <span>Total requests logged</span>
           </div>
         </div>
+        <section
+          class="hero-insights-card"
+          id="topInsightsCard"
+          aria-live="polite"
+        >
+          <div class="hero-insights-heading">
+            <h2>Location insights</h2>
+            <p>Spot hotspots across stores and prioritize the next wave of requests.</p>
+          </div>
+          <div class="hero-insights-panels">
+            <article class="hero-insight-panel" data-insight-panel="supplies">
+              <div class="hero-insight-header">
+                <h3>Top requested item by location</h3>
+                <button type="button" class="insight-action" data-insights-export="supplies">Export PDF</button>
+              </div>
+              <p class="hero-insight-subtitle">Top 5 combinations ranked by total quantity submitted.</p>
+              <ol class="insight-list" id="topSuppliesByLocation"></ol>
+              <p class="insight-empty" id="topSuppliesEmpty">No supplies requests yet.</p>
+            </article>
+            <article class="hero-insight-panel" data-insight-panel="technical">
+              <div class="hero-insight-header">
+                <h3>Top IT/Maintenance requests by location</h3>
+                <button type="button" class="insight-action" data-insights-export="technical">Export PDF</button>
+              </div>
+              <p class="hero-insight-subtitle">Top 5 locations by combined IT &amp; Maintenance volume.</p>
+              <ol class="insight-list" id="topTechByLocation"></ol>
+              <p class="insight-empty" id="topTechEmpty">No IT or Maintenance requests yet.</p>
+            </article>
+          </div>
+        </section>
       </div>
       <div class="hero-dashboard-shell">
         <img
@@ -2478,6 +2661,11 @@
             totalRequests: 0,
             outstandingRequests: 0
           },
+          insights: {
+            supplies: [],
+            itMaintenance: []
+          },
+          exportingInsights: false,
           generatedAt: ''
         }
       };
@@ -2549,6 +2737,14 @@
           updatedAt: document.getElementById('dashboardUpdatedAt'),
           empty: document.getElementById('dashboardEmptyMessage'),
           pie: document.getElementById('dashboardPie'),
+          insights: {
+            card: document.getElementById('topInsightsCard'),
+            suppliesList: document.getElementById('topSuppliesByLocation'),
+            suppliesEmpty: document.getElementById('topSuppliesEmpty'),
+            technicalList: document.getElementById('topTechByLocation'),
+            technicalEmpty: document.getElementById('topTechEmpty'),
+            exportButtons: Array.from(document.querySelectorAll('[data-insights-export]'))
+          },
           metrics: REQUEST_KEYS.reduce((acc, type) => {
             acc[type] = {
               total: document.querySelector(`[data-dashboard-total="${type}"]`),
@@ -2594,6 +2790,7 @@
       attachNavHandlers();
       attachFormHandlers();
       attachFeedbackHandlers();
+      attachInsightHandlers();
       ensureDeviceId();
       REQUEST_KEYS.forEach(type => {
         hydrateFormFromCache(type);
@@ -2672,6 +2869,15 @@
               };
             });
             state.dashboard.metrics = metrics;
+            const insightsResponse = response.insights || {};
+            state.dashboard.insights = {
+              supplies: Array.isArray(insightsResponse.suppliesTopByLocation)
+                ? insightsResponse.suppliesTopByLocation
+                : [],
+              itMaintenance: Array.isArray(insightsResponse.itMaintenanceTopByLocation)
+                ? insightsResponse.itMaintenanceTopByLocation
+                : []
+            };
             const totals = response.totals || {};
             const totalRequests = Number(totals.totalRequests);
             const outstandingRequests = Number(totals.outstandingRequests);
@@ -2819,9 +3025,178 @@
             }
           }
         });
+        renderTopInsights(loading);
         updateDashboardEmptyState(metrics, loading);
         updateDashboardTimestamp();
         drawDashboardPie();
+      }
+
+      function renderTopInsights(loading) {
+        const insightsDom = dom.dashboard && dom.dashboard.insights;
+        if (!insightsDom || !insightsDom.card) {
+          return;
+        }
+        const card = insightsDom.card;
+        const insightsState = state.dashboard.insights || { supplies: [], itMaintenance: [] };
+        const suppliesEntries = Array.isArray(insightsState.supplies) ? insightsState.supplies : [];
+        const technicalEntries = Array.isArray(insightsState.itMaintenance) ? insightsState.itMaintenance : [];
+        const offline = !hasServer;
+        renderInsightList({
+          list: insightsDom.suppliesList,
+          empty: insightsDom.suppliesEmpty,
+          entries: suppliesEntries,
+          loading,
+          limit: 5,
+          formatter: buildSuppliesInsightRow,
+          emptyMessage: offline
+            ? 'Connect to Google Apps Script to load live data.'
+            : 'No supplies requests yet.'
+        });
+        renderInsightList({
+          list: insightsDom.technicalList,
+          empty: insightsDom.technicalEmpty,
+          entries: technicalEntries,
+          loading,
+          limit: 5,
+          formatter: buildTechnicalInsightRow,
+          emptyMessage: offline
+            ? 'Connect to Google Apps Script to load live data.'
+            : 'No IT or Maintenance requests yet.'
+        });
+        if (loading && !state.dashboard.generatedAt) {
+          card.dataset.state = 'loading';
+        } else if (!suppliesEntries.length && !technicalEntries.length) {
+          card.dataset.state = 'empty';
+        } else {
+          card.dataset.state = 'ready';
+        }
+      }
+
+      function renderInsightList(options) {
+        const list = options && options.list ? options.list : null;
+        if (!list) {
+          return;
+        }
+        while (list.firstChild) {
+          list.removeChild(list.firstChild);
+        }
+        const empty = options && options.empty ? options.empty : null;
+        const loading = Boolean(options && options.loading);
+        if (loading && !state.dashboard.generatedAt) {
+          list.hidden = false;
+          if (empty) {
+            empty.hidden = true;
+          }
+          const placeholderCount = 3;
+          for (let i = 0; i < placeholderCount; i++) {
+            const placeholder = document.createElement('li');
+            placeholder.className = 'skeleton';
+            placeholder.setAttribute('aria-hidden', 'true');
+            list.appendChild(placeholder);
+          }
+          return;
+        }
+        const limit = typeof options.limit === 'number' && options.limit > 0 ? options.limit : null;
+        const entries = Array.isArray(options && options.entries) ? options.entries : [];
+        const data = limit ? entries.slice(0, limit) : entries.slice();
+        if (!data.length) {
+          list.hidden = true;
+          if (empty) {
+            if (typeof options.emptyMessage === 'string' && options.emptyMessage.trim()) {
+              empty.textContent = options.emptyMessage;
+            }
+            empty.hidden = false;
+          }
+          return;
+        }
+        const fragment = document.createDocumentFragment();
+        const formatter = typeof options.formatter === 'function' ? options.formatter : null;
+        data.forEach(entry => {
+          const item = formatter ? formatter(entry) : null;
+          if (item) {
+            fragment.appendChild(item);
+          }
+        });
+        list.hidden = false;
+        list.appendChild(fragment);
+        if (empty) {
+          empty.hidden = true;
+        }
+      }
+
+      function buildSuppliesInsightRow(entry) {
+        if (!entry) {
+          return null;
+        }
+        const li = document.createElement('li');
+        li.className = 'insight-row';
+        const location = document.createElement('span');
+        location.className = 'insight-location';
+        const locationText = typeof entry.location === 'string' && entry.location.trim()
+          ? entry.location.trim()
+          : 'Unknown';
+        location.textContent = locationText;
+        const value = document.createElement('span');
+        value.className = 'insight-value';
+        const itemLabel = typeof entry.item === 'string' && entry.item.trim() ? entry.item.trim() : '—';
+        const quantityValue = Number(entry.quantity);
+        const hasQuantity = Number.isFinite(quantityValue) && quantityValue > 0;
+        const quantityLabel = hasQuantity ? formatDashboardCount(quantityValue) : '0';
+        value.textContent = hasQuantity ? `${itemLabel} (${quantityLabel})` : itemLabel;
+        const metaParts = [];
+        if (entry.catalogSku && String(entry.catalogSku).trim()) {
+          metaParts.push(`SKU ${String(entry.catalogSku).trim()}`);
+        }
+        const requestCount = Number(entry.requestCount);
+        if (Number.isFinite(requestCount) && requestCount > 0) {
+          const requestLabel = requestCount === 1
+            ? '1 request'
+            : `${formatDashboardCount(requestCount)} requests`;
+          metaParts.push(requestLabel);
+        }
+        if (metaParts.length) {
+          value.title = metaParts.join(' • ');
+        }
+        li.appendChild(location);
+        li.appendChild(value);
+        return li;
+      }
+
+      function buildTechnicalInsightRow(entry) {
+        if (!entry) {
+          return null;
+        }
+        const li = document.createElement('li');
+        li.className = 'insight-row';
+        const location = document.createElement('span');
+        location.className = 'insight-location';
+        const locationText = typeof entry.location === 'string' && entry.location.trim()
+          ? entry.location.trim()
+          : 'Unknown';
+        location.textContent = locationText;
+        const value = document.createElement('span');
+        value.className = 'insight-value';
+        const total = Number(entry.count);
+        const totalLabel = Number.isFinite(total) && total > 0 ? formatDashboardCount(total) : '0';
+        const strong = document.createElement('strong');
+        strong.textContent = totalLabel;
+        value.appendChild(strong);
+        value.appendChild(document.createTextNode(total === 1 ? ' request' : ' requests'));
+        const breakdown = [];
+        const itCount = Number(entry.itCount);
+        if (Number.isFinite(itCount) && itCount > 0) {
+          breakdown.push(`IT ${formatDashboardCount(itCount)}`);
+        }
+        const maintenanceCount = Number(entry.maintenanceCount);
+        if (Number.isFinite(maintenanceCount) && maintenanceCount > 0) {
+          breakdown.push(`Maintenance ${formatDashboardCount(maintenanceCount)}`);
+        }
+        if (breakdown.length) {
+          value.title = breakdown.join(' • ');
+        }
+        li.appendChild(location);
+        li.appendChild(value);
+        return li;
       }
 
       function updateDashboardEmptyState(metrics, loading) {
@@ -3463,6 +3838,28 @@ function renderApproverUnavailable(auth) {
           });
         });
         document.addEventListener('keydown', handleFeedbackKeydown);
+      }
+
+      function attachInsightHandlers() {
+        const insights = dom.dashboard && dom.dashboard.insights;
+        if (!insights) {
+          return;
+        }
+        const buttons = insights.exportButtons || [];
+        buttons.forEach(button => {
+          if (!button) {
+            return;
+          }
+          const label = button.textContent ? button.textContent.trim() : '';
+          if (!button.dataset.defaultLabel) {
+            button.dataset.defaultLabel = label || 'Export PDF';
+          }
+          if (!hasServer) {
+            button.disabled = true;
+            button.title = 'Connect to Google Apps Script to export insights.';
+          }
+          button.addEventListener('click', handleInsightExport);
+        });
       }
 
       function openFeedbackDialog() {
@@ -5216,6 +5613,85 @@ function renderApproverUnavailable(auth) {
         dot.textContent = '•';
         dot.setAttribute('aria-hidden', 'true');
         return dot;
+      }
+
+      function handleInsightExport() {
+        if (!hasServer) {
+          showToast('Connect to Google Apps Script to export insights.');
+          return;
+        }
+        if (state.dashboard.exportingInsights) {
+          return;
+        }
+        state.dashboard.exportingInsights = true;
+        setInsightExportLoading(true);
+        const payload = { cid: makeCid() };
+        server
+          .withSuccessHandler(response => {
+            state.dashboard.exportingInsights = false;
+            setInsightExportLoading(false);
+            if (!response || !response.ok || !response.data) {
+              handleError(response || 'Unable to export insights.', 'exportDashboardInsightsPdf', payload);
+              return;
+            }
+            const fileName = typeof response.fileName === 'string' && response.fileName.trim()
+              ? response.fileName.trim()
+              : 'location-insights.pdf';
+            const mimeType = typeof response.mimeType === 'string' && response.mimeType.trim()
+              ? response.mimeType.trim()
+              : 'application/pdf';
+            try {
+              downloadFileFromBase64(fileName, response.data, mimeType);
+              showToast('Insights exported to PDF.');
+            } catch (err) {
+              handleError(err, 'exportDashboardInsightsPdf', payload);
+            }
+          })
+          .withFailureHandler(err => {
+            state.dashboard.exportingInsights = false;
+            setInsightExportLoading(false);
+            handleError(err, 'exportDashboardInsightsPdf', payload);
+          })
+          .exportDashboardInsightsPdf(payload);
+      }
+
+      function setInsightExportLoading(loading) {
+        const insights = dom.dashboard && dom.dashboard.insights;
+        const buttons = insights && insights.exportButtons ? insights.exportButtons : [];
+        buttons.forEach(button => {
+          if (!button) {
+            return;
+          }
+          const defaultLabel = button.dataset.defaultLabel || 'Export PDF';
+          if (loading) {
+            button.disabled = true;
+            button.textContent = 'Preparing…';
+          } else {
+            button.textContent = defaultLabel;
+            button.disabled = !hasServer;
+          }
+        });
+      }
+
+      function downloadFileFromBase64(fileName, base64Data, mimeType) {
+        if (typeof base64Data !== 'string' || !base64Data) {
+          throw new Error('Unable to download file.');
+        }
+        const binary = window.atob(base64Data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: mimeType || 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName || 'export.pdf';
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
       }
 
       function disableForm(type, disabled) {
