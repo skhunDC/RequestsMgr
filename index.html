@@ -295,19 +295,32 @@
       gap: 1.1rem;
     }
 
+    .modal-close {
+      --modal-close-size: 40px;
+      border: none;
+      border-radius: 999px;
+      width: var(--modal-close-size);
+      height: var(--modal-close-size);
+      display: grid;
+      place-items: center;
+      padding: 0;
+      line-height: 1;
+      font-size: 1.65rem;
+      font-weight: 400;
+      cursor: pointer;
+    }
+
+    .modal-close:focus-visible {
+      outline: 3px solid rgba(11, 87, 208, 0.25);
+      outline-offset: 3px;
+    }
+
     .feedback-close {
       position: absolute;
       top: 0.9rem;
       right: 0.9rem;
-      border: none;
       background: rgba(15, 23, 42, 0.06);
-      border-radius: 999px;
-      width: 32px;
-      height: 32px;
-      display: grid;
-      place-items: center;
       color: var(--muted);
-      cursor: pointer;
       transition: background 160ms ease, color 160ms ease;
     }
 
@@ -315,11 +328,6 @@
     .feedback-close:focus-visible {
       background: rgba(11, 87, 208, 0.12);
       color: var(--accent-strong);
-    }
-
-    .feedback-close:focus-visible {
-      outline: 3px solid rgba(11, 87, 208, 0.25);
-      outline-offset: 3px;
     }
 
     .feedback-header h2 {
@@ -733,18 +741,8 @@
     }
 
     .insights-modal-close {
-      border: none;
-      border-radius: 999px;
       background: rgba(15, 33, 66, 0.08);
       color: var(--text);
-      font-size: 1.45rem;
-      width: 2.6rem;
-      height: 2.6rem;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1;
-      cursor: pointer;
       transition: background 0.2s ease, color 0.2s ease;
     }
 
@@ -752,7 +750,6 @@
     .insights-modal-close:focus-visible {
       background: rgba(11, 87, 208, 0.12);
       color: var(--accent-strong);
-      outline: none;
     }
 
     .insights-modal-description {
@@ -2340,7 +2337,7 @@
     hidden
   >
     <div class="feedback-card" role="document">
-      <button type="button" id="feedbackCloseButton" class="feedback-close" aria-label="Close feedback form">×</button>
+      <button type="button" id="feedbackCloseButton" class="feedback-close modal-close" aria-label="Close feedback form">×</button>
       <div class="feedback-header">
         <h2 id="feedbackTitle">Help us shine brighter ✨</h2>
         <p class="feedback-subtitle">Share a bug or improvement idea—only one quick note is required, and you can stay anonymous.</p>
@@ -2426,7 +2423,7 @@
         <button
           type="button"
           id="insightsModalClose"
-          class="insights-modal-close"
+          class="insights-modal-close modal-close"
           aria-label="Close insights"
         >
           ×
