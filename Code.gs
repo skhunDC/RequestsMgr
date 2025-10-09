@@ -716,7 +716,7 @@ function exportDashboardInsightsPdf(request) {
         ]);
         const suppliesHeader = suppliesTable.getRow(0);
         for (let i = 0; i < suppliesHeader.getNumCells(); i++) {
-          suppliesHeader.getCell(i).getText().setBold(true);
+          suppliesHeader.getCell(i).editAsText().setBold(true);
         }
         suppliesEntries.forEach(entry => {
           const labelParts = [sanitizeString_(entry.item)];
@@ -748,7 +748,7 @@ function exportDashboardInsightsPdf(request) {
         ]);
         const technicalHeader = technicalTable.getRow(0);
         for (let i = 0; i < technicalHeader.getNumCells(); i++) {
-          technicalHeader.getCell(i).getText().setBold(true);
+          technicalHeader.getCell(i).editAsText().setBold(true);
         }
         technicalEntries.forEach(entry => {
           const row = technicalTable.appendTableRow([
