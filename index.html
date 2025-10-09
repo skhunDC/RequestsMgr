@@ -3293,6 +3293,43 @@
         }
       }
 
+      function abbreviateInsightCatalogItem(label, maxLength) {
+        const fallbackLimit = 28;
+        const limit = Number.isFinite(maxLength) && maxLength >= 10 ? maxLength : fallbackLimit;
+        const normalized = typeof label === 'string' ? label.trim() : '';
+        if (!normalized) {
+          return '';
+        }
+        if (normalized.length <= limit) {
+          return normalized;
+        }
+        const words = normalized.split(/\s+/).filter(Boolean);
+        if (words.length <= 1) {
+          return `${normalized.slice(0, limit - 1).trimEnd()}…`;
+        }
+        const firstWord = words[0];
+        if (firstWord.length >= limit - 1) {
+          return `${firstWord.slice(0, limit - 1).trimEnd()}…`;
+        }
+        let abbreviated = firstWord;
+        for (let i = 1; i < words.length; i += 1) {
+          const word = words[i];
+          if (!word) {
+            continue;
+          }
+          const short = word.length <= 3 ? word : `${word.charAt(0).toUpperCase()}.`;
+          const next = `${abbreviated} ${short}`;
+          if (next.length > limit - 1) {
+            break;
+          }
+          abbreviated = next;
+        }
+        if (abbreviated.length >= limit - 1) {
+          abbreviated = abbreviated.slice(0, limit - 1).trimEnd();
+        }
+        return `${abbreviated}…`;
+      }
+
       function buildSuppliesInsightRow(entry) {
         if (!entry) {
           return null;
@@ -3308,11 +3345,17 @@
         const value = document.createElement('span');
         value.className = 'insight-value';
         const itemLabel = typeof entry.item === 'string' && entry.item.trim() ? entry.item.trim() : '—';
+        const abbreviatedItemLabel = itemLabel === '—'
+          ? itemLabel
+          : abbreviateInsightCatalogItem(itemLabel);
         const quantityValue = Number(entry.quantity);
         const hasQuantity = Number.isFinite(quantityValue) && quantityValue > 0;
         const quantityLabel = hasQuantity ? formatDashboardCount(quantityValue) : '0';
-        value.textContent = hasQuantity ? `${itemLabel} (${quantityLabel})` : itemLabel;
+        value.textContent = hasQuantity ? `${abbreviatedItemLabel} (${quantityLabel})` : abbreviatedItemLabel;
         const metaParts = [];
+        if (itemLabel && itemLabel !== '—') {
+          metaParts.push(itemLabel);
+        }
         if (entry.catalogSku && String(entry.catalogSku).trim()) {
           metaParts.push(`SKU ${String(entry.catalogSku).trim()}`);
         }
