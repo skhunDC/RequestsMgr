@@ -5,6 +5,7 @@ const SCRIPT_PROP_SETUP_VERSION = 'SUPPLIES_TRACKING_SETUP_VERSION';
 const SCRIPT_PROP_STATUS_EMAILS = 'SUPPLIES_TRACKING_STATUS_EMAILS';
 const CURRENT_SETUP_VERSION = '4';
 const MAX_PAGE_SIZE = 50;
+const DASHBOARD_TOP_INSIGHT_LIMIT = 5;
 
 const SHEETS = {
   CATALOG: 'Catalog',
@@ -562,13 +563,18 @@ function computeDashboardTopInsights_(recordsByType) {
   const maintenanceRecords = recordsByType && Array.isArray(recordsByType.maintenance)
     ? recordsByType.maintenance
     : getAllRequestsForType_('maintenance');
+  const suppliesByLocation = summarizeSuppliesByLocation_(suppliesRecords);
+  const technicalByLocation = summarizeTechnicalByLocation_(itRecords, maintenanceRecords);
+  const limit = DASHBOARD_TOP_INSIGHT_LIMIT;
   return {
-    suppliesTopByLocation: summarizeSuppliesTopByLocation_(suppliesRecords),
-    itMaintenanceTopByLocation: summarizeTechnicalTopByLocation_(itRecords, maintenanceRecords)
+    suppliesTopByLocation: suppliesByLocation.slice(0, limit),
+    suppliesAllByLocation: suppliesByLocation,
+    itMaintenanceTopByLocation: technicalByLocation.slice(0, limit),
+    itMaintenanceAllByLocation: technicalByLocation
   };
 }
 
-function summarizeSuppliesTopByLocation_(records) {
+function summarizeSuppliesByLocation_(records) {
   const entries = Array.isArray(records) ? records : [];
   const locationItemTotals = entries.reduce((acc, record) => {
     if (!record || !record.fields) {
@@ -645,7 +651,7 @@ function summarizeSuppliesTopByLocation_(records) {
     });
 }
 
-function summarizeTechnicalTopByLocation_(itRecords, maintenanceRecords) {
+function summarizeTechnicalByLocation_(itRecords, maintenanceRecords) {
   const counts = {};
   const appendRecords = (records, type) => {
     if (!Array.isArray(records)) {

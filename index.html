@@ -3029,13 +3029,23 @@
             });
             state.dashboard.metrics = metrics;
             const insightsResponse = response.insights || {};
+            const suppliesTopEntries = Array.isArray(insightsResponse.suppliesTopByLocation)
+              ? insightsResponse.suppliesTopByLocation.slice()
+              : [];
+            const suppliesAllEntries = Array.isArray(insightsResponse.suppliesAllByLocation)
+              ? insightsResponse.suppliesAllByLocation.slice()
+              : suppliesTopEntries.slice();
+            const technicalTopEntries = Array.isArray(insightsResponse.itMaintenanceTopByLocation)
+              ? insightsResponse.itMaintenanceTopByLocation.slice()
+              : [];
+            const technicalAllEntries = Array.isArray(insightsResponse.itMaintenanceAllByLocation)
+              ? insightsResponse.itMaintenanceAllByLocation.slice()
+              : technicalTopEntries.slice();
             state.dashboard.insights = {
-              supplies: Array.isArray(insightsResponse.suppliesTopByLocation)
-                ? insightsResponse.suppliesTopByLocation
-                : [],
-              itMaintenance: Array.isArray(insightsResponse.itMaintenanceTopByLocation)
-                ? insightsResponse.itMaintenanceTopByLocation
-                : []
+              supplies: suppliesTopEntries,
+              suppliesFull: suppliesAllEntries,
+              itMaintenance: technicalTopEntries,
+              itMaintenanceFull: technicalAllEntries
             };
             const totals = response.totals || {};
             const totalRequests = Number(totals.totalRequests);
@@ -4106,10 +4116,23 @@ function renderApproverUnavailable(auth) {
           body.removeChild(body.firstChild);
         }
         const normalizedType = type === 'technical' ? 'technical' : 'supplies';
-        const insightState = state.dashboard.insights || { supplies: [], itMaintenance: [] };
+        const insightState = state.dashboard.insights || {
+          supplies: [],
+          suppliesFull: [],
+          itMaintenance: [],
+          itMaintenanceFull: []
+        };
         const entries = normalizedType === 'technical'
-          ? Array.isArray(insightState.itMaintenance) ? insightState.itMaintenance : []
-          : Array.isArray(insightState.supplies) ? insightState.supplies : [];
+          ? (Array.isArray(insightState.itMaintenanceFull) && insightState.itMaintenanceFull.length
+            ? insightState.itMaintenanceFull
+            : Array.isArray(insightState.itMaintenance)
+              ? insightState.itMaintenance
+              : [])
+          : (Array.isArray(insightState.suppliesFull) && insightState.suppliesFull.length
+            ? insightState.suppliesFull
+            : Array.isArray(insightState.supplies)
+              ? insightState.supplies
+              : []);
         const hasEntries = Array.isArray(entries) && entries.length > 0;
         if (modal.title) {
           modal.title.textContent = normalizedType === 'technical'
