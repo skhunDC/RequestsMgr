@@ -654,7 +654,7 @@
     .insight-list li {
       position: relative;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.15fr);
       align-items: center;
       gap: 0.55rem;
       padding: 0.48rem 0.7rem 0.48rem 2.2rem;
@@ -676,6 +676,13 @@
       font-size: clamp(0.82rem, 2.6vw, 0.94rem);
     }
 
+    .insight-list .insight-location,
+    .insight-list .insight-value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .insight-list .insight-location {
       font-weight: 600;
       color: var(--text);
@@ -687,6 +694,7 @@
       color: var(--muted);
       font-weight: 500;
       font-size: clamp(0.78rem, 2.3vw, 0.9rem);
+      max-width: 100%;
     }
 
     .insight-list .insight-value strong {
@@ -3385,9 +3393,17 @@
         const value = document.createElement('span');
         value.className = 'insight-value';
         const itemLabel = typeof entry.item === 'string' && entry.item.trim() ? entry.item.trim() : '—';
+        const locationLength = locationText.length;
+        const maxItemLength = locationLength >= 18
+          ? 8
+          : locationLength >= 14
+            ? 9
+            : locationLength >= 10
+              ? 10
+              : 12;
         const abbreviatedItemLabel = itemLabel === '—'
           ? itemLabel
-          : abbreviateInsightCatalogItem(itemLabel);
+          : abbreviateInsightCatalogItem(itemLabel, maxItemLength);
         const quantityValue = Number(entry.quantity);
         const hasQuantity = Number.isFinite(quantityValue) && quantityValue > 0;
         const quantityLabel = hasQuantity ? formatDashboardCount(quantityValue) : '0';
