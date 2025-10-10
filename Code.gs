@@ -16,6 +16,14 @@ const SHEETS = {
 };
 
 const LOCATION_OPTIONS = ['Plant', 'Short N.', 'Frantz Rd.', 'Muirfield', 'Morse Rd.', 'Granville', 'Newark'];
+const LEGACY_LOCATION_ALIASES = Object.freeze({
+  'short north': 'Short N.',
+  'short north.': 'Short N.',
+  'short n': 'Short N.',
+  'short n.': 'Short N.',
+  'south dublin': 'Frantz Rd.',
+  'south dublin.': 'Frantz Rd.'
+});
 
 const EMAIL_TIMEZONE = 'America/New_York';
 const PRIMARY_NOTIFICATION_EMAIL = 'skhun@dublincleaners.com';
@@ -574,6 +582,23 @@ function computeDashboardTopInsights_(recordsByType) {
   };
 }
 
+function normalizeLocationLabelForReporting_(value) {
+  const name = sanitizeString_(value);
+  if (!name) {
+    return '';
+  }
+  const normalized = name.toLowerCase();
+  const alias = LEGACY_LOCATION_ALIASES[normalized];
+  if (alias) {
+    return alias;
+  }
+  const match = LOCATION_OPTIONS.find(option => option.toLowerCase() === normalized);
+  if (match) {
+    return match;
+  }
+  return name;
+}
+
 function summarizeSuppliesByLocation_(records) {
   const entries = Array.isArray(records) ? records : [];
   const locationItemTotals = entries.reduce((acc, record) => {
@@ -581,7 +606,7 @@ function summarizeSuppliesByLocation_(records) {
       return acc;
     }
     const fields = record.fields;
-    const location = sanitizeString_(fields.location);
+    const location = normalizeLocationLabelForReporting_(fields.location);
     const description = sanitizeString_(fields.description);
     const fallbackLabel = sanitizeString_(fields.catalogSku);
     const hasSku = Boolean(fallbackLabel);
@@ -659,7 +684,7 @@ function summarizeTechnicalByLocation_(itRecords, maintenanceRecords) {
       if (!record || !record.fields) {
         return;
       }
-      const location = sanitizeString_(record.fields.location);
+      const location = normalizeLocationLabelForReporting_(record.fields.location);
       if (!location) {
         return;
       }
@@ -1580,7 +1605,12 @@ function normalizeLocation_(value) {
   if (!name) {
     throw new Error('Location is required.');
   }
-  const match = LOCATION_OPTIONS.find(option => option.toLowerCase() === name.toLowerCase());
+  const normalized = name.toLowerCase();
+  const alias = LEGACY_LOCATION_ALIASES[normalized];
+  if (alias) {
+    return alias;
+  }
+  const match = LOCATION_OPTIONS.find(option => option.toLowerCase() === normalized);
   if (!match) {
     throw new Error('Unsupported location.');
   }
@@ -2146,6 +2176,9 @@ function buildClientRequest_(type, row) {
   fieldNames.forEach(name => {
     fields[name] = row[name] !== undefined ? row[name] : '';
   });
+  if (Object.prototype.hasOwnProperty.call(fields, 'location')) {
+    fields.location = normalizeLocationLabelForReporting_(fields.location);
+  }
   const record = {
     id: String(row.id || ''),
     ts: String(row.ts || ''),
