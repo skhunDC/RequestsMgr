@@ -729,7 +729,7 @@
 
     .insights-modal-card {
       width: min(100%, 720px);
-      max-height: min(80vh, 720px);
+      max-height: min(85vh, 720px);
       background: var(--surface);
       border-radius: 20px;
       border: 1px solid rgba(12, 32, 55, 0.14);
@@ -737,6 +737,7 @@
       padding: clamp(1rem, 3vw, 1.6rem);
       display: grid;
       gap: clamp(0.75rem, 2.5vw, 1.2rem);
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
       overflow: hidden;
     }
 
@@ -776,6 +777,8 @@
       border: 1px solid rgba(16, 42, 67, 0.08);
       background: rgba(16, 42, 67, 0.04);
       padding: clamp(0.75rem, 2.4vw, 1.1rem);
+      min-height: 0;
+      scrollbar-gutter: stable;
     }
 
     .insights-modal-table {
