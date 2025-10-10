@@ -2833,7 +2833,10 @@
           nextToken: '',
           loading: false,
           search: '',
-          fullyLoaded: false
+          fullyLoaded: false,
+          itemBySku: Object.create(null),
+          descriptionIndex: Object.create(null),
+          topSkuLookup: Object.create(null)
         },
         dashboard: {
           loading: false,
@@ -3871,9 +3874,9 @@ function renderApproverUnavailable(auth) {
           if (!syncingCatalogToDescription) {
             let matchedSku = '';
             if (trimmed) {
-              const match = state.catalog.items.find(item => item.description.toLowerCase() === trimmed.toLowerCase());
+              const match = findCatalogItemByDescription(trimmed);
               if (match) {
-                matchedSku = match.sku;
+                matchedSku = makeCatalogSkuKey(match.sku);
               }
             }
             setFormState('supplies', { description: value, catalogSku: matchedSku });
@@ -3899,16 +3902,22 @@ function renderApproverUnavailable(auth) {
           });
         }
         const handleCatalogSearchInput = () => {
-          const rawValue = dom.supplies.catalogSearch.value || '';
-          state.catalog.search = rawValue;
           ensureFullCatalogLoaded();
+          const rawValue = dom.supplies.catalogSearch.value || '';
+          const previousSearch = state.catalog.search;
+          const previousSku = makeCatalogSkuKey(state.forms.supplies.catalogSku || '');
+          state.catalog.search = rawValue;
           const option = findCatalogOption(rawValue);
           if (option) {
             selectCatalogSku(option.dataset ? option.dataset.sku || '' : '', { searchValue: rawValue, updateSearch: false });
           } else {
             selectCatalogSku('', { searchValue: rawValue, updateSearch: false, preserveDescription: true });
           }
-          if (state.catalog.items.length) {
+          const currentSku = makeCatalogSkuKey(state.forms.supplies.catalogSku || '');
+          const skuChanged = currentSku !== previousSku;
+          const searchChanged = rawValue !== previousSearch;
+          const hasItems = state.catalog.items.length > 0;
+          if ((hasItems && (searchChanged || skuChanged)) || (!hasItems && searchChanged)) {
             renderCatalog();
           }
           updateCatalogSearchAffordances();
@@ -5243,8 +5252,11 @@ function renderApproverUnavailable(auth) {
             }
             state.catalog.nextToken = response.nextToken || '';
             const items = Array.isArray(response.items) ? response.items : [];
-            state.catalog.items = append && !fetchAll ? state.catalog.items.concat(items) : items;
+            const normalizedItems = enrichCatalogItems(items);
+            const currentItems = append && !fetchAll ? state.catalog.items : [];
+            state.catalog.items = mergeCatalogItems(currentItems, normalizedItems);
             state.catalog.fullyLoaded = fetchAll || !state.catalog.nextToken;
+            updateCatalogIndexes();
             renderCatalog();
             updateCatalogControls();
           })
@@ -5257,12 +5269,168 @@ function renderApproverUnavailable(auth) {
           .listCatalog(payload);
       }
 
+      function makeCatalogSkuKey(value) {
+        if (typeof value === 'string') {
+          return value.trim();
+        }
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          return String(value);
+        }
+        if (value === undefined || value === null) {
+          return '';
+        }
+        const text = String(value);
+        return text === 'undefined' || text === 'null' ? '' : text;
+      }
+
+      function enrichCatalogItems(items) {
+        if (!Array.isArray(items) || !items.length) {
+          return [];
+        }
+        return items.map(raw => {
+          const description = typeof raw.description === 'string' ? raw.description.trim() : '';
+          const category = typeof raw.category === 'string' ? raw.category.trim() : '';
+          const supplier = typeof raw.supplier === 'string' ? raw.supplier.trim() : '';
+          const sku = makeCatalogSkuKey(raw.sku);
+          const usageCount = Number(raw.usageCount);
+          const costDisplay = formatCurrencyDisplay(raw.estimatedCost);
+          const normalized = Object.assign({}, raw, {
+            description,
+            category,
+            supplier,
+            sku,
+            usageCount: Number.isFinite(usageCount) && usageCount > 0 ? usageCount : 0,
+            costDisplay,
+            descriptionLower: description.toLowerCase()
+          });
+          const estimatedCostText = raw && raw.estimatedCost !== undefined && raw.estimatedCost !== null
+            ? String(raw.estimatedCost)
+            : '';
+          const searchParts = [description, category, sku, supplier, estimatedCostText, costDisplay]
+            .filter(Boolean)
+            .map(part => part.toLowerCase());
+          normalized.searchTarget = searchParts.join(' ');
+          return normalized;
+        });
+      }
+
+      function mergeCatalogItems(existing, incoming) {
+        const base = Array.isArray(existing) ? existing.slice() : [];
+        const additions = Array.isArray(incoming) ? incoming : [];
+        if (!additions.length) {
+          return base;
+        }
+        const positionBySku = Object.create(null);
+        base.forEach((item, index) => {
+          const key = makeCatalogSkuKey(item && item.sku);
+          if (key) {
+            positionBySku[key] = index;
+          }
+        });
+        additions.forEach(item => {
+          if (!item) {
+            return;
+          }
+          const key = makeCatalogSkuKey(item.sku);
+          if (key && positionBySku[key] !== undefined) {
+            base[positionBySku[key]] = item;
+          } else {
+            if (key) {
+              positionBySku[key] = base.length;
+            }
+            base.push(item);
+          }
+        });
+        return base;
+      }
+
+      function updateCatalogIndexes() {
+        const items = Array.isArray(state.catalog.items) ? state.catalog.items : [];
+        const itemBySku = Object.create(null);
+        const descriptionIndex = Object.create(null);
+        const usageEntries = [];
+        items.forEach(item => {
+          if (!item) {
+            return;
+          }
+          const key = makeCatalogSkuKey(item.sku);
+          if (key) {
+            itemBySku[key] = item;
+            if (Number(item.usageCount) > 0) {
+              usageEntries.push(item);
+            }
+          }
+          if (item.descriptionLower && !(item.descriptionLower in descriptionIndex)) {
+            descriptionIndex[item.descriptionLower] = item;
+          }
+        });
+        usageEntries.sort((a, b) => Number(b.usageCount) - Number(a.usageCount));
+        const topSkuLookup = Object.create(null);
+        usageEntries.slice(0, 5).forEach(item => {
+          const key = makeCatalogSkuKey(item.sku);
+          if (key) {
+            topSkuLookup[key] = true;
+          }
+        });
+        state.catalog.itemBySku = itemBySku;
+        state.catalog.descriptionIndex = descriptionIndex;
+        state.catalog.topSkuLookup = topSkuLookup;
+      }
+
+      function getCatalogSearchTarget(item) {
+        if (!item) {
+          return '';
+        }
+        if (typeof item.searchTarget === 'string') {
+          return item.searchTarget;
+        }
+        const description = typeof item.description === 'string' ? item.description : '';
+        const category = typeof item.category === 'string' ? item.category : '';
+        const supplier = typeof item.supplier === 'string' ? item.supplier : '';
+        const sku = makeCatalogSkuKey(item.sku);
+        const estimatedCostText = item && item.estimatedCost !== undefined && item.estimatedCost !== null
+          ? String(item.estimatedCost)
+          : '';
+        const costDisplay = getCatalogCostDisplay(item);
+        const searchParts = [description, category, sku, supplier, estimatedCostText, costDisplay]
+          .filter(Boolean)
+          .map(part => part.toLowerCase());
+        const target = searchParts.join(' ');
+        item.searchTarget = target;
+        return target;
+      }
+
+      function getCatalogCostDisplay(item) {
+        if (!item) {
+          return '';
+        }
+        if (typeof item.costDisplay === 'string') {
+          return item.costDisplay;
+        }
+        const display = formatCurrencyDisplay(item.estimatedCost);
+        item.costDisplay = display;
+        return display;
+      }
+
+      function findCatalogItemByDescription(description) {
+        const key = typeof description === 'string' ? description.trim().toLowerCase() : '';
+        if (!key) {
+          return null;
+        }
+        const index = state.catalog.descriptionIndex || {};
+        if (index[key]) {
+          return index[key];
+        }
+        const match = state.catalog.items.find(item => item && item.descriptionLower === key);
+        return match || null;
+      }
+
       function renderCatalog() {
         dom.supplies.catalogList.textContent = '';
         if (dom.supplies.catalogOptions) {
           dom.supplies.catalogOptions.textContent = '';
         }
-        let selectedSku = state.forms.supplies.catalogSku || '';
+        let selectedSku = makeCatalogSkuKey(state.forms.supplies.catalogSku || '');
         const searchValue = state.catalog.search || '';
         dom.supplies.catalogSearch.value = searchValue;
         updateCatalogSearchAffordances();
@@ -5285,10 +5453,10 @@ function renderApproverUnavailable(auth) {
 
         const descriptionValue = (state.forms.supplies.description || '').trim();
         if (!selectedSku && descriptionValue) {
-          const match = state.catalog.items.find(item => item.description.toLowerCase() === descriptionValue.toLowerCase());
+          const match = findCatalogItemByDescription(descriptionValue);
           if (match) {
             selectCatalogSku(match.sku, { updateSearch: false });
-            selectedSku = match.sku;
+            selectedSku = makeCatalogSkuKey(match.sku);
           }
         }
 
@@ -5298,12 +5466,14 @@ function renderApproverUnavailable(auth) {
         let filteredItems = state.catalog.items.slice();
         if (normalizedSearch) {
           filteredItems = state.catalog.items.filter(item => {
-            const displayCost = formatCurrencyDisplay(item.estimatedCost);
-            const haystack = `${item.description} ${item.category} ${item.sku} ${item.supplier || ''} ${item.estimatedCost || ''} ${displayCost}`.toLowerCase();
+            const haystack = getCatalogSearchTarget(item);
+            if (!haystack) {
+              return false;
+            }
             return haystack.indexOf(normalizedSearch) !== -1;
           });
-          const skuToHighlight = state.forms.supplies.catalogSku || '';
-          if (skuToHighlight && !filteredItems.some(item => item.sku === skuToHighlight)) {
+          const skuToHighlight = makeCatalogSkuKey(state.forms.supplies.catalogSku || '');
+          if (skuToHighlight && !filteredItems.some(item => makeCatalogSkuKey(item && item.sku) === skuToHighlight)) {
             const selectedItem = findCatalogItem(skuToHighlight);
             if (selectedItem) {
               filteredItems.unshift(selectedItem);
@@ -5325,9 +5495,7 @@ function renderApproverUnavailable(auth) {
           return;
         }
 
-        const popularItems = state.catalog.items.filter(item => Number(item.usageCount) > 0);
-        const topRank = Math.min(5, popularItems.length);
-        const topSkuSet = new Set(popularItems.slice(0, topRank).map(item => item.sku));
+        const topSkuLookup = state.catalog.topSkuLookup || Object.create(null);
 
         if (dom.supplies.catalogOptions) {
           const datalistFragment = document.createDocumentFragment();
@@ -5335,13 +5503,14 @@ function renderApproverUnavailable(auth) {
           const datalistItems = filteredItems.slice(0, limit);
           if (selectedSku) {
             const selectedItem = findCatalogItem(selectedSku);
-            if (selectedItem && !datalistItems.some(entry => entry.sku === selectedSku)) {
+            if (selectedItem && !datalistItems.some(entry => makeCatalogSkuKey(entry && entry.sku) === selectedSku)) {
               datalistItems.unshift(selectedItem);
             }
           }
           datalistItems.slice(0, limit).forEach(item => {
             const option = document.createElement('option');
-            option.value = formatCatalogOptionValue(item, topSkuSet.has(item.sku));
+            const skuKey = makeCatalogSkuKey(item && item.sku);
+            option.value = formatCatalogOptionValue(item, Boolean(topSkuLookup[skuKey]));
             option.dataset.sku = item.sku;
             option.dataset.description = item.description;
             option.dataset.category = item.category || '';
@@ -5354,13 +5523,14 @@ function renderApproverUnavailable(auth) {
         filteredItems.forEach(item => {
           const card = document.createElement('article');
           card.className = 'catalog-item';
-          if (item.sku === selectedSku) {
+          const skuKey = makeCatalogSkuKey(item && item.sku);
+          if (skuKey === selectedSku) {
             card.classList.add('selected');
           }
           card.tabIndex = 0;
           card.setAttribute('role', 'listitem');
 
-          const costDisplay = formatCurrencyDisplay(item.estimatedCost);
+          const costDisplay = getCatalogCostDisplay(item);
 
           const head = document.createElement('div');
           head.className = 'catalog-item-head';
@@ -5377,7 +5547,7 @@ function renderApproverUnavailable(auth) {
 
           card.appendChild(head);
 
-          if (topSkuSet.has(item.sku) && Number(item.usageCount) > 0) {
+          if (Number(item.usageCount) > 0 && Boolean(topSkuLookup[skuKey])) {
             const badge = document.createElement('span');
             badge.className = 'catalog-badge';
             badge.textContent = 'Most requested';
@@ -5451,7 +5621,8 @@ function renderApproverUnavailable(auth) {
 
       function selectCatalogSku(sku, options) {
         const opts = options || {};
-        const item = sku ? findCatalogItem(sku) : null;
+        const skuKey = makeCatalogSkuKey(sku);
+        const item = skuKey ? findCatalogItem(skuKey) : null;
         const shouldUpdateSearch = opts.updateSearch !== false;
         const searchValue = 'searchValue' in opts
           ? opts.searchValue
@@ -5469,8 +5640,8 @@ function renderApproverUnavailable(auth) {
           dom.supplies.description.value = item.description;
           syncingCatalogToDescription = false;
         }
-        dom.supplies.catalogSku.value = sku || '';
-        setFormState('supplies', { catalogSku: sku || '', description: nextDescription });
+        dom.supplies.catalogSku.value = skuKey;
+        setFormState('supplies', { catalogSku: skuKey, description: nextDescription });
         updateCatalogSearchAffordances();
         if (opts.persist !== false) {
           persistForm('supplies');
@@ -5530,7 +5701,7 @@ function renderApproverUnavailable(auth) {
         const prefix = highlight ? '★ ' : '';
         const categoryLabel = item.category ? ` · ${item.category}` : '';
         const supplierLabel = item.supplier ? ` · ${item.supplier}` : '';
-        const costDisplay = formatCurrencyDisplay(item.estimatedCost);
+        const costDisplay = getCatalogCostDisplay(item);
         const costLabel = costDisplay ? ` (${costDisplay})` : '';
         return `${prefix}${item.description}${categoryLabel}${supplierLabel} — ${item.sku}${costLabel}`;
       }
@@ -5543,10 +5714,15 @@ function renderApproverUnavailable(auth) {
         return options.find(option => option.value === value) || null;
       }
       function findCatalogItem(sku) {
-        if (!sku) {
+        const key = makeCatalogSkuKey(sku);
+        if (!key) {
           return null;
         }
-        const item = state.catalog.items.find(entry => entry.sku === sku);
+        const lookup = state.catalog.itemBySku || {};
+        if (lookup[key]) {
+          return lookup[key];
+        }
+        const item = state.catalog.items.find(entry => makeCatalogSkuKey(entry && entry.sku) === key);
         return item || null;
       }
 
