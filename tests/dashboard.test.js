@@ -21,8 +21,8 @@ const { summarizeSuppliesByLocation_ } = loadServerFunctions();
 
 test("summarizeSuppliesByLocation_ ranks all supply requests", () => {
   const records = [
-    { fields: { location: "Plant", description: "Gloves", qty: 5 } },
-    { fields: { location: "Plant", description: "Gloves", qty: 3 } },
+    { id: "REQ-1", fields: { location: "Plant", description: "Gloves", qty: 5 } },
+    { id: "REQ-2", fields: { location: "Plant", description: "Gloves", qty: 3 } },
     { fields: { location: "Plant", description: "Masks", qty: 9 } },
     { fields: { location: "Morse Rd.", description: "Gloves", qty: 10 } },
     { fields: { location: "South Dublin", description: "Soap", qty: 2 } }
@@ -42,4 +42,40 @@ test("summarizeSuppliesByLocation_ ranks all supply requests", () => {
   assert.equal(results[3].location, "South Dublin");
   assert.equal(results[3].item, "Soap");
   assert.equal(results[3].quantity, 2);
+});
+
+test("summarizeSuppliesByLocation_ aggregates quantities by SKU", () => {
+  const records = [
+    {
+      id: "REQ-100",
+      fields: { location: "Plant", description: "Glass Cleaner", catalogSku: "GL-100", qty: 2 }
+    },
+    {
+      id: "REQ-101",
+      fields: { location: "Plant", description: "Glass Cleaner (Case)", catalogSku: "GL-100", qty: 4 }
+    },
+    {
+      id: "REQ-102",
+      fields: { location: "Plant", description: "Glass Cleaner", catalogSku: "GL-100", qty: 1 }
+    }
+  ];
+  const results = summarizeSuppliesByLocation_(records);
+  assert.equal(results.length, 1);
+  assert.equal(results[0].location, "Plant");
+  assert.equal(results[0].catalogSku, "GL-100");
+  assert.equal(results[0].quantity, 7);
+  assert.equal(results[0].requestCount, 3);
+  assert.equal(results[0].item, "Glass Cleaner");
+});
+
+test("summarizeSuppliesByLocation_ avoids double-counting the same request", () => {
+  const records = [
+    { id: "REQ-500", fields: { location: "Plant", description: "Soap", qty: 2 } },
+    { id: "req-500", fields: { location: "Plant", description: "Soap", qty: 3 } },
+    { id: "REQ-501", fields: { location: "Plant", description: "Soap", qty: 1 } }
+  ];
+  const results = summarizeSuppliesByLocation_(records);
+  assert.equal(results.length, 1);
+  assert.equal(results[0].quantity, 6);
+  assert.equal(results[0].requestCount, 2);
 });

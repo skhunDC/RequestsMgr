@@ -5,7 +5,8 @@ const SCRIPT_PROP_SETUP_VERSION = 'SUPPLIES_TRACKING_SETUP_VERSION';
 const SCRIPT_PROP_STATUS_EMAILS = 'SUPPLIES_TRACKING_STATUS_EMAILS';
 const CURRENT_SETUP_VERSION = '4';
 const MAX_PAGE_SIZE = 50;
-const DASHBOARD_TOP_INSIGHT_LIMIT = 5;
+const DASHBOARD_TOP_SUPPLIES_LIMIT = 3;
+const DASHBOARD_TOP_TECHNICAL_LIMIT = 5;
 
 const SHEETS = {
   CATALOG: 'Catalog',
@@ -565,11 +566,10 @@ function computeDashboardTopInsights_(recordsByType) {
     : getAllRequestsForType_('maintenance');
   const suppliesByLocation = summarizeSuppliesByLocation_(suppliesRecords);
   const technicalByLocation = summarizeTechnicalByLocation_(itRecords, maintenanceRecords);
-  const limit = DASHBOARD_TOP_INSIGHT_LIMIT;
   return {
-    suppliesTopByLocation: suppliesByLocation.slice(0, limit),
+    suppliesTopByLocation: suppliesByLocation.slice(0, DASHBOARD_TOP_SUPPLIES_LIMIT),
     suppliesAllByLocation: suppliesByLocation,
-    itMaintenanceTopByLocation: technicalByLocation.slice(0, limit),
+    itMaintenanceTopByLocation: technicalByLocation.slice(0, DASHBOARD_TOP_TECHNICAL_LIMIT),
     itMaintenanceAllByLocation: technicalByLocation
   };
 }
@@ -584,33 +584,54 @@ function summarizeSuppliesByLocation_(records) {
     const location = sanitizeString_(fields.location);
     const description = sanitizeString_(fields.description);
     const fallbackLabel = sanitizeString_(fields.catalogSku);
-    const itemLabel = description || fallbackLabel;
-    if (!location || !itemLabel) {
+    const hasSku = Boolean(fallbackLabel);
+    const normalizedSku = hasSku ? fallbackLabel.toLowerCase() : '';
+    const normalizedDescription = description ? description.toLowerCase() : '';
+    const itemKey = hasSku ? `sku:${normalizedSku}` : normalizedDescription ? `desc:${normalizedDescription}` : '';
+    if (!location || !itemKey) {
       return acc;
     }
     const qty = parsePositiveInteger_(fields.qty);
     if (!qty) {
       return acc;
     }
-    const key = [location.toLowerCase(), itemLabel.toLowerCase()].join('::');
+    const key = [location.toLowerCase(), itemKey].join('::');
     if (!acc[key]) {
       acc[key] = {
         location,
-        item: itemLabel,
+        item: description || fallbackLabel || '—',
         catalogSku: fallbackLabel,
         quantity: 0,
-        requestCount: 0
+        requestCount: 0,
+        _requestIds: Object.create(null)
       };
     }
-    acc[key].quantity += qty;
-    acc[key].requestCount += 1;
-    if (!acc[key].catalogSku && fallbackLabel) {
-      acc[key].catalogSku = fallbackLabel;
+    const entry = acc[key];
+    entry.quantity += qty;
+    if (description && (!entry.item || entry.item === entry.catalogSku || entry.item === '—')) {
+      entry.item = description;
+    }
+    if (!entry.catalogSku && fallbackLabel) {
+      entry.catalogSku = fallbackLabel;
+    }
+    const requestId = sanitizeString_(record.id);
+    if (requestId) {
+      const normalizedId = requestId.toLowerCase();
+      if (!entry._requestIds[normalizedId]) {
+        entry._requestIds[normalizedId] = true;
+        entry.requestCount += 1;
+      }
+    } else {
+      entry.requestCount += 1;
     }
     return acc;
   }, {});
   return Object.keys(locationItemTotals)
-    .map(key => locationItemTotals[key])
+    .map(key => {
+      const entry = locationItemTotals[key];
+      const { _requestIds, ...publicEntry } = entry;
+      return publicEntry;
+    })
     .sort((a, b) => {
       const quantityDiff = (b.quantity || 0) - (a.quantity || 0);
       if (quantityDiff !== 0) {
