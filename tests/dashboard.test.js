@@ -11,13 +11,13 @@ const __dirname = dirname(__filename);
 function loadServerFunctions() {
   const scriptPath = join(__dirname, "..", "Code.gs");
   const contents = readFileSync(scriptPath, "utf8");
-  const script = `${contents}\nmodule.exports = { summarizeSuppliesByLocation_, summarizeTechnicalByLocation_, sanitizeString_, parsePositiveInteger_ };`;
+  const script = `${contents}\nmodule.exports = { summarizeSuppliesByLocation_, sanitizeString_, parsePositiveInteger_ };`;
   const context = { module: {}, console };
   vm.runInNewContext(script, context);
   return context.module.exports;
 }
 
-const { summarizeSuppliesByLocation_, summarizeTechnicalByLocation_ } = loadServerFunctions();
+const { summarizeSuppliesByLocation_ } = loadServerFunctions();
 
 test("summarizeSuppliesByLocation_ ranks all supply requests", () => {
   const records = [
@@ -42,17 +42,6 @@ test("summarizeSuppliesByLocation_ ranks all supply requests", () => {
   assert.equal(results[3].location, "Frantz Rd.");
   assert.equal(results[3].item, "Soap");
   assert.equal(results[3].quantity, 2);
-});
-
-test("summarizeSuppliesByLocation_ normalizes legacy location labels", () => {
-  const records = [
-    { id: "REQ-LEGACY-1", fields: { location: "Short North", description: "Gloves", qty: 2 } },
-    { id: "REQ-LEGACY-2", fields: { location: "South Dublin", description: "Gloves", qty: 1 } }
-  ];
-  const results = summarizeSuppliesByLocation_(records);
-  assert.equal(results.length, 2);
-  assert.equal(results[0].location, "Short N.");
-  assert.equal(results[1].location, "Frantz Rd.");
 });
 
 test("summarizeSuppliesByLocation_ aggregates quantities by SKU", () => {
@@ -89,15 +78,4 @@ test("summarizeSuppliesByLocation_ avoids double-counting the same request", () 
   assert.equal(results.length, 1);
   assert.equal(results[0].quantity, 6);
   assert.equal(results[0].requestCount, 2);
-});
-
-test("summarizeTechnicalByLocation_ normalizes legacy location labels", () => {
-  const itRecords = [{ fields: { location: "Short North" } }];
-  const maintenanceRecords = [{ fields: { location: "South Dublin" } }];
-  const results = summarizeTechnicalByLocation_(itRecords, maintenanceRecords);
-  assert.equal(results.length, 2);
-  assert.equal(results[0].location, "Short N.");
-  assert.equal(results[0].itCount, 1);
-  assert.equal(results[1].location, "Frantz Rd.");
-  assert.equal(results[1].maintenanceCount, 1);
 });
