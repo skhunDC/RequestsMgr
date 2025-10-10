@@ -25,7 +25,7 @@ test("summarizeSuppliesByLocation_ ranks all supply requests", () => {
     { id: "REQ-2", fields: { location: "Plant", description: "Gloves", qty: 3 } },
     { fields: { location: "Plant", description: "Masks", qty: 9 } },
     { fields: { location: "Morse Rd.", description: "Gloves", qty: 10 } },
-    { fields: { location: "South Dublin", description: "Soap", qty: 2 } }
+    { fields: { location: "Frantz Rd.", description: "Soap", qty: 2 } }
   ];
   const results = summarizeSuppliesByLocation_(records);
   assert.equal(results.length, 4);
@@ -39,7 +39,7 @@ test("summarizeSuppliesByLocation_ ranks all supply requests", () => {
   assert.equal(results[2].item, "Gloves");
   assert.equal(results[2].quantity, 8);
   assert.equal(results[2].requestCount, 2);
-  assert.equal(results[3].location, "South Dublin");
+  assert.equal(results[3].location, "Frantz Rd.");
   assert.equal(results[3].item, "Soap");
   assert.equal(results[3].quantity, 2);
 });

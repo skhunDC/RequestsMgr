@@ -15,7 +15,7 @@ const SHEETS = {
   REQUEST_NOTES: 'RequestNotes'
 };
 
-const LOCATION_OPTIONS = ['Plant', 'Short North', 'South Dublin', 'Muirfield', 'Morse Rd.', 'Granville', 'Newark'];
+const LOCATION_OPTIONS = ['Plant', 'Short N.', 'Frantz Rd.', 'Muirfield', 'Morse Rd.', 'Granville', 'Newark'];
 
 const EMAIL_TIMEZONE = 'America/New_York';
 const PRIMARY_NOTIFICATION_EMAIL = 'skhun@dublincleaners.com';
