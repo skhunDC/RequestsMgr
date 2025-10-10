@@ -2226,7 +2226,7 @@
                   </span>
                 </button>
               </div>
-              <p class="hero-insight-subtitle">Top 5 Supplies Req., ranked by total quantity &amp; Location.</p>
+              <p class="hero-insight-subtitle">Top 3 Supplies Req., ranked by total quantity &amp; Location.</p>
               <ol class="insight-list" id="topSuppliesByLocation"></ol>
               <p class="insight-empty" id="topSuppliesEmpty">No supplies requests yet.</p>
             </article>
@@ -3249,7 +3249,7 @@
           empty: insightsDom.suppliesEmpty,
           entries: suppliesEntries,
           loading,
-          limit: 5,
+          limit: 3,
           formatter: buildSuppliesInsightRow,
           emptyMessage: offline
             ? 'Connect to Google Apps Script to load live data.'
