@@ -3328,22 +3328,25 @@
       }
 
       function abbreviateInsightCatalogItem(label, maxLength) {
-        const fallbackLimit = 28;
-        const limit = Number.isFinite(maxLength) && maxLength >= 10 ? maxLength : fallbackLimit;
+        const fallbackLimit = 14;
+        const normalizedLimit = Number.isFinite(maxLength) && maxLength > 0
+          ? Math.max(6, Math.min(Math.floor(maxLength), fallbackLimit))
+          : fallbackLimit;
         const normalized = typeof label === 'string' ? label.trim() : '';
         if (!normalized) {
           return '';
         }
-        if (normalized.length <= limit) {
-          return normalized;
+        const truncated = normalized.slice(0, normalizedLimit);
+        if (normalized.length <= normalizedLimit) {
+          return truncated;
         }
-        const words = normalized.split(/\s+/).filter(Boolean);
+        const words = truncated.split(/\s+/).filter(Boolean);
         if (words.length <= 1) {
-          return `${normalized.slice(0, limit - 1).trimEnd()}…`;
+          return `${truncated.trimEnd()}…`;
         }
         const firstWord = words[0];
-        if (firstWord.length >= limit - 1) {
-          return `${firstWord.slice(0, limit - 1).trimEnd()}…`;
+        if (firstWord.length >= normalizedLimit - 1) {
+          return `${firstWord.slice(0, Math.max(0, normalizedLimit - 1)).trimEnd()}…`;
         }
         let abbreviated = firstWord;
         for (let i = 1; i < words.length; i += 1) {
@@ -3353,13 +3356,13 @@
           }
           const short = word.length <= 3 ? word : `${word.charAt(0).toUpperCase()}.`;
           const next = `${abbreviated} ${short}`;
-          if (next.length > limit - 1) {
+          if (next.length > normalizedLimit - 1) {
             break;
           }
           abbreviated = next;
         }
-        if (abbreviated.length >= limit - 1) {
-          abbreviated = abbreviated.slice(0, limit - 1).trimEnd();
+        if (abbreviated.length >= normalizedLimit - 1) {
+          abbreviated = abbreviated.slice(0, normalizedLimit - 1).trimEnd();
         }
         return `${abbreviated}…`;
       }
