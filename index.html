@@ -2229,7 +2229,7 @@
                   </span>
                 </button>
               </div>
-              <p class="hero-insight-subtitle">Top 3 Supplies Req., ranked by total quantity &amp; Location.</p>
+              <p class="hero-insight-subtitle">Top 5 Supplies Req., ranked by total quantity &amp; Location.</p>
               <ol class="insight-list" id="topSuppliesByLocation"></ol>
               <p class="insight-empty" id="topSuppliesEmpty">No supplies requests yet.</p>
             </article>
@@ -3252,7 +3252,7 @@
           empty: insightsDom.suppliesEmpty,
           entries: suppliesEntries,
           loading,
-          limit: 3,
+          limit: 5,
           formatter: buildSuppliesInsightRow,
           emptyMessage: offline
             ? 'Connect to Google Apps Script to load live data.'
@@ -3287,13 +3287,16 @@
           list.removeChild(list.firstChild);
         }
         const empty = options && options.empty ? options.empty : null;
+        const limit = options && typeof options.limit === 'number' && Number.isFinite(options.limit) && options.limit > 0
+          ? Math.floor(options.limit)
+          : null;
         const loading = Boolean(options && options.loading);
         if (loading && !state.dashboard.generatedAt) {
           list.hidden = false;
           if (empty) {
             empty.hidden = true;
           }
-          const placeholderCount = 3;
+          const placeholderCount = limit || 3;
           for (let i = 0; i < placeholderCount; i++) {
             const placeholder = document.createElement('li');
             placeholder.className = 'skeleton';
@@ -3302,7 +3305,6 @@
           }
           return;
         }
-        const limit = typeof options.limit === 'number' && options.limit > 0 ? options.limit : null;
         const entries = Array.isArray(options && options.entries) ? options.entries : [];
         const data = limit ? entries.slice(0, limit) : entries.slice();
         if (!data.length) {
