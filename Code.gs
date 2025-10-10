@@ -609,35 +609,8 @@ function summarizeSuppliesByLocation_(records) {
     }
     return acc;
   }, {});
-  const bestByLocation = {};
-  Object.keys(locationItemTotals).forEach(key => {
-    const entry = locationItemTotals[key];
-    const locationKey = entry.location.toLowerCase();
-    const current = bestByLocation[locationKey];
-    if (!current) {
-      bestByLocation[locationKey] = entry;
-      return;
-    }
-    if ((entry.quantity || 0) > (current.quantity || 0)) {
-      bestByLocation[locationKey] = entry;
-      return;
-    }
-    if ((entry.quantity || 0) === (current.quantity || 0)) {
-      const entryCount = entry.requestCount || 0;
-      const currentCount = current.requestCount || 0;
-      if (entryCount > currentCount) {
-        bestByLocation[locationKey] = entry;
-        return;
-      }
-      if (entryCount === currentCount) {
-        if (entry.item.toLowerCase() < current.item.toLowerCase()) {
-          bestByLocation[locationKey] = entry;
-        }
-      }
-    }
-  });
-  return Object.keys(bestByLocation)
-    .map(key => bestByLocation[key])
+  return Object.keys(locationItemTotals)
+    .map(key => locationItemTotals[key])
     .sort((a, b) => {
       const quantityDiff = (b.quantity || 0) - (a.quantity || 0);
       if (quantityDiff !== 0) {
@@ -647,7 +620,11 @@ function summarizeSuppliesByLocation_(records) {
       if (requestDiff !== 0) {
         return requestDiff;
       }
-      return a.location.localeCompare(b.location);
+      const locationDiff = a.location.localeCompare(b.location);
+      if (locationDiff !== 0) {
+        return locationDiff;
+      }
+      return a.item.localeCompare(b.item);
     });
 }
 
