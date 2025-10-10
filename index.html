@@ -2215,7 +2215,7 @@
           <div class="hero-insights-panels">
             <article class="hero-insight-panel" data-insight-panel="supplies">
               <div class="hero-insight-header">
-                <h3>Supplies</h3>
+                <h3>Top Supplies</h3>
                 <button
                   type="button"
                   class="insight-action"
@@ -2235,7 +2235,7 @@
             </article>
             <article class="hero-insight-panel" data-insight-panel="technical">
               <div class="hero-insight-header">
-                <h3>IT/Maintenance</h3>
+                <h3>Top IT/Maintenance</h3>
                 <button
                   type="button"
                   class="insight-action"
@@ -3331,7 +3331,7 @@
       }
 
       function abbreviateInsightCatalogItem(label, maxLength) {
-        const fallbackLimit = 14;
+        const fallbackLimit = 12;
         const normalizedLimit = Number.isFinite(maxLength) && maxLength > 0
           ? Math.max(6, Math.min(Math.floor(maxLength), fallbackLimit))
           : fallbackLimit;
