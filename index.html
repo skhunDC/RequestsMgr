@@ -1528,6 +1528,21 @@
       transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
     }
 
+    .request-item[data-request-active="true"][data-request-type="supplies"] {
+      border-color: var(--supplies-outline);
+      box-shadow: 0 0 0 2px var(--supplies-soft);
+    }
+
+    .request-item[data-request-active="true"][data-request-type="it"] {
+      border-color: var(--it-outline);
+      box-shadow: 0 0 0 2px var(--it-soft);
+    }
+
+    .request-item[data-request-active="true"][data-request-type="maintenance"] {
+      border-color: var(--maintenance-outline);
+      box-shadow: 0 0 0 2px var(--maintenance-soft);
+    }
+
     .catalog-item {
       cursor: pointer;
     }
@@ -2778,6 +2793,8 @@
       };
       const NOTE_SUPPORTED_TYPES = new Set(['it', 'maintenance']);
       const HIDE_ETA_STATUSES = new Set(['denied', 'declined']);
+      const CLOSED_REQUEST_STATES = new Set(['completed', 'closed', 'denied', 'declined', 'canceled', 'cancelled']);
+      const URGENCY_SORT_ORDER = Object.freeze({ critical: 0, normal: 1, low: 2 });
       const DASHBOARD_REFRESH_INTERVAL = 60000;
       const DASHBOARD_DEBOUNCE = 500;
       const PERSIST_DELAY = 240;
@@ -4839,7 +4856,11 @@ function renderApproverUnavailable(auth) {
           return;
         }
         const fragment = document.createDocumentFragment();
-        state.requests[type].forEach(request => {
+        const sortedEntries = state.requests[type]
+          .map((request, index) => ({ request, index }))
+          .sort((left, right) => compareRequestsForDisplay(type, left, right));
+        sortedEntries.forEach(entry => {
+          const request = entry.request;
           const item = document.createElement('article');
           item.className = 'request-item';
           item.dataset.requestType = type;
@@ -4866,8 +4887,10 @@ function renderApproverUnavailable(auth) {
 
           const status = document.createElement('span');
           status.className = 'status';
-          const statusValue = String(request.status || '').toLowerCase();
-          const stateKey = statusValue.replace(/\s+/g, '_');
+          const stateKey = getRequestStateKey(request.status);
+          const isClosed = isRequestClosed(stateKey);
+          item.dataset.requestState = stateKey;
+          item.dataset.requestActive = isClosed ? 'false' : 'true';
           status.dataset.state = stateKey;
           status.textContent = formatStatus(stateKey);
           head.appendChild(status);
@@ -5182,6 +5205,47 @@ function renderApproverUnavailable(auth) {
           ? status.trim().toLowerCase().replace(/\s+/g, '_')
           : '';
         return !HIDE_ETA_STATUSES.has(key);
+      }
+
+      function getRequestStateKey(status) {
+        if (typeof status !== 'string') {
+          return '';
+        }
+        return status.trim().toLowerCase().replace(/\s+/g, '_');
+      }
+
+      function isRequestClosed(stateKey) {
+        if (!stateKey) {
+          return false;
+        }
+        return CLOSED_REQUEST_STATES.has(stateKey);
+      }
+
+      function getRequestUrgencyRank(type, request) {
+        if (type !== 'it' && type !== 'maintenance') {
+          return URGENCY_SORT_ORDER.normal;
+        }
+        const fields = request && request.fields ? request.fields : {};
+        const urgencyKey = normalizeUrgency(fields.urgency) || 'normal';
+        return Object.prototype.hasOwnProperty.call(URGENCY_SORT_ORDER, urgencyKey)
+          ? URGENCY_SORT_ORDER[urgencyKey]
+          : URGENCY_SORT_ORDER.normal;
+      }
+
+      function compareRequestsForDisplay(type, left, right) {
+        const leftState = getRequestStateKey(left.request && left.request.status);
+        const rightState = getRequestStateKey(right.request && right.request.status);
+        const leftClosed = isRequestClosed(leftState);
+        const rightClosed = isRequestClosed(rightState);
+        if (leftClosed !== rightClosed) {
+          return leftClosed ? 1 : -1;
+        }
+        const leftUrgency = getRequestUrgencyRank(type, left.request);
+        const rightUrgency = getRequestUrgencyRank(type, right.request);
+        if (leftUrgency !== rightUrgency) {
+          return leftUrgency - rightUrgency;
+        }
+        return left.index - right.index;
       }
 
       function canEditEtaStatus(status) {
