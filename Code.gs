@@ -27,6 +27,11 @@ const LEGACY_LOCATION_ALIASES = Object.freeze({
 
 const EMAIL_TIMEZONE = 'America/New_York';
 const PRIMARY_NOTIFICATION_EMAIL = 'skhun@dublincleaners.com';
+const NEW_REQUEST_NOTIFICATION_RECIPIENTS = Object.freeze([
+  'skhun@dublincleaners.com',
+  'rbrown@dublincleaners.com',
+  'brianmbutler77@dublincleaners.com'
+].map(normalizeEmail_));
 const EMAIL_SENDER_NAME = 'Request Manager';
 const REQUEST_MANAGER_APP_URL = 'https://script.google.com/macros/s/AKfycbxf6fr9FKGjQCPE31Li-woofA6k8H7SqNcO09HayFdKfJBeSiQJXIfOd_bJ4MVfynoJag/exec';
 
@@ -1816,7 +1821,7 @@ function sendNewRequestNotification_(type, record) {
     const subject = `[Request Manager] New ${requestTypeLabel} Request – ${summary}`;
     const htmlBody = buildNewRequestEmailBody_(type, record);
     MailApp.sendEmail({
-      to: PRIMARY_NOTIFICATION_EMAIL,
+      to: NEW_REQUEST_NOTIFICATION_RECIPIENTS.join(','),
       subject,
       htmlBody,
       name: EMAIL_SENDER_NAME
