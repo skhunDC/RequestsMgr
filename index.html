@@ -4889,8 +4889,9 @@ function renderApproverUnavailable(auth) {
           status.className = 'status';
           const stateKey = getRequestStateKey(request.status);
           const isClosed = isRequestClosed(stateKey);
+          const isActive = isRequestActive(type, stateKey);
           item.dataset.requestState = stateKey;
-          item.dataset.requestActive = isClosed ? 'false' : 'true';
+          item.dataset.requestActive = isActive ? 'true' : 'false';
           status.dataset.state = stateKey;
           status.textContent = formatStatus(stateKey);
           head.appendChild(status);
@@ -5221,6 +5222,29 @@ function renderApproverUnavailable(auth) {
         return CLOSED_REQUEST_STATES.has(stateKey);
       }
 
+      function isRequestActive(type, stateKey) {
+        if (!stateKey) {
+          return false;
+        }
+        if (type === 'supplies') {
+          return stateKey === 'pending';
+        }
+        return !isRequestClosed(stateKey);
+      }
+
+      function getRequestPriorityRank(type, stateKey) {
+        if (type === 'supplies') {
+          if (stateKey === 'pending') {
+            return 0;
+          }
+          if (isRequestClosed(stateKey)) {
+            return 2;
+          }
+          return 1;
+        }
+        return isRequestClosed(stateKey) ? 1 : 0;
+      }
+
       function getRequestUrgencyRank(type, request) {
         if (type !== 'it' && type !== 'maintenance') {
           return URGENCY_SORT_ORDER.normal;
@@ -5235,15 +5259,17 @@ function renderApproverUnavailable(auth) {
       function compareRequestsForDisplay(type, left, right) {
         const leftState = getRequestStateKey(left.request && left.request.status);
         const rightState = getRequestStateKey(right.request && right.request.status);
-        const leftClosed = isRequestClosed(leftState);
-        const rightClosed = isRequestClosed(rightState);
-        if (leftClosed !== rightClosed) {
-          return leftClosed ? 1 : -1;
+        const leftPriority = getRequestPriorityRank(type, leftState);
+        const rightPriority = getRequestPriorityRank(type, rightState);
+        if (leftPriority !== rightPriority) {
+          return leftPriority - rightPriority;
         }
-        const leftUrgency = getRequestUrgencyRank(type, left.request);
-        const rightUrgency = getRequestUrgencyRank(type, right.request);
-        if (leftUrgency !== rightUrgency) {
-          return leftUrgency - rightUrgency;
+        if (type === 'it' || type === 'maintenance') {
+          const leftUrgency = getRequestUrgencyRank(type, left.request);
+          const rightUrgency = getRequestUrgencyRank(type, right.request);
+          if (leftUrgency !== rightUrgency) {
+            return leftUrgency - rightUrgency;
+          }
         }
         return left.index - right.index;
       }
