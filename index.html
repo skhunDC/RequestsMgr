@@ -5135,6 +5135,90 @@
                 head.appendChild(urgencyBadge);
               }
             }
+            modal.body.hidden = false;
+          }
+          if (modal.empty) {
+            modal.empty.hidden = true;
+          }
+          const shouldRestoreFocus = options && options.restoreFocus;
+          if (shouldRestoreFocus && insightModalState.trigger) {
+            insightModalState.trigger.focus();
+          }
+          insightModalState.trigger = null;
+        }
+
+        function handleInsightsModalKeydown(evt) {
+          if (!insightModalState.open || evt.defaultPrevented) {
+            return;
+          }
+          if (evt.key === "Escape") {
+            evt.preventDefault();
+            closeInsightsModal({ restoreFocus: true });
+          }
+        }
+
+        function renderInsightsModal(type) {
+          const insights = dom.dashboard && dom.dashboard.insights;
+          if (!insights || !insights.modal) {
+            return;
+          }
+          const modal = insights.modal;
+          const body = modal.body;
+          const empty = modal.empty;
+          if (!body || !empty) {
+            return;
+          }
+          while (body.firstChild) {
+            body.removeChild(body.firstChild);
+          }
+          const normalizedType = type === "technical" ? "technical" : "supplies";
+          const insightState = state.dashboard.insights || {
+            supplies: [],
+            suppliesFull: [],
+            itMaintenance: [],
+            itMaintenanceFull: []
+          };
+          const entries =
+            normalizedType === "technical"
+              ? Array.isArray(insightState.itMaintenanceFull) &&
+                insightState.itMaintenanceFull.length
+                ? insightState.itMaintenanceFull
+                : Array.isArray(insightState.itMaintenance)
+                  ? insightState.itMaintenance
+                  : []
+              : Array.isArray(insightState.suppliesFull) && insightState.suppliesFull.length
+                ? insightState.suppliesFull
+                : Array.isArray(insightState.supplies)
+                  ? insightState.supplies
+                  : [];
+          const hasEntries = Array.isArray(entries) && entries.length > 0;
+          if (modal.title) {
+            modal.title.textContent =
+              normalizedType === "technical" ? "IT & Maintenance insights" : "Supplies insights";
+          }
+          if (modal.description) {
+            modal.description.textContent =
+              normalizedType === "technical"
+                ? "See the locations logging the most IT and Maintenance requests."
+                : "See the catalog items most requested across locations.";
+          }
+          if (!hasEntries) {
+            body.hidden = true;
+            empty.hidden = false;
+            empty.textContent = !hasServer
+              ? "Connect to Google Apps Script to load live data."
+              : normalizedType === "technical"
+                ? "No IT or Maintenance requests yet."
+                : "No supplies requests yet.";
+            return;
+          }
+          body.hidden = false;
+          empty.hidden = true;
+          const table = buildInsightsModalTable(normalizedType, entries);
+          if (table) {
+            body.appendChild(table);
+          }
+        }
 
             const status = document.createElement("span");
             status.className = "status";
