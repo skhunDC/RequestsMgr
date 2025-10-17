@@ -64,78 +64,6 @@
         -webkit-font-smoothing: antialiased;
       }
 
-      .loading-screen {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: clamp(1.5rem, 6vw, 3rem);
-        background: linear-gradient(
-          180deg,
-          var(--page-gradient-start) 0%,
-          var(--page-gradient-end) 100%
-        );
-        backdrop-filter: blur(12px);
-        z-index: 9999;
-        transition:
-          opacity 0.4s ease,
-          visibility 0.4s ease;
-      }
-
-      .loading-screen[data-state="hidden"] {
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-      }
-
-      .loading-card {
-        display: grid;
-        gap: clamp(0.9rem, 3vw, 1.2rem);
-        padding: clamp(1.9rem, 5vw, 2.6rem);
-        width: min(92vw, 340px);
-        border-radius: 22px;
-        background: var(--surface-elevated);
-        box-shadow: var(--shadow-soft);
-        text-align: center;
-      }
-
-      .loading-spinner {
-        width: clamp(48px, 10vw, 58px);
-        height: clamp(48px, 10vw, 58px);
-        border-radius: 50%;
-        border: 4px solid rgba(11, 87, 208, 0.12);
-        border-top-color: var(--accent);
-        border-right-color: rgba(11, 87, 208, 0.45);
-        margin: 0 auto;
-        animation: loading-spin 1s linear infinite;
-      }
-
-      .loading-title {
-        margin: 0;
-        font-size: clamp(1.2rem, 4vw, 1.45rem);
-        font-weight: 600;
-        color: var(--text);
-      }
-
-      .loading-subtitle {
-        margin: 0;
-        font-size: clamp(0.95rem, 3.5vw, 1.05rem);
-        color: var(--muted);
-      }
-
-      @keyframes loading-spin {
-        to {
-          transform: rotate(1turn);
-        }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .loading-spinner {
-          animation-duration: 1.6s;
-        }
-      }
-
       body[data-active-tab="supplies"] {
         --page-gradient-start: #f3f6ff;
         --page-gradient-end: #ffffff;
@@ -2335,20 +2263,6 @@
     </style>
   </head>
   <body data-active-tab="supplies">
-    <div
-      id="appLoading"
-      class="loading-screen"
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-      data-state="visible"
-    >
-      <div class="loading-card" role="presentation">
-        <div class="loading-spinner" aria-hidden="true"></div>
-        <p class="loading-title">Loading Request Manager</p>
-        <p class="loading-subtitle" data-loading-detail>Preparing your workspace…</p>
-      </div>
-    </div>
     <header>
       <div class="hero-inner">
         <div class="hero-copy">
@@ -3082,19 +2996,6 @@
           "skhun@dublincleaners.com": "Sea Khun"
         });
 
-        const INITIAL_LOAD_TASKS = Object.freeze({
-          DASHBOARD: "dashboard",
-          CATALOG: "catalog",
-          REQUESTS_SUPPLIES: "requests:supplies"
-        });
-        const loadingScreen = document.getElementById("appLoading");
-        const loadingDetail = loadingScreen
-          ? loadingScreen.querySelector("[data-loading-detail]")
-          : null;
-        const initialLoadTracker = createInitialLoadTracker();
-
-        showLoadingScreen();
-
         const state = {
           activeTab: "supplies",
           forms: {
@@ -3301,13 +3202,10 @@
         setActiveTab(state.activeTab);
         renderDashboard();
         if (hasServer) {
-          initialLoadTracker.expect(INITIAL_LOAD_TASKS.DASHBOARD);
-          initialLoadTracker.expect(INITIAL_LOAD_TASKS.CATALOG);
-          initialLoadTracker.expect(INITIAL_LOAD_TASKS.REQUESTS_SUPPLIES);
-          loadDashboardMetrics({ silent: false, initialTask: INITIAL_LOAD_TASKS.DASHBOARD });
+          loadDashboardMetrics({ silent: false });
           startDashboardAutoRefresh();
-          loadCatalog({ append: false, initialTask: INITIAL_LOAD_TASKS.CATALOG });
-          ensureRequestsLoaded("supplies", { initialTask: INITIAL_LOAD_TASKS.REQUESTS_SUPPLIES });
+          loadCatalog({ append: false, fetchAll: true });
+          ensureRequestsLoaded("supplies");
         } else {
           renderCatalog();
           REQUEST_KEYS.forEach((type) => {
@@ -3315,17 +3213,12 @@
             renderRequests(type);
           });
           showDashboardOfflineMessage();
-          initialLoadTracker.clear();
         }
 
         function loadDashboardMetrics(options) {
-          const initialTask = options && options.initialTask;
           if (!server) {
             state.dashboard.loading = false;
             renderDashboard();
-            if (initialTask) {
-              initialLoadTracker.resolve(initialTask);
-            }
             return;
           }
           const silent = Boolean(options && options.silent);
@@ -3344,9 +3237,6 @@
                   console.error("[RequestManager]", "getDashboardMetrics", response);
                 }
                 renderDashboard();
-                if (initialTask) {
-                  initialLoadTracker.resolve(initialTask);
-                }
                 return;
               }
               const metrics = makeEmptyDashboardMetrics();
@@ -3421,9 +3311,6 @@
               state.dashboard.generatedAt =
                 typeof response.generatedAt === "string" ? response.generatedAt : "";
               renderDashboard();
-              if (initialTask) {
-                initialLoadTracker.resolve(initialTask);
-              }
             })
             .withFailureHandler((err) => {
               state.dashboard.loading = false;
@@ -3433,9 +3320,6 @@
                 console.error("[RequestManager]", "getDashboardMetrics", err);
               }
               renderDashboard();
-              if (initialTask) {
-                initialLoadTracker.resolve(initialTask);
-              }
             })
             .getDashboardMetrics(payload);
         }
@@ -4956,15 +4840,11 @@
           scheduleWarmCache();
         }
 
-        function ensureRequestsLoaded(type, options) {
-          const initialTask = options && options.initialTask;
+        function ensureRequestsLoaded(type) {
           if (state.loaded[type] || !hasServer) {
-            if (initialTask) {
-              initialLoadTracker.resolve(initialTask);
-            }
             return;
           }
-          loadRequests(type, { append: false, initialTask });
+          loadRequests(type, { append: false });
         }
 
         function scheduleWarmCache() {
@@ -5160,19 +5040,13 @@
           }
         }
 
-        function loadRequests(type, options) {
-          const opts = options || {};
-          const append = Boolean(opts.append);
-          const initialTask = opts.initialTask;
+        function loadRequests(type, { append }) {
           if (state.loading[type]) {
             return;
           }
           if (!server) {
             state.loaded[type] = true;
             renderRequests(type);
-            if (initialTask) {
-              initialLoadTracker.resolve(initialTask);
-            }
             return;
           }
           state.loading[type] = true;
@@ -5195,27 +5069,18 @@
               toggleRequestsSkeleton(type, false);
               if (!response || !response.ok) {
                 handleError(response, "listRequests", payload);
-                if (initialTask) {
-                  initialLoadTracker.resolve(initialTask);
-                }
                 return;
               }
               state.nextTokens[type] = response.nextToken || "";
               const items = Array.isArray(response.requests) ? response.requests : [];
               state.requests[type] = append ? state.requests[type].concat(items) : items;
               renderRequests(type);
-              if (initialTask) {
-                initialLoadTracker.resolve(initialTask);
-              }
             })
             .withFailureHandler((err) => {
               state.loading[type] = false;
               state.loaded[type] = true;
               toggleRequestsSkeleton(type, false);
               handleError(err, "listRequests", payload);
-              if (initialTask) {
-                initialLoadTracker.resolve(initialTask);
-              }
             })
             .listRequests(payload);
         }
@@ -5270,6 +5135,90 @@
                 head.appendChild(urgencyBadge);
               }
             }
+            modal.body.hidden = false;
+          }
+          if (modal.empty) {
+            modal.empty.hidden = true;
+          }
+          const shouldRestoreFocus = options && options.restoreFocus;
+          if (shouldRestoreFocus && insightModalState.trigger) {
+            insightModalState.trigger.focus();
+          }
+          insightModalState.trigger = null;
+        }
+
+        function handleInsightsModalKeydown(evt) {
+          if (!insightModalState.open || evt.defaultPrevented) {
+            return;
+          }
+          if (evt.key === "Escape") {
+            evt.preventDefault();
+            closeInsightsModal({ restoreFocus: true });
+          }
+        }
+
+        function renderInsightsModal(type) {
+          const insights = dom.dashboard && dom.dashboard.insights;
+          if (!insights || !insights.modal) {
+            return;
+          }
+          const modal = insights.modal;
+          const body = modal.body;
+          const empty = modal.empty;
+          if (!body || !empty) {
+            return;
+          }
+          while (body.firstChild) {
+            body.removeChild(body.firstChild);
+          }
+          const normalizedType = type === "technical" ? "technical" : "supplies";
+          const insightState = state.dashboard.insights || {
+            supplies: [],
+            suppliesFull: [],
+            itMaintenance: [],
+            itMaintenanceFull: []
+          };
+          const entries =
+            normalizedType === "technical"
+              ? Array.isArray(insightState.itMaintenanceFull) &&
+                insightState.itMaintenanceFull.length
+                ? insightState.itMaintenanceFull
+                : Array.isArray(insightState.itMaintenance)
+                  ? insightState.itMaintenance
+                  : []
+              : Array.isArray(insightState.suppliesFull) && insightState.suppliesFull.length
+                ? insightState.suppliesFull
+                : Array.isArray(insightState.supplies)
+                  ? insightState.supplies
+                  : [];
+          const hasEntries = Array.isArray(entries) && entries.length > 0;
+          if (modal.title) {
+            modal.title.textContent =
+              normalizedType === "technical" ? "IT & Maintenance insights" : "Supplies insights";
+          }
+          if (modal.description) {
+            modal.description.textContent =
+              normalizedType === "technical"
+                ? "See the locations logging the most IT and Maintenance requests."
+                : "See the catalog items most requested across locations.";
+          }
+          if (!hasEntries) {
+            body.hidden = true;
+            empty.hidden = false;
+            empty.textContent = !hasServer
+              ? "Connect to Google Apps Script to load live data."
+              : normalizedType === "technical"
+                ? "No IT or Maintenance requests yet."
+                : "No supplies requests yet.";
+            return;
+          }
+          body.hidden = false;
+          empty.hidden = true;
+          const table = buildInsightsModalTable(normalizedType, entries);
+          if (table) {
+            body.appendChild(table);
+          }
+        }
 
             const status = document.createElement("span");
             status.className = "status";
@@ -5734,14 +5683,11 @@
           return String(request.fields.eta || "");
         }
 
-        function loadCatalog({ append, fetchAll, initialTask }) {
+        function loadCatalog({ append, fetchAll }) {
           if (state.catalog.loading || !server) {
             if (!server) {
               state.catalog.loading = false;
               renderCatalog();
-              if (initialTask) {
-                initialLoadTracker.resolve(initialTask);
-              }
             }
             return;
           }
@@ -5767,9 +5713,6 @@
               toggleCatalogSkeleton(false);
               if (!response || !response.ok) {
                 handleError(response, "listCatalog", payload);
-                if (initialTask) {
-                  initialLoadTracker.resolve(initialTask);
-                }
                 return;
               }
               state.catalog.nextToken = response.nextToken || "";
@@ -5781,18 +5724,12 @@
               updateCatalogIndexes();
               renderCatalog();
               updateCatalogControls();
-              if (initialTask) {
-                initialLoadTracker.resolve(initialTask);
-              }
             })
             .withFailureHandler((err) => {
               state.catalog.loading = false;
               toggleCatalogSkeleton(false);
               handleError(err, "listCatalog", payload);
               updateCatalogControls();
-              if (initialTask) {
-                initialLoadTracker.resolve(initialTask);
-              }
             })
             .listCatalog(payload);
         }
@@ -6931,72 +6868,6 @@
           } catch (loggingError) {
             // ignore logging issues
           }
-        }
-
-        function updateLoadingMessage(text) {
-          if (!loadingDetail) {
-            return;
-          }
-          const label = typeof text === "string" ? text.trim() : "";
-          if (label) {
-            loadingDetail.textContent = label;
-          }
-        }
-
-        function showLoadingScreen(message) {
-          if (!loadingScreen) {
-            return;
-          }
-          if (message) {
-            updateLoadingMessage(message);
-          }
-          loadingScreen.dataset.state = "visible";
-          loadingScreen.removeAttribute("aria-hidden");
-          loadingScreen.setAttribute("aria-busy", "true");
-        }
-
-        function hideLoadingScreen() {
-          if (!loadingScreen) {
-            return;
-          }
-          loadingScreen.dataset.state = "hidden";
-          loadingScreen.setAttribute("aria-hidden", "true");
-          loadingScreen.setAttribute("aria-busy", "false");
-        }
-
-        function createInitialLoadTracker() {
-          const pending = new Set();
-          let finalizeTimer = null;
-          function scheduleFinalize() {
-            if (finalizeTimer) {
-              window.clearTimeout(finalizeTimer);
-            }
-            finalizeTimer = window.setTimeout(() => {
-              finalizeTimer = null;
-              if (pending.size === 0) {
-                hideLoadingScreen();
-              }
-            }, 220);
-          }
-          return {
-            expect(name) {
-              if (!name) {
-                return;
-              }
-              pending.add(name);
-            },
-            resolve(name) {
-              if (!name) {
-                return;
-              }
-              pending.delete(name);
-              scheduleFinalize();
-            },
-            clear() {
-              pending.clear();
-              scheduleFinalize();
-            }
-          };
         }
 
         function makeCid() {
