@@ -3306,7 +3306,7 @@
           initialLoadTracker.expect(INITIAL_LOAD_TASKS.REQUESTS_SUPPLIES);
           loadDashboardMetrics({ silent: false, initialTask: INITIAL_LOAD_TASKS.DASHBOARD });
           startDashboardAutoRefresh();
-          loadCatalog({ append: false, fetchAll: true, initialTask: INITIAL_LOAD_TASKS.CATALOG });
+          loadCatalog({ append: false, initialTask: INITIAL_LOAD_TASKS.CATALOG });
           ensureRequestsLoaded("supplies", { initialTask: INITIAL_LOAD_TASKS.REQUESTS_SUPPLIES });
         } else {
           renderCatalog();
