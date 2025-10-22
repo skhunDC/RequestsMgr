@@ -2306,7 +2306,7 @@
                   </span>
                 </button>
               </div>
-              <p class="hero-insight-subtitle">Top 5 Supplies Req., ranked by total quantity &amp; Location.</p>
+              <p class="hero-insight-subtitle">All-time top 5 Supplies requests, ranked by total quantity &amp; location.</p>
               <ol class="insight-list" id="topSuppliesByLocation"></ol>
               <p class="insight-empty" id="topSuppliesEmpty">No supplies requests yet.</p>
             </article>
@@ -2326,7 +2326,7 @@
                   </span>
                 </button>
               </div>
-              <p class="hero-insight-subtitle">Top 5 IT &amp; Maintenance Req. by Volume/Location.</p>
+              <p class="hero-insight-subtitle">All-time top 5 IT &amp; Maintenance requests by volume per location.</p>
               <ol class="insight-list" id="topTechByLocation"></ol>
               <p class="insight-empty" id="topTechEmpty">No IT or Maintenance requests yet.</p>
             </article>
@@ -3498,22 +3498,37 @@
         const hasQuantity = Number.isFinite(quantityValue) && quantityValue > 0;
         const quantityLabel = hasQuantity ? formatDashboardCount(quantityValue) : '0';
         value.textContent = hasQuantity ? `${abbreviatedItemLabel} (${quantityLabel})` : abbreviatedItemLabel;
-        const metaParts = [];
+        const tooltipParts = [];
         if (itemLabel && itemLabel !== '—') {
-          metaParts.push(itemLabel);
+          tooltipParts.push(itemLabel);
         }
         if (entry.catalogSku && String(entry.catalogSku).trim()) {
-          metaParts.push(`SKU ${String(entry.catalogSku).trim()}`);
+          tooltipParts.push(`SKU ${String(entry.catalogSku).trim()}`);
+        }
+        if (hasQuantity) {
+          const quantityTooltip = quantityValue === 1
+            ? 'All-time quantity: 1 item requested'
+            : `All-time quantity: ${quantityLabel} items requested`;
+          tooltipParts.push(quantityTooltip);
+        } else {
+          tooltipParts.push('All-time quantity: 0 items requested');
         }
         const requestCount = Number(entry.requestCount);
         if (Number.isFinite(requestCount) && requestCount > 0) {
-          const requestLabel = requestCount === 1
-            ? '1 request'
-            : `${formatDashboardCount(requestCount)} requests`;
-          metaParts.push(requestLabel);
+          const requestTooltip = requestCount === 1
+            ? 'All-time: 1 request'
+            : `All-time: ${formatDashboardCount(requestCount)} requests`;
+          tooltipParts.push(requestTooltip);
+        } else {
+          tooltipParts.push('All-time: 0 requests');
         }
-        if (metaParts.length) {
-          value.title = metaParts.join(' • ');
+        if (tooltipParts.length) {
+          const tooltipText = tooltipParts.join(' • ');
+          value.title = tooltipText;
+          value.setAttribute('aria-label', tooltipText);
+        } else {
+          value.removeAttribute('title');
+          value.removeAttribute('aria-label');
         }
         li.appendChild(location);
         li.appendChild(value);
@@ -3540,17 +3555,36 @@
         strong.textContent = totalLabel;
         value.appendChild(strong);
         value.appendChild(document.createTextNode(total === 1 ? ' request' : ' requests'));
-        const breakdown = [];
+        const tooltipParts = [
+          total === 1 ? 'All-time total: 1 request' : `All-time total: ${totalLabel} requests`
+        ];
         const itCount = Number(entry.itCount);
         if (Number.isFinite(itCount) && itCount > 0) {
-          breakdown.push(`IT ${formatDashboardCount(itCount)}`);
+          tooltipParts.push(
+            itCount === 1
+              ? 'IT: 1 request'
+              : `IT: ${formatDashboardCount(itCount)} requests`
+          );
+        } else {
+          tooltipParts.push('IT: 0 requests');
         }
         const maintenanceCount = Number(entry.maintenanceCount);
         if (Number.isFinite(maintenanceCount) && maintenanceCount > 0) {
-          breakdown.push(`Maintenance ${formatDashboardCount(maintenanceCount)}`);
+          tooltipParts.push(
+            maintenanceCount === 1
+              ? 'Maintenance: 1 request'
+              : `Maintenance: ${formatDashboardCount(maintenanceCount)} requests`
+          );
+        } else {
+          tooltipParts.push('Maintenance: 0 requests');
         }
-        if (breakdown.length) {
-          value.title = breakdown.join(' • ');
+        if (tooltipParts.length) {
+          const tooltipText = tooltipParts.join(' • ');
+          value.title = tooltipText;
+          value.setAttribute('aria-label', tooltipText);
+        } else {
+          value.removeAttribute('title');
+          value.removeAttribute('aria-label');
         }
         li.appendChild(location);
         li.appendChild(value);
