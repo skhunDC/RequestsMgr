@@ -228,31 +228,34 @@ function supportsRequestNotes_(type) {
 }
 
 function getRequestNotesMap_(type) {
-  if (!supportsRequestNotes_(type)) {
+  const normalizedType = String(type || '').trim().toLowerCase();
+  if (!supportsRequestNotes_(normalizedType)) {
     return {};
   }
   const sheet = getSheet_(SHEETS.REQUEST_NOTES, REQUEST_NOTE_HEADERS);
   const rows = readTable_(sheet, REQUEST_NOTE_HEADERS);
   const map = {};
-  rows.forEach(entry => {
-    const entryType = String(entry && entry.type || '').trim().toLowerCase();
-    if (entryType !== type) {
-      return;
+  const iterableRows = Array.isArray(rows) ? rows : [];
+  for (var idx = 0; idx < iterableRows.length; idx += 1) {
+    var entry = iterableRows[idx];
+    var entryType = String((entry && entry.type) || '').trim().toLowerCase();
+    if (entryType !== normalizedType) {
+      continue;
     }
-    const requestId = String(entry && entry.requestId || '').trim();
-    const noteText = sanitizeString_(entry && entry.note);
+    var requestId = String((entry && entry.requestId) || '').trim();
+    var noteText = sanitizeString_(entry && entry.note);
     if (!requestId || !noteText) {
-      return;
+      continue;
     }
-    let tsValue = '';
-    const rawTs = entry && entry.ts;
+    var tsValue = '';
+    var rawTs = entry && entry.ts;
     if (rawTs instanceof Date && !isNaN(rawTs.getTime())) {
       tsValue = toIsoString_(rawTs);
     } else {
       tsValue = sanitizeString_(rawTs);
     }
-    const rawActor = sanitizeString_(entry && entry.actor);
-    const actor = normalizeEmail_(rawActor) || rawActor;
+    var rawActor = sanitizeString_(entry && entry.actor);
+    var actor = normalizeEmail_(rawActor) || rawActor;
     if (!Array.isArray(map[requestId])) {
       map[requestId] = [];
     }
@@ -261,7 +264,7 @@ function getRequestNotesMap_(type) {
       actor: actor,
       note: noteText
     });
-  });
+  }
   Object.keys(map).forEach(requestId => {
     map[requestId].sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')));
   });
