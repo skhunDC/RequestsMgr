@@ -2536,9 +2536,9 @@ function isWebhookSourceSheet_(sheetName) {
   if (!sheetName) {
     return false;
   }
-  const normalized = String(sheetName).replace(/\s+/g, '').toLowerCase();
+  const normalized = normalizeWebhookSheetName_(sheetName);
   return WEBHOOK_CONFIG.sourceSheets.some(name => {
-    return normalized === String(name).replace(/\s+/g, '').toLowerCase();
+    return normalized === normalizeWebhookSheetName_(name);
   });
 }
 
@@ -2551,12 +2551,28 @@ function resolveWebhookSheet_(sheetName, ss) {
   if (sheet) {
     return sheet;
   }
-  const normalized = String(sheetName).replace(/\s+/g, '').toLowerCase();
+  const normalized = normalizeWebhookSheetName_(sheetName);
   const fallback = WEBHOOK_CONFIG.sourceSheets.find(name => {
-    return normalized === String(name).replace(/\s+/g, '').toLowerCase();
+    return normalized === normalizeWebhookSheetName_(name);
   });
   if (fallback) {
     sheet = spreadsheet.getSheetByName(fallback);
+    if (sheet) {
+      return sheet;
+    }
   }
-  return sheet;
+  const sheets = spreadsheet.getSheets();
+  for (let idx = 0; idx < sheets.length; idx += 1) {
+    const candidate = sheets[idx];
+    if (normalizeWebhookSheetName_(candidate.getName()) === normalized) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function normalizeWebhookSheetName_(value) {
+  return String(value || '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
 }
