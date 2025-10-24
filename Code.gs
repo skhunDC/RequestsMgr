@@ -63,13 +63,13 @@ const REQUEST_TYPES = {
       buildDetails: function(fields) {
         const details = [];
         if (fields.location) {
-          details.push(`Location: ${fields.location}`);
+          details.push('Location: ' + fields.location);
         }
         if (fields.qty) {
-          details.push(`Quantity: ${fields.qty}`);
+          details.push('Quantity: ' + fields.qty);
         }
         if (fields.supplier) {
-          details.push(`Supplier: ${fields.supplier}`);
+          details.push('Supplier: ' + fields.supplier);
         }
         if (fields.estimatedCost) {
           const estimatedCostDetail = buildSuppliesEstimatedCostDetail_(fields);
@@ -78,12 +78,12 @@ const REQUEST_TYPES = {
           }
         }
         if (fields.notes) {
-          details.push(`Notes: ${fields.notes}`);
+          details.push('Notes: ' + fields.notes);
         }
         if (fields.eta) {
           const formatted = formatDateForDisplay_(fields.eta);
           if (formatted) {
-            details.push(`ETA: ${formatted}`);
+            details.push('ETA: ' + formatted);
           }
         }
         return details;
@@ -115,17 +115,17 @@ const REQUEST_TYPES = {
       buildDetails: function(fields) {
         const details = [];
         if (fields.location) {
-          details.push(`Location: ${fields.location}`);
+          details.push('Location: ' + fields.location);
         }
         if (fields.device) {
-          details.push(`Device/System: ${fields.device}`);
+          details.push('Device/System: ' + fields.device);
         }
         if (fields.urgency) {
           const urgency = normalizeUrgencyValue_(fields.urgency);
-          details.push(`Urgency: ${capitalize_(urgency)}`);
+          details.push('Urgency: ' + capitalize_(urgency));
         }
         if (fields.details) {
-          details.push(`Details: ${fields.details}`);
+          details.push('Details: ' + fields.details);
         }
         return details;
       }
@@ -154,14 +154,14 @@ const REQUEST_TYPES = {
       buildDetails: function(fields) {
         const details = [];
         if (fields.location) {
-          details.push(`Location: ${fields.location}`);
+          details.push('Location: ' + fields.location);
         }
         if (fields.urgency) {
           const urgency = normalizeUrgencyValue_(fields.urgency);
-          details.push(`Urgency: ${capitalize_(urgency)}`);
+          details.push('Urgency: ' + capitalize_(urgency));
         }
         if (fields.accessNotes) {
-          details.push(`Access notes: ${fields.accessNotes}`);
+          details.push('Access notes: ' + fields.accessNotes);
         }
         return details;
       }
@@ -650,7 +650,7 @@ function summarizeSuppliesByLocation_(records) {
     const hasSku = Boolean(fallbackLabel);
     const normalizedSku = hasSku ? fallbackLabel.toLowerCase() : '';
     const normalizedDescription = description ? description.toLowerCase() : '';
-    const itemKey = hasSku ? `sku:${normalizedSku}` : normalizedDescription ? `desc:${normalizedDescription}` : '';
+    const itemKey = hasSku ? 'sku:' + normalizedSku : normalizedDescription ? 'desc:' + normalizedDescription : '';
     if (!location || !itemKey) {
       return acc;
     }
@@ -1085,8 +1085,8 @@ function submitAppFeedback(request) {
     const typeKey = typeValue.toLowerCase();
     const typeLabel = typeKey === 'bug' ? 'Bug' : typeKey === 'improvement' ? 'Improvement' : 'Idea';
     const subjectSource = summary || details;
-    const subjectSummary = subjectSource.length > 70 ? `${subjectSource.slice(0, 67)}...` : subjectSource;
-    const subject = `[Request Manager] ${typeLabel} feedback - ${subjectSummary}`;
+    const subjectSummary = subjectSource.length > 70 ? subjectSource.slice(0, 67) + '...' : subjectSource;
+    const subject = '[Request Manager] ' + typeLabel + ' feedback - ' + subjectSummary;
     const contactLine = contact ? contact.split('\n')[0] : '';
     const friendlyName = providedName || contactLine || deriveDisplayNameFromEmail_(fromEmail) || 'Anonymous teammate';
     const isAnonymous = !providedName && !contact && !fromEmail;
@@ -1454,7 +1454,7 @@ function assertAuthorizedStatusActor_() {
   }
   if (!context.authorized) {
     const account = context.email || 'This account';
-    throw new Error(`${account} is not authorized to update requests. Ask an administrator to update the approver allowlist (SUPPLIES_TRACKING_STATUS_EMAILS).`);
+    throw new Error(account + ' is not authorized to update requests. Ask an administrator to update the approver allowlist (SUPPLIES_TRACKING_STATUS_EMAILS).');
   }
   return context;
 }
@@ -1521,7 +1521,7 @@ function formatCurrencyForDisplay_(value, decimalsHint) {
     if (/[A-Za-z]/.test(text) || /[^0-9.,\s-]/.test(text)) {
       return text;
     }
-    return `$${text}`;
+    return '$' + text;
   }
   const decimals = parsed.decimals > 0
     ? parsed.decimals
@@ -1529,7 +1529,7 @@ function formatCurrencyForDisplay_(value, decimalsHint) {
   const formattedAmount = formatAmountWithGrouping_(parsed.amount, decimals);
   const prefix = parsed.prefix || '$';
   const suffix = parsed.suffix || '';
-  return `${prefix}${formattedAmount}${suffix}`.trim();
+  return (prefix + formattedAmount + suffix).trim();
 }
 
 function sanitizeString_(value) {
@@ -1589,7 +1589,7 @@ function normalizeDateOnly_(value) {
   }
   const paddedMonth = month.toString().padStart(2, '0');
   const paddedDay = day.toString().padStart(2, '0');
-  return `${year}-${paddedMonth}-${paddedDay}`;
+  return year + '-' + paddedMonth + '-' + paddedDay;
 }
 
 function formatDateForDisplay_(value) {
@@ -1850,8 +1850,8 @@ function sendNewRequestNotification_(type, record) {
   }
   try {
     const requestTypeLabel = type === 'it' ? 'IT' : 'Maintenance';
-    const summary = sanitizeString_(record.summary) || `${requestTypeLabel} request`;
-    const subject = `[Request Manager] New ${requestTypeLabel} Request - ${summary}`;
+    const summary = sanitizeString_(record.summary) || requestTypeLabel + ' request';
+    const subject = '[Request Manager] New ' + requestTypeLabel + ' Request - ' + summary;
     const htmlBody = buildNewRequestEmailBody_(type, record);
     MailApp.sendEmail({
       to: NEW_REQUEST_NOTIFICATION_RECIPIENTS.join(','),
@@ -1869,7 +1869,7 @@ function sendNewRequestNotification_(type, record) {
 
 function buildNewRequestEmailBody_(type, record) {
   const requestTypeLabel = type === 'it' ? 'IT' : 'Maintenance';
-  const title = `New ${requestTypeLabel} Request`;
+  const title = 'New ' + requestTypeLabel + ' Request';
   const submittedAt = formatTimestampForEmail_(record && record.ts);
   const summary = sanitizeString_(record && record.summary);
   const generalRows = [
@@ -1882,37 +1882,55 @@ function buildNewRequestEmailBody_(type, record) {
   const detailRowsHtml = detailPairs
     .filter(([label, value]) => sanitizeString_(value))
     .map(([label, value]) =>
-      `<tr><th style="text-align:left;padding:6px 12px;background:#f5f7fa;width:160px;">${escapeHtml_(label)}</th>` +
-      `<td style="padding:6px 12px;">${escapeHtml_(value)}</td></tr>`
+      '<tr><th style="text-align:left;padding:6px 12px;background:#f5f7fa;width:160px;">' +
+      escapeHtml_(label) +
+      '</th>' +
+      '<td style="padding:6px 12px;">' +
+      escapeHtml_(value) +
+      '</td></tr>'
     )
     .join('');
   const generalRowsHtml = generalRows
     .filter(([label, value]) => sanitizeString_(value))
     .map(([label, value]) =>
-      `<tr><th style="text-align:left;padding:6px 12px;background:#f5f7fa;width:160px;">${escapeHtml_(label)}</th>` +
-      `<td style="padding:6px 12px;">${escapeHtml_(value)}</td></tr>`
+      '<tr><th style="text-align:left;padding:6px 12px;background:#f5f7fa;width:160px;">' +
+      escapeHtml_(label) +
+      '</th>' +
+      '<td style="padding:6px 12px;">' +
+      escapeHtml_(value) +
+      '</td></tr>'
     )
     .join('');
   const trackerUrl = getSpreadsheetUrlSafe_();
   const appUrl = sanitizeString_(REQUEST_MANAGER_APP_URL);
   const appLinkHtml = appUrl
-    ? `<p style="margin:20px 0 0;">Open this request in the <a style="color:#1d72b8;" href="${escapeHtml_(appUrl)}" target="_blank" rel="noopener">Request Manager app</a>.</p>`
+    ? '<p style="margin:20px 0 0;">Open this request in the <a style="color:#1d72b8;" href="' +
+      escapeHtml_(appUrl) +
+      '" target="_blank" rel="noopener">Request Manager app</a>.</p>'
     : '';
   const detailsSection = detailRowsHtml
-    ? `<table style="border-collapse:collapse;width:100%;margin-top:12px;border:1px solid #d2d6dc;">${detailRowsHtml}</table>`
+    ? '<table style="border-collapse:collapse;width:100%;margin-top:12px;border:1px solid #d2d6dc;">' +
+      detailRowsHtml +
+      '</table>'
     : '<p style="margin:12px 0 0;color:#52606d;">No additional details were provided.</p>';
   const summarySection = summary
-    ? `<p style="margin:0 0 16px;font-size:16px;color:#243b53;"><strong>Summary:</strong> ${escapeHtml_(summary)}</p>`
+    ? '<p style="margin:0 0 16px;font-size:16px;color:#243b53;"><strong>Summary:</strong> ' +
+      escapeHtml_(summary) +
+      '</p>'
     : '<p style="margin:0 0 16px;font-size:16px;color:#243b53;">A new request has been submitted. Details are below.</p>';
   return [
     '<div style="font-family:Arial,Helvetica,sans-serif;color:#102a43;line-height:1.6;">',
-    `<h2 style="margin:0 0 12px;font-size:20px;">${escapeHtml_(title)}</h2>`,
+    '<h2 style="margin:0 0 12px;font-size:20px;">' + escapeHtml_(title) + '</h2>',
     summarySection,
-    `<table style="border-collapse:collapse;width:100%;border:1px solid #d2d6dc;">${generalRowsHtml}</table>`,
+    '<table style="border-collapse:collapse;width:100%;border:1px solid #d2d6dc;">' +
+      generalRowsHtml +
+      '</table>',
     '<h3 style="margin:20px 0 8px;font-size:16px;color:#243b53;">Request Details</h3>',
     detailsSection,
     trackerUrl
-      ? `<p style="margin:20px 0 0;">Review the full request list in <a style="color:#1d72b8;" href="${escapeHtml_(trackerUrl)}" target="_blank" rel="noopener">Google Sheets</a>.</p>`
+      ? '<p style="margin:20px 0 0;">Review the full request list in <a style="color:#1d72b8;" href="' +
+        escapeHtml_(trackerUrl) +
+        '" target="_blank" rel="noopener">Google Sheets</a>.</p>'
       : '',
     appLinkHtml,
     '</div>'
@@ -1930,26 +1948,36 @@ function buildFeedbackEmailBody_(entry) {
   const isAnonymous = Boolean(entry && entry.isAnonymous);
   const submitted = submittedAt ? escapeHtml_(submittedAt) : '';
   const introText = isAnonymous
-    ? `Shared anonymously${submitted ? ` on ${submitted}` : ''}.`
-    : `Shared by <strong>${escapeHtml_(name)}</strong>${submitted ? ` on ${submitted}` : ''}.`;
-  const introHtml = `<p style="margin:12px 0 0;font-size:15px;color:#334e68;">${introText}</p>`;
+    ? 'Shared anonymously' + (submitted ? ' on ' + submitted : '') + '.'
+    : 'Shared by <strong>' + escapeHtml_(name) + '</strong>' + (submitted ? ' on ' + submitted : '') + '.';
+  const introHtml = '<p style="margin:12px 0 0;font-size:15px;color:#334e68;">' + introText + '</p>';
   const summaryHtml = summary
-    ? `<p style="margin:16px 0 0;font-size:16px;color:#243b53;"><strong>${escapeHtml_(summary)}</strong></p>`
+    ? '<p style="margin:16px 0 0;font-size:16px;color:#243b53;"><strong>' +
+      escapeHtml_(summary) +
+      '</strong></p>'
     : '';
   const messageHtml = message
-    ? `<p style="margin:16px 0 0;line-height:1.6;color:#334e68;"><strong>What they shared:</strong><br>${formatMultilineForEmail_(message)}</p>`
+    ? '<p style="margin:16px 0 0;line-height:1.6;color:#334e68;"><strong>What they shared:</strong><br>' +
+      formatMultilineForEmail_(message) +
+      '</p>'
     : '';
   const contactParts = [];
   if (contact) {
-    contactParts.push(`<p style="margin:16px 0 0;font-size:14px;color:#627d98;"><strong>Okay to follow up via:</strong> ${formatMultilineForEmail_(contact)}</p>`);
+    contactParts.push('<p style="margin:16px 0 0;font-size:14px;color:#627d98;"><strong>Okay to follow up via:</strong> ' +
+      formatMultilineForEmail_(contact) +
+      '</p>');
   }
   if (fromEmail && (!contact || contact.toLowerCase() !== fromEmail.toLowerCase())) {
-    contactParts.push(`<p style="margin:8px 0 0;font-size:14px;color:#627d98;">Reply to: <a style="color:#0b57d0;" href="mailto:${escapeHtml_(fromEmail)}">${escapeHtml_(fromEmail)}</a></p>`);
+    contactParts.push('<p style="margin:8px 0 0;font-size:14px;color:#627d98;">Reply to: <a style="color:#0b57d0;" href="mailto:' +
+      escapeHtml_(fromEmail) +
+      '">' +
+      escapeHtml_(fromEmail) +
+      '</a></p>');
   }
   const contactHtml = contactParts.join('');
   return [
     '<div style="font-family:Arial,Helvetica,sans-serif;color:#102a43;line-height:1.6;">',
-    `<h2 style="margin:0;font-size:20px;">${escapeHtml_(typeLabel)} insight just arrived</h2>`,
+    '<h2 style="margin:0;font-size:20px;">' + escapeHtml_(typeLabel) + ' insight just arrived</h2>',
     introHtml,
     summaryHtml,
     messageHtml,
@@ -1983,7 +2011,7 @@ function getRequestFieldPairsForEmail_(type, fields) {
 function sendSuppliesSummaryEmail_(records) {
   const count = Array.isArray(records) ? records.length : 0;
   const subject = count
-    ? `[Request Manager] Weekly Supplies Summary - ${count} awaiting review`
+    ? '[Request Manager] Weekly Supplies Summary - ' + count + ' awaiting review'
     : '[Request Manager] Weekly Supplies Summary - No pending requests';
   const htmlBody = buildSuppliesSummaryEmailBody_(Array.isArray(records) ? records : []);
   MailApp.sendEmail({
@@ -1998,7 +2026,7 @@ function buildSuppliesSummaryEmailBody_(records) {
   const trackerUrl = getSpreadsheetUrlSafe_();
   const count = records.length;
   const introText = count
-    ? `${count} supplies ${count === 1 ? 'request requires' : 'requests require'} approval or denial.`
+    ? count + ' supplies ' + (count === 1 ? 'request requires' : 'requests require') + ' approval or denial.'
     : 'No supplies requests are waiting for approval or denial this week.';
   let tableHtml = '';
   if (count) {
@@ -2019,28 +2047,33 @@ function buildSuppliesSummaryEmailBody_(records) {
         const estimatedCost = sanitizeString_(fields.estimatedCost);
         const detailSegments = [];
         if (supplier) {
-          detailSegments.push(`<strong>Supplier:</strong> ${escapeHtml_(supplier)}`);
+          detailSegments.push('<strong>Supplier:</strong> ' + escapeHtml_(supplier));
         }
         if (estimatedCost) {
-          detailSegments.push(`<strong>Est. Cost:</strong> ${escapeHtml_(estimatedCost)}`);
+          detailSegments.push('<strong>Est. Cost:</strong> ' + escapeHtml_(estimatedCost));
         }
         if (eta) {
-          detailSegments.push(`<strong>ETA:</strong> ${escapeHtml_(formatDateOnlyForEmail_(eta))}`);
+          detailSegments.push('<strong>ETA:</strong> ' + escapeHtml_(formatDateOnlyForEmail_(eta)));
         }
         if (notes) {
-          detailSegments.push(`<strong>Notes:</strong> ${escapeHtml_(notes)}`);
+          detailSegments.push('<strong>Notes:</strong> ' + escapeHtml_(notes));
         }
         const extraDetails = detailSegments.length
-          ? `<div style="margin-top:6px;font-size:12px;color:#52606d;">${detailSegments.join('<br>')}</div>`
+          ? '<div style="margin-top:6px;font-size:12px;color:#52606d;">' + detailSegments.join('<br>') + '</div>'
           : '';
         return [
           '<tr>',
-          `<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">${escapeHtml_(submitted)}</td>`,
-          `<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">${escapeHtml_(requester)}</td>`,
-          `<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">${escapeHtml_(description)}${extraDetails}</td>`,
-          `<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;text-align:center;">${escapeHtml_(qty)}</td>`,
-          `<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">${escapeHtml_(location)}</td>`,
-          `<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">${escapeHtml_(status)}</td>`,
+          '<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">' + escapeHtml_(submitted) + '</td>',
+          '<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">' + escapeHtml_(requester) + '</td>',
+          '<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">' +
+            escapeHtml_(description) +
+            extraDetails +
+            '</td>',
+          '<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;text-align:center;">' +
+            escapeHtml_(qty) +
+            '</td>',
+          '<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">' + escapeHtml_(location) + '</td>',
+          '<td style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">' + escapeHtml_(status) + '</td>',
           '</tr>'
         ].join('');
       })
@@ -2057,7 +2090,7 @@ function buildSuppliesSummaryEmailBody_(records) {
       '<th style="padding:10px 12px;border-bottom:1px solid #d2d6dc;">Status</th>',
       '</tr>',
       '</thead>',
-      `<tbody>${rowsHtml}</tbody>`,
+      '<tbody>' + rowsHtml + '</tbody>',
       '</table>'
     ].join('');
   } else {
@@ -2067,10 +2100,12 @@ function buildSuppliesSummaryEmailBody_(records) {
   return [
     '<div style="font-family:Arial,Helvetica,sans-serif;color:#102a43;line-height:1.6;">',
     '<h2 style="margin:0 0 12px;font-size:20px;">Weekly Supplies Summary</h2>',
-    `<p style="margin:0 0 12px;">${escapeHtml_(introText)}</p>`,
+    '<p style="margin:0 0 12px;">' + escapeHtml_(introText) + '</p>',
     tableHtml,
     trackerUrl
-      ? `<p style="margin:20px 0 0;">Review all requests: <a style="color:#1d72b8;" href="${escapeHtml_(trackerUrl)}" target="_blank" rel="noopener">Open Request Tracker</a></p>`
+      ? '<p style="margin:20px 0 0;">Review all requests: <a style="color:#1d72b8;" href="' +
+        escapeHtml_(trackerUrl) +
+        '" target="_blank" rel="noopener">Open Request Tracker</a></p>'
       : '',
     '</div>'
   ].join('');
@@ -2110,7 +2145,7 @@ function formatDateOnlyForEmail_(value) {
   }
   const text = String(value);
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-    const date = new Date(`${text}T00:00:00`);
+    const date = new Date(text + 'T00:00:00');
     if (!isNaN(date.getTime())) {
       return Utilities.formatDate(date, EMAIL_TIMEZONE, 'MMM d, yyyy');
     }
@@ -2193,18 +2228,18 @@ function buildSuppliesEstimatedCostDetail_(fields) {
   const qty = Number(qtyValue);
   const parsed = parseCurrencyText_(costText);
   if (!qty || !isFinite(qty) || qty <= 0 || !parsed) {
-    return displayCost ? `Estimated cost: ${displayCost}` : '';
+    return displayCost ? 'Estimated cost: ' + displayCost : '';
   }
   const decimals = parsed.decimals > 0 ? parsed.decimals : 2;
   const totalAmount = parsed.amount * qty;
   const prefix = parsed.prefix || '$';
   const suffix = parsed.suffix || '';
   const formattedTotal = formatAmountWithGrouping_(totalAmount, decimals);
-  const totalLabel = `${prefix}${formattedTotal}${suffix}`.trim();
+  const totalLabel = (prefix + formattedTotal + suffix).trim();
   if (fields) {
     fields.estimatedCostTotal = totalLabel;
   }
-  return `Estimated cost: ${totalLabel}`;
+  return 'Estimated cost: ' + totalLabel;
 }
 
 function buildClientRequest_(type, row) {
@@ -2392,11 +2427,11 @@ function sendLastRowToWebhook_(sheetName) {
   const ss = getSpreadsheet_();
   const sheet = resolveWebhookSheet_(sheetName, ss);
   if (!sheet) {
-    throw new Error(`Sheet "${sheetName}" not found.`);
+    throw new Error('Sheet "' + sheetName + '" not found.');
   }
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) {
-    throw new Error(`Sheet "${sheet.getName()}" has no data rows to send.`);
+    throw new Error('Sheet "' + sheet.getName() + '" has no data rows to send.');
   }
   processRowForWebhook_(sheet.getName(), lastRow, ss);
 }
@@ -2484,7 +2519,7 @@ function postToMakeWebhook_(payload, existingAttempts, attemptCell) {
         return { ok: true, attempts, responseCode: code };
       }
       lastResponseBody = response.getContentText();
-      lastError = new Error(`Webhook responded with HTTP ${code}`);
+      lastError = new Error('Webhook responded with HTTP ' + code);
       if (!shouldRetryWebhookResponse_(code)) {
         break;
       }
