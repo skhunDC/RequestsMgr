@@ -51,7 +51,11 @@ function createRequestTypeDefinition_(config) {
   if (!config || typeof config !== 'object') {
     throw new Error('Request type definition requires a configuration object.');
   }
-  const { sheetName, headers, normalize, buildSummary, buildDetails } = config;
+  const sheetName = config.sheetName;
+  const headers = config.headers;
+  const normalize = config.normalize;
+  const buildSummary = config.buildSummary;
+  const buildDetails = config.buildDetails;
   if (!sheetName || !Array.isArray(headers)) {
     throw new Error('Request type definitions must include a sheetName and headers.');
   }
@@ -766,11 +770,16 @@ function summarizeSuppliesByLocation_(records) {
     return acc;
   }, {});
   return Object.keys(locationItemTotals)
-    .map(key => {
-      const entry = locationItemTotals[key];
-      const { _requestIds, ...publicEntry } = entry;
-      return publicEntry;
-    })
+      .map(key => {
+        const entry = locationItemTotals[key];
+        const publicEntry = {};
+        Object.keys(entry).forEach(prop => {
+          if (prop !== '_requestIds') {
+            publicEntry[prop] = entry[prop];
+          }
+        });
+        return publicEntry;
+      })
     .sort((a, b) => {
       const quantityDiff = (b.quantity || 0) - (a.quantity || 0);
       if (quantityDiff !== 0) {
