@@ -252,7 +252,7 @@ function getRequestNotesMap_(type) {
     }
     map[requestId].push({
       ts: tsValue,
-      actor,
+      actor: actor,
       note: noteText
     });
   });
@@ -313,7 +313,7 @@ function listCatalog(request) {
     return {
       ok: true,
       items: slice,
-      nextToken
+      nextToken: nextToken
     };
   });
 }
@@ -353,11 +353,11 @@ function buildCatalogItemsFromSheet_() {
       const usageCount = usageCounts[usageKey] || 0;
       return {
         sku: sanitizeString_(row.sku),
-        description,
+        description: description,
         category: sanitizeString_(row.category),
         estimatedCost: sanitizeString_(row.estimatedCost),
         supplier: sanitizeString_(row.supplier),
-        usageCount
+        usageCount: usageCount
       };
     })
     .sort((a, b) => {
@@ -508,10 +508,10 @@ function listRequests(request) {
     const nextToken = startIndex + slice.length < scopedRecords.length ? String(startIndex + slice.length) : '';
     return {
       ok: true,
-      type,
-      scope,
+      type: type,
+      scope: scope,
       requests: slice,
-      nextToken
+      nextToken: nextToken
     };
   });
 }
@@ -574,14 +574,14 @@ function getDashboardMetrics(request) {
       const avgCompletionMs = completionCount > 0 ? completionMsTotal / completionCount : 0;
       const avgStartMs = startCount > 0 ? startMsTotal / startCount : 0;
       metrics[type] = {
-        total,
-        outstanding,
-        avgCompletionMs,
-        completionCount,
-        avgStartMs,
-        startCount,
-        deniedCount,
-        approvedCount
+        total: total,
+        outstanding: outstanding,
+        avgCompletionMs: avgCompletionMs,
+        completionCount: completionCount,
+        avgStartMs: avgStartMs,
+        startCount: startCount,
+        deniedCount: deniedCount,
+        approvedCount: approvedCount
       };
       totalRequests += total;
       outstandingRequests += outstanding;
@@ -589,12 +589,12 @@ function getDashboardMetrics(request) {
     const insights = computeDashboardTopInsights_(recordsByType);
     return {
       ok: true,
-      metrics,
+      metrics: metrics,
       totals: {
-        totalRequests,
-        outstandingRequests
+        totalRequests: totalRequests,
+        outstandingRequests: outstandingRequests
       },
-      insights,
+      insights: insights,
       generatedAt: toIsoString_(new Date())
     };
   });
@@ -661,7 +661,7 @@ function summarizeSuppliesByLocation_(records) {
     const key = [location.toLowerCase(), itemKey].join('::');
     if (!acc[key]) {
       acc[key] = {
-        location,
+        location: location,
         item: description || fallbackLabel || '-',
         catalogSku: fallbackLabel,
         quantity: 0,
@@ -727,7 +727,7 @@ function summarizeTechnicalByLocation_(itRecords, maintenanceRecords) {
         return;
       }
       if (!counts[location]) {
-        counts[location] = { location, count: 0, itCount: 0, maintenanceCount: 0 };
+        counts[location] = { location: location, count: 0, itCount: 0, maintenanceCount: 0 };
       }
       counts[location].count += 1;
       if (type === 'it') {
@@ -794,8 +794,8 @@ function createRequest(request) {
       requester: requesterIdentity,
       status: 'pending',
       approver: '',
-      type,
-      fields
+      type: type,
+      fields: fields
     };
 
     const rowValues = def.headers.map(header => {
@@ -1092,18 +1092,18 @@ function submitAppFeedback(request) {
     const isAnonymous = !providedName && !contact && !fromEmail;
     const htmlBody = buildFeedbackEmailBody_({
       type: typeLabel,
-      summary,
+      summary: summary,
       message: details,
-      contact,
+      contact: contact,
       name: friendlyName,
-      fromEmail,
-      isAnonymous,
+      fromEmail: fromEmail,
+      isAnonymous: isAnonymous,
       submittedAt: formatTimestampForEmail_(new Date())
     });
     MailApp.sendEmail({
       to: PRIMARY_NOTIFICATION_EMAIL,
-      subject,
-      htmlBody,
+      subject: subject,
+      htmlBody: htmlBody,
       name: EMAIL_SENDER_NAME
     });
     return { ok: true };
@@ -1401,7 +1401,7 @@ function getAuthorizedStatusEmails_() {
 
   const normalized = emails.map(normalizeEmail_).filter(Boolean);
   const uniqueEmails = Array.from(new Set(normalized));
-  const payload = { emails: uniqueEmails, allowlistSource };
+  const payload = { emails: uniqueEmails, allowlistSource: allowlistSource };
   cache.put(CACHE_KEYS.STATUS_EMAILS, JSON.stringify(payload), CACHE_TTLS.STATUS_EMAILS);
   return payload;
 }
@@ -1439,9 +1439,9 @@ function getStatusAuthContext_() {
     reason = 'not_listed';
   }
   return {
-    email,
-    authorized,
-    reason,
+    email: email,
+    authorized: authorized,
+    reason: reason,
     allowlistSource: allowlist.allowlistSource,
     allowlistSize: allowlist.emails.length
   };
@@ -1493,7 +1493,7 @@ function parseCurrencyText_(value) {
   const prefix = prefixMatch ? prefixMatch[0] : '';
   const suffixMatch = text.match(/[^0-9.,-]*$/);
   const suffix = suffixMatch ? suffixMatch[0] : '';
-  return { amount, decimals, prefix, suffix };
+  return { amount: amount, decimals: decimals, prefix: prefix, suffix: suffix };
 }
 
 function formatAmountWithGrouping_(amount, decimals) {
@@ -1697,9 +1697,9 @@ function evaluateDeviceRateLimit_(deviceId, nowMs, props) {
   }
   return {
     allowed: true,
-    key,
-    count,
-    resetAt
+    key: key,
+    count: count,
+    resetAt: resetAt
   };
 }
 
@@ -1712,7 +1712,7 @@ function commitDeviceRateLimitUsage_(state, props, nowMs) {
   }
   props.setProperty(state.key, JSON.stringify({
     count: nextCount,
-    resetAt
+    resetAt: resetAt
   }));
 }
 
@@ -1855,13 +1855,13 @@ function sendNewRequestNotification_(type, record) {
     const htmlBody = buildNewRequestEmailBody_(type, record);
     MailApp.sendEmail({
       to: NEW_REQUEST_NOTIFICATION_RECIPIENTS.join(','),
-      subject,
-      htmlBody,
+      subject: subject,
+      htmlBody: htmlBody,
       name: EMAIL_SENDER_NAME
     });
   } catch (err) {
     logServerError_('sendNewRequestNotification', record && record.id, err, {
-      type,
+      type: type,
       requestId: record && record.id
     });
   }
@@ -2016,8 +2016,8 @@ function sendSuppliesSummaryEmail_(records) {
   const htmlBody = buildSuppliesSummaryEmailBody_(Array.isArray(records) ? records : []);
   MailApp.sendEmail({
     to: PRIMARY_NOTIFICATION_EMAIL,
-    subject,
-    htmlBody,
+    subject: subject,
+    htmlBody: htmlBody,
     name: EMAIL_SENDER_NAME
   });
 }
@@ -2258,8 +2258,8 @@ function buildClientRequest_(type, row) {
     requester: String(row.requester || ''),
     status: String(row.status || 'pending').toLowerCase() || 'pending',
     approver: String(row.approver || ''),
-    type,
-    fields,
+    type: type,
+    fields: fields,
     notes: []
   };
   if (Object.prototype.hasOwnProperty.call(fields, 'eta')) {
@@ -2472,10 +2472,10 @@ function processRowForWebhook_(sheetName, rowNumber, source) {
   });
   const payload = {
     sheetName: sheet.getName(),
-    rowNumber,
+    rowNumber: rowNumber,
     spreadsheetId: sheet.getParent().getId(),
     timestamp: new Date().toISOString(),
-    data
+    data: data
   };
   const attemptCell = sheet.getRange(rowNumber, attemptIndex + 1);
   const existingAttempts = Number(attemptCell.getValue()) || 0;
@@ -2516,7 +2516,7 @@ function postToMakeWebhook_(payload, existingAttempts, attemptCell) {
       const code = response.getResponseCode();
       lastResponseCode = code;
       if (code >= 200 && code < 300) {
-        return { ok: true, attempts, responseCode: code };
+        return { ok: true, attempts: attempts, responseCode: code };
       }
       lastResponseBody = response.getContentText();
       lastError = new Error('Webhook responded with HTTP ' + code);
@@ -2537,7 +2537,7 @@ function postToMakeWebhook_(payload, existingAttempts, attemptCell) {
   }
   return {
     ok: false,
-    attempts,
+    attempts: attempts,
     error: lastError,
     responseCode: lastResponseCode,
     responseBody: lastResponseBody
@@ -2570,7 +2570,7 @@ function logWebhookError_(sheetName, rowNumber, attempt, error, responseCode, re
     attempt,
     responseCode || '',
     message,
-    JSON.stringify({ responseBody: responseBody || '', payload })
+    JSON.stringify({ responseBody: responseBody || '', payload: payload })
   ];
   sheet.appendRow(record);
 }
