@@ -1,8 +1,17 @@
 {
-  "name": "requestsmgr",
+  "name": "requests-manager",
   "version": "1.0.0",
   "private": true,
-  "description": "Requests Manager Google Apps Script project",
-  "scripts": {},
-  "license": "MIT"
+  "scripts": {
+    "lint": "eslint Code.gs index.html print.html scripts.html tests/**/*.js",
+    "format": "prettier --write Code.gs index.html print.html scripts.html styles.html README.md AGENTS.md docs/**/*.md tests/**/*.js",
+    "test": "npm --prefix tests test"
+  },
+  "devDependencies": {
+    "@html-eslint/eslint-plugin": "^0.22.0",
+    "@html-eslint/parser": "^0.22.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-html": "^7.1.0",
+    "prettier": "^3.2.5"
+  }
 }
