@@ -65,30 +65,30 @@ const REQUEST_TYPES = {
         if (fields.location) {
           details.push(`Location: ${fields.location}`);
         }
-      if (fields.qty) {
-        details.push(`Quantity: ${fields.qty}`);
-      }
-      if (fields.supplier) {
-        details.push(`Supplier: ${fields.supplier}`);
-      }
-      if (fields.estimatedCost) {
-        const estimatedCostDetail = buildSuppliesEstimatedCostDetail_(fields);
-        if (estimatedCostDetail) {
-          details.push(estimatedCostDetail);
+        if (fields.qty) {
+          details.push(`Quantity: ${fields.qty}`);
         }
-      }
-      if (fields.notes) {
-        details.push(`Notes: ${fields.notes}`);
-      }
-      if (fields.eta) {
-        const formatted = formatDateForDisplay_(fields.eta);
-        if (formatted) {
-          details.push(`ETA: ${formatted}`);
+        if (fields.supplier) {
+          details.push(`Supplier: ${fields.supplier}`);
         }
+        if (fields.estimatedCost) {
+          const estimatedCostDetail = buildSuppliesEstimatedCostDetail_(fields);
+          if (estimatedCostDetail) {
+            details.push(estimatedCostDetail);
+          }
+        }
+        if (fields.notes) {
+          details.push(`Notes: ${fields.notes}`);
+        }
+        if (fields.eta) {
+          const formatted = formatDateForDisplay_(fields.eta);
+          if (formatted) {
+            details.push(`ETA: ${formatted}`);
+          }
+        }
+        return details;
       }
-      return details;
-    }
-  },
+    },
     it: {
       sheetName: 'ITRequests',
       headers: ['id', 'ts', 'requester', 'issue', 'device', 'urgency', 'details', 'status', 'approver', 'location'],
@@ -117,19 +117,19 @@ const REQUEST_TYPES = {
         if (fields.location) {
           details.push(`Location: ${fields.location}`);
         }
-      if (fields.device) {
-        details.push(`Device/System: ${fields.device}`);
+        if (fields.device) {
+          details.push(`Device/System: ${fields.device}`);
+        }
+        if (fields.urgency) {
+          const urgency = normalizeUrgencyValue_(fields.urgency);
+          details.push(`Urgency: ${capitalize_(urgency)}`);
+        }
+        if (fields.details) {
+          details.push(`Details: ${fields.details}`);
+        }
+        return details;
       }
-      if (fields.urgency) {
-        const urgency = normalizeUrgencyValue_(fields.urgency);
-        details.push(`Urgency: ${capitalize_(urgency)}`);
-      }
-      if (fields.details) {
-        details.push(`Details: ${fields.details}`);
-      }
-      return details;
-    }
-  },
+    },
     maintenance: {
       sheetName: 'MaintenanceRequests',
       headers: ['id', 'ts', 'requester', 'location', 'issue', 'urgency', 'accessNotes', 'status', 'approver'],
@@ -156,16 +156,16 @@ const REQUEST_TYPES = {
         if (fields.location) {
           details.push(`Location: ${fields.location}`);
         }
-      if (fields.urgency) {
-        const urgency = normalizeUrgencyValue_(fields.urgency);
-        details.push(`Urgency: ${capitalize_(urgency)}`);
+        if (fields.urgency) {
+          const urgency = normalizeUrgencyValue_(fields.urgency);
+          details.push(`Urgency: ${capitalize_(urgency)}`);
+        }
+        if (fields.accessNotes) {
+          details.push(`Access notes: ${fields.accessNotes}`);
+        }
+        return details;
       }
-      if (fields.accessNotes) {
-        details.push(`Access notes: ${fields.accessNotes}`);
-      }
-      return details;
     }
-  }
 };
 
 const LOG_HEADERS = ['ts', 'actor', 'fn', 'cid', 'message', 'stack', 'context'];
@@ -292,7 +292,7 @@ function doGet(e) {
     }
   };
   template.view = view;
-  const title = view === 'print' ? 'Request Manager – Print' : 'Request Manager';
+  const title = view === 'print' ? 'Request Manager - Print' : 'Request Manager';
   return template.evaluate().setTitle(title);
 }
 
@@ -662,7 +662,7 @@ function summarizeSuppliesByLocation_(records) {
     if (!acc[key]) {
       acc[key] = {
         location,
-        item: description || fallbackLabel || '—',
+        item: description || fallbackLabel || '-',
         catalogSku: fallbackLabel,
         quantity: 0,
         requestCount: 0,
@@ -671,7 +671,7 @@ function summarizeSuppliesByLocation_(records) {
     }
     const entry = acc[key];
     entry.quantity += qty;
-    if (description && (!entry.item || entry.item === entry.catalogSku || entry.item === '—')) {
+    if (description && (!entry.item || entry.item === entry.catalogSku || entry.item === '-')) {
       entry.item = description;
     }
     if (!entry.catalogSku && fallbackLabel) {
@@ -1085,8 +1085,8 @@ function submitAppFeedback(request) {
     const typeKey = typeValue.toLowerCase();
     const typeLabel = typeKey === 'bug' ? 'Bug' : typeKey === 'improvement' ? 'Improvement' : 'Idea';
     const subjectSource = summary || details;
-    const subjectSummary = subjectSource.length > 70 ? `${subjectSource.slice(0, 67)}…` : subjectSource;
-    const subject = `[Request Manager] ${typeLabel} feedback – ${subjectSummary}`;
+    const subjectSummary = subjectSource.length > 70 ? `${subjectSource.slice(0, 67)}...` : subjectSource;
+    const subject = `[Request Manager] ${typeLabel} feedback - ${subjectSummary}`;
     const contactLine = contact ? contact.split('\n')[0] : '';
     const friendlyName = providedName || contactLine || deriveDisplayNameFromEmail_(fromEmail) || 'Anonymous teammate';
     const isAnonymous = !providedName && !contact && !fromEmail;
@@ -1851,7 +1851,7 @@ function sendNewRequestNotification_(type, record) {
   try {
     const requestTypeLabel = type === 'it' ? 'IT' : 'Maintenance';
     const summary = sanitizeString_(record.summary) || `${requestTypeLabel} request`;
-    const subject = `[Request Manager] New ${requestTypeLabel} Request – ${summary}`;
+    const subject = `[Request Manager] New ${requestTypeLabel} Request - ${summary}`;
     const htmlBody = buildNewRequestEmailBody_(type, record);
     MailApp.sendEmail({
       to: NEW_REQUEST_NOTIFICATION_RECIPIENTS.join(','),
@@ -1983,8 +1983,8 @@ function getRequestFieldPairsForEmail_(type, fields) {
 function sendSuppliesSummaryEmail_(records) {
   const count = Array.isArray(records) ? records.length : 0;
   const subject = count
-    ? `[Request Manager] Weekly Supplies Summary – ${count} awaiting review`
-    : '[Request Manager] Weekly Supplies Summary – No pending requests';
+    ? `[Request Manager] Weekly Supplies Summary - ${count} awaiting review`
+    : '[Request Manager] Weekly Supplies Summary - No pending requests';
   const htmlBody = buildSuppliesSummaryEmailBody_(Array.isArray(records) ? records : []);
   MailApp.sendEmail({
     to: PRIMARY_NOTIFICATION_EMAIL,
@@ -2010,9 +2010,9 @@ function buildSuppliesSummaryEmailBody_(records) {
         const submitted = formatTimestampForEmail_(record && record.ts);
         const status = formatStatusForEmail_(record && record.status);
         const description = fields.description || record.summary || 'Supplies request';
-        const qty = fields.qty !== undefined && fields.qty !== null && fields.qty !== '' ? String(fields.qty) : '—';
-        const location = fields.location || '—';
-        const requester = record && record.requester ? record.requester : '—';
+        const qty = fields.qty !== undefined && fields.qty !== null && fields.qty !== '' ? String(fields.qty) : '-';
+        const location = fields.location || '-';
+        const requester = record && record.requester ? record.requester : '-';
         const notes = sanitizeString_(fields.notes);
         const supplier = sanitizeString_(fields.supplier);
         const eta = sanitizeString_(fields.eta);
@@ -2090,7 +2090,7 @@ function formatStatusForEmail_(status) {
 
 function formatTimestampForEmail_(value) {
   if (!value) {
-    return '—';
+    return '-';
   }
   let date;
   if (Object.prototype.toString.call(value) === '[object Date]') {
