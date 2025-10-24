@@ -202,7 +202,9 @@ function createRequestTypeRegistry_() {
     })
   });
 
-  const entries = Object.entries(definitions);
+  const entries = Object.keys(definitions).map(function(key) {
+    return [key, definitions[key]];
+  });
 
   function normalizeType(type) {
     return String(type || '').trim().toLowerCase();
@@ -218,17 +220,21 @@ function createRequestTypeRegistry_() {
   }
 
   function keys() {
-    return entries.map(entry => entry[0]);
+    return entries.map(function(entry) {
+      return entry[0];
+    });
   }
 
   function forEach(callback, thisArg) {
-    entries.forEach(entry => {
+    entries.forEach(function(entry) {
       callback.call(thisArg, entry[1], entry[0]);
     });
   }
 
   function map(callback, thisArg) {
-    return entries.map(entry => callback.call(thisArg, entry[1], entry[0]));
+    return entries.map(function(entry) {
+      return callback.call(thisArg, entry[1], entry[0]);
+    });
   }
 
   return Object.freeze({
