@@ -259,9 +259,10 @@ function getRequiredSheetDefinitions_() {
   return definitions;
 }
 
-function doGet() {
+function doGet(e) {
   ensureSetup_();
-  const template = HtmlService.createTemplateFromFile('index');
+  const view = e && e.parameter && e.parameter.view === 'print' ? 'print' : 'index';
+  const template = HtmlService.createTemplateFromFile(view);
   const auth = getStatusAuthContext_();
   template.session = {
     email: auth.email,
@@ -274,7 +275,13 @@ function doGet() {
       allowlistSize: auth.allowlistSize
     }
   };
-  return template.evaluate().setTitle('Request Manager');
+  template.view = view;
+  const title = view === 'print' ? 'Request Manager – Print' : 'Request Manager';
+  return template.evaluate().setTitle(title);
+}
+
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
 function listCatalog(request) {

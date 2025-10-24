@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Request Manager – Print</title>
+  <?!= include('styles'); ?>
+</head>
+<body class="print-view" data-view="<?!= view ?>">
+  <main class="print-shell" aria-live="polite">
+    <header class="print-header">
+      <h1>Printable request summary</h1>
+      <p class="print-description">
+        Use the filters below to generate a printable snapshot of the live request queues.
+        Data refreshes directly from the Google Sheet using your account permissions.
+      </p>
+      <p class="print-meta">
+        Signed in as <strong><?!= session && session.email ? session.email : 'unknown user' ?></strong>.
+        Changes made in the main workspace appear here after you refresh.
+      </p>
+    </header>
+
+    <section class="card print-controls" aria-labelledby="printControlsTitle">
+      <div class="card-header">
+        <div class="card-header-text">
+          <span class="card-title" id="printControlsTitle">Filters</span>
+          <span class="card-subtitle meta">Choose which queue to print and whether to limit to your submissions.</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="print-controls-grid">
+          <label>
+            <span>Queue</span>
+            <select id="printType" name="type">
+              <option value="supplies">Supplies</option>
+              <option value="it">IT</option>
+              <option value="maintenance">Maintenance</option>
+            </select>
+          </label>
+          <label>
+            <span>Scope</span>
+            <select id="printScope" name="scope">
+              <option value="all">All requests</option>
+              <option value="mine">My requests</option>
+            </select>
+          </label>
+          <div class="print-actions">
+            <button type="button" id="printRefresh" class="secondary">Refresh data</button>
+            <button type="button" id="printButton">Print page</button>
+          </div>
+        </div>
+        <p id="printStatus" class="meta" role="status"></p>
+      </div>
+    </section>
+
+    <section class="card print-results" aria-labelledby="printResultsTitle">
+      <div class="card-header">
+        <div class="card-header-text">
+          <span class="card-title" id="printResultsTitle">Request details</span>
+          <span class="card-subtitle meta">
+            Showing <span id="printCount">0</span> request(s). Use your browser print dialog to create a PDF or send to paper.
+          </span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="print-table-wrapper">
+          <table class="print-table" aria-describedby="printResultsTitle">
+            <thead>
+              <tr>
+                <th scope="col">Summary</th>
+                <th scope="col">Status</th>
+                <th scope="col">Requester</th>
+                <th scope="col">Submitted</th>
+                <th scope="col">Details</th>
+              </tr>
+            </thead>
+            <tbody id="printTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function() {
+      const hasServer = typeof google !== 'undefined' && google.script && google.script.run;
+      const session = <?!= JSON.stringify(session) ?>;
+      const statusEl = document.getElementById('printStatus');
+      const countEl = document.getElementById('printCount');
+      const tableBody = document.getElementById('printTableBody');
+      const typeSelect = document.getElementById('printType');
+      const scopeSelect = document.getElementById('printScope');
+      const refreshButton = document.getElementById('printRefresh');
+      const printButton = document.getElementById('printButton');
+      const PRINT_PAGE_SIZE = 50;
+
+      const EMAIL_DISPLAY_OVERRIDES = Object.freeze({
+        'skhun@dublincleaners.com': 'Shawn Khun',
+        'rbrown@dublincleaners.com': 'Rebecca Brown',
+        'brianmbutler77@dublincleaners.com': 'Brian Butler'
+      });
+
+      const STATUS_LABELS = Object.freeze({
+        completed: 'Completed',
+        in_progress: 'In progress',
+        ordered: 'Ordered',
+        approved: 'Approved',
+        denied: 'Denied',
+        declined: 'Declined',
+        canceled: 'Canceled',
+        cancelled: 'Canceled'
+      });
+
+      function formatStatus(state) {
+        if (!state) {
+          return 'Pending review';
+        }
+        const normalized = state.toLowerCase();
+        if (Object.prototype.hasOwnProperty.call(STATUS_LABELS, normalized)) {
+          return STATUS_LABELS[normalized];
+        }
+        return 'Pending review';
+      }
+
+      function getRequestStateKey(status) {
+        if (typeof status !== 'string') {
+          return '';
+        }
+        return status.trim().toLowerCase().replace(/\s+/g, '_');
+      }
+
+      function formatActorName(value) {
+        const text = typeof value === 'string' ? value.trim() : '';
+        if (!text) {
+          return '';
+        }
+        const normalized = text.toLowerCase();
+        if (Object.prototype.hasOwnProperty.call(EMAIL_DISPLAY_OVERRIDES, normalized)) {
+          return EMAIL_DISPLAY_OVERRIDES[normalized];
+        }
+        return text;
+      }
+
+      function formatDate(value) {
+        if (!value) {
+          return '';
+        }
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+          return String(value);
+        }
+        try {
+          return date.toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+          });
+        } catch (err) {
+          return date.toLocaleString();
+        }
+      }
+
+      function parseQuery() {
+        const params = new URLSearchParams(window.location.search);
+        const type = params.get('type');
+        const scope = params.get('scope');
+        if (type && ['supplies', 'it', 'maintenance'].includes(type)) {
+          typeSelect.value = type;
+        }
+        if (scope && ['all', 'mine'].includes(scope)) {
+          scopeSelect.value = scope;
+        }
+      }
+
+      function updateQueryParams(type, scope) {
+        const params = new URLSearchParams(window.location.search);
+        params.set('type', type);
+        params.set('scope', scope);
+        const view = params.get('view') || 'print';
+        params.set('view', view);
+        const nextUrl = `${window.location.pathname}?${params.toString()}`;
+        window.history.replaceState(null, document.title, nextUrl);
+      }
+
+      async function fetchAllRequests(type, scope) {
+        if (!hasServer) {
+          throw new Error('This view requires the Google Apps Script runtime.');
+        }
+        const records = [];
+        let nextToken = '';
+        do {
+          const response = await new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(err => reject(err))
+              .listRequests({ type, scope, pageSize: PRINT_PAGE_SIZE, nextToken });
+          });
+          if (!response || response.ok !== true || !Array.isArray(response.requests)) {
+            const message = response && response.message ? response.message : 'Unable to load requests.';
+            throw new Error(message);
+          }
+          records.push(...response.requests);
+          nextToken = response.nextToken || '';
+        } while (nextToken);
+        return records;
+      }
+
+      function buildDetailsCell(request) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'print-details';
+        const details = Array.isArray(request.details) ? request.details.filter(Boolean) : [];
+        if (details.length) {
+          const list = document.createElement('ul');
+          list.className = 'print-details-list';
+          details.forEach(detail => {
+            const item = document.createElement('li');
+            item.textContent = detail;
+            list.appendChild(item);
+          });
+          wrapper.appendChild(list);
+        }
+        if (Array.isArray(request.notes) && request.notes.length) {
+          const notesHeading = document.createElement('strong');
+          notesHeading.className = 'print-notes-heading';
+          notesHeading.textContent = 'Notes';
+          wrapper.appendChild(notesHeading);
+          const notesList = document.createElement('ul');
+          notesList.className = 'print-details-list';
+          request.notes.forEach(note => {
+            if (!note || typeof note.note !== 'string') {
+              return;
+            }
+            const item = document.createElement('li');
+            const author = formatActorName(note.actor);
+            const timestamp = formatDate(note.ts);
+            const content = note.note.trim();
+            const parts = [];
+            if (author) {
+              parts.push(author);
+            }
+            if (timestamp) {
+              parts.push(timestamp);
+            }
+            const prefix = parts.length ? `${parts.join(' • ')} — ` : '';
+            item.textContent = `${prefix}${content}`;
+            notesList.appendChild(item);
+          });
+          wrapper.appendChild(notesList);
+        }
+        return wrapper;
+      }
+
+      function renderRequests(requests, type, scope) {
+        tableBody.textContent = '';
+        countEl.textContent = String(requests.length);
+        if (!requests.length) {
+          const emptyRow = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 5;
+          cell.className = 'print-empty';
+          cell.textContent = scope === 'mine'
+            ? 'No requests match your submissions yet.'
+            : 'No requests found for this queue.';
+          emptyRow.appendChild(cell);
+          tableBody.appendChild(emptyRow);
+          return;
+        }
+        requests.forEach(request => {
+          const row = document.createElement('tr');
+
+          const summaryCell = document.createElement('td');
+          const summary = document.createElement('div');
+          summary.className = 'print-summary';
+          summary.textContent = request.summary || 'Request';
+          summaryCell.appendChild(summary);
+          if (request.id) {
+            const idLine = document.createElement('span');
+            idLine.className = 'print-id';
+            idLine.textContent = `ID: ${request.id}`;
+            summaryCell.appendChild(idLine);
+          }
+          row.appendChild(summaryCell);
+
+          const statusCell = document.createElement('td');
+          const stateKey = getRequestStateKey(request.status);
+          const status = document.createElement('span');
+          status.className = 'status';
+          status.dataset.state = stateKey || 'pending';
+          status.textContent = formatStatus(stateKey);
+          statusCell.appendChild(status);
+          row.appendChild(statusCell);
+
+          const requesterCell = document.createElement('td');
+          requesterCell.textContent = formatActorName(request.requester) || 'Unknown';
+          row.appendChild(requesterCell);
+
+          const submittedCell = document.createElement('td');
+          submittedCell.textContent = formatDate(request.ts);
+          row.appendChild(submittedCell);
+
+          const detailsCell = document.createElement('td');
+          detailsCell.appendChild(buildDetailsCell(request));
+          row.appendChild(detailsCell);
+
+          tableBody.appendChild(row);
+        });
+      }
+
+      async function refresh() {
+        const type = typeSelect.value;
+        const scope = scopeSelect.value;
+        updateQueryParams(type, scope);
+        statusEl.textContent = 'Loading latest requests…';
+        statusEl.dataset.state = 'loading';
+        tableBody.textContent = '';
+        const loadingRow = document.createElement('tr');
+        const loadingCell = document.createElement('td');
+        loadingCell.colSpan = 5;
+        loadingCell.className = 'print-loading';
+        loadingCell.textContent = 'Fetching data…';
+        loadingRow.appendChild(loadingCell);
+        tableBody.appendChild(loadingRow);
+        refreshButton.disabled = true;
+        try {
+          const requests = await fetchAllRequests(type, scope);
+          renderRequests(requests, type, scope);
+          statusEl.textContent = `Loaded ${requests.length} request${requests.length === 1 ? '' : 's'} for ${type} (${scope}).`;
+          statusEl.dataset.state = 'loaded';
+        } catch (err) {
+          console.error('Print view failed to load requests', err);
+          statusEl.textContent = err && err.message ? err.message : 'Unable to load requests.';
+          statusEl.dataset.state = 'error';
+          tableBody.textContent = '';
+        } finally {
+          refreshButton.disabled = false;
+        }
+      }
+
+      function init() {
+        if (!hasServer) {
+          statusEl.textContent = 'Connect this page to Google Apps Script to load live data.';
+          statusEl.dataset.state = 'error';
+          refreshButton.disabled = true;
+          printButton.disabled = true;
+          return;
+        }
+        parseQuery();
+        refresh();
+      }
+
+      typeSelect.addEventListener('change', () => refresh());
+      scopeSelect.addEventListener('change', () => refresh());
+      refreshButton.addEventListener('click', () => refresh());
+      printButton.addEventListener('click', () => window.print());
+
+      document.addEventListener('keydown', event => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'p') {
+          statusEl.textContent = 'Preparing print preview…';
+        }
+      });
+
+      init();
+    })();
+  </script>
+</body>
+</html>
