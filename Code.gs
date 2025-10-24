@@ -344,9 +344,11 @@ function getRequestNotesMap_(type) {
       note: noteText
     });
   }
-  Object.keys(map).forEach(requestId => {
-    map[requestId].sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')));
-  });
+    Object.keys(map).forEach(function(requestId) {
+      map[requestId].sort(function(a, b) {
+        return String(b.ts || '').localeCompare(String(a.ts || ''));
+      });
+    });
   return map;
 }
 
