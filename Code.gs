@@ -214,8 +214,14 @@ const CACHE_TTLS = {
   STATUS_EMAILS: 300
 };
 
-let runtimeCatalogItems_ = null;
-let runtimeCatalogDescriptionIndex_ = null;
+/**
+ * Caches catalog data between invocations to avoid repeated Spreadsheet reads.
+ * @type {{items: ?Array<Object>, descriptionIndex: ?Object<string, number>}}
+ */
+const runtimeCatalogCache_ = {
+  items: null,
+  descriptionIndex: null
+};
 
 function supportsRequestNotes_(type) {
   return type === 'it' || type === 'maintenance';
@@ -319,8 +325,8 @@ function listCatalog(request) {
 }
 
 function getCatalogItems_() {
-  if (Array.isArray(runtimeCatalogItems_)) {
-    return runtimeCatalogItems_;
+  if (Array.isArray(runtimeCatalogCache_.items)) {
+    return runtimeCatalogCache_.items;
   }
   const cache = CacheService.getScriptCache();
   const cached = cache.get(CACHE_KEYS.CATALOG);
@@ -328,7 +334,7 @@ function getCatalogItems_() {
     try {
       const parsed = JSON.parse(cached);
       if (Array.isArray(parsed)) {
-        runtimeCatalogItems_ = parsed;
+        runtimeCatalogCache_.items = parsed;
         return parsed;
       }
       cache.remove(CACHE_KEYS.CATALOG);
@@ -338,7 +344,7 @@ function getCatalogItems_() {
   }
   const items = buildCatalogItemsFromSheet_();
   cache.put(CACHE_KEYS.CATALOG, JSON.stringify(items), CACHE_TTLS.CATALOG);
-  runtimeCatalogItems_ = items;
+  runtimeCatalogCache_.items = items;
   return items;
 }
 
@@ -400,8 +406,8 @@ function getCatalogUsageCounts_() {
 }
 
 function getCatalogDescriptionIndex_() {
-  if (runtimeCatalogDescriptionIndex_ && typeof runtimeCatalogDescriptionIndex_ === 'object') {
-    return runtimeCatalogDescriptionIndex_;
+  if (runtimeCatalogCache_.descriptionIndex && typeof runtimeCatalogCache_.descriptionIndex === 'object') {
+    return runtimeCatalogCache_.descriptionIndex;
   }
   const cache = CacheService.getScriptCache();
   const cached = cache.get(CACHE_KEYS.CATALOG_DESC_INDEX);
@@ -409,7 +415,7 @@ function getCatalogDescriptionIndex_() {
     try {
       const parsed = JSON.parse(cached);
       if (parsed && typeof parsed === 'object') {
-        runtimeCatalogDescriptionIndex_ = parsed;
+        runtimeCatalogCache_.descriptionIndex = parsed;
         return parsed;
       }
       cache.remove(CACHE_KEYS.CATALOG_DESC_INDEX);
@@ -432,7 +438,7 @@ function getCatalogDescriptionIndex_() {
     return acc;
   }, {});
   cache.put(CACHE_KEYS.CATALOG_DESC_INDEX, JSON.stringify(index), CACHE_TTLS.CATALOG);
-  runtimeCatalogDescriptionIndex_ = index;
+  runtimeCatalogCache_.descriptionIndex = index;
   return index;
 }
 
@@ -1346,8 +1352,8 @@ function invalidateCatalogCache_() {
   cache.remove(CACHE_KEYS.CATALOG);
   cache.remove(CACHE_KEYS.CATALOG_USAGE);
   cache.remove(CACHE_KEYS.CATALOG_DESC_INDEX);
-  runtimeCatalogItems_ = null;
-  runtimeCatalogDescriptionIndex_ = null;
+  runtimeCatalogCache_.items = null;
+  runtimeCatalogCache_.descriptionIndex = null;
 }
 
 function invalidateRequestCache_(type, key) {
