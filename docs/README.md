@@ -78,6 +78,10 @@ All sensitive values (script properties, sheet IDs) remain server-side. Template
 
 The repository intentionally avoids bundlers. When editing `scripts.html`, keep exports under `window.RequestsApp` / `window.RequestsAppHelpers`. For new shared assets, prefer using `include('fileName')` from Apps Script templates to stay consistent.
 
+### Avoiding whack-a-mole debugging
+
+Recurring hotfixes that address only the latest failing scenario often signal deeper structural issues. When the team notices a whack-a-mole debugging cycle, favor targeted refactors or new automated tests that expose the underlying flaw before adding more patches. Building coverage where regressions cluster keeps maintenance predictable and reduces production firefights.
+
 ## Deployment tips
 
 - Only deploy `Code.gs`, `index.html`, `print.html`, `scripts.html`, `styles.html`, and `appsscript.json` to Apps Script.
