@@ -50,7 +50,12 @@ const REQUEST_TYPES = {
           throw new Error('Quantity must be at least 1.');
         }
         const notes = sanitizeString_(request && request.notes);
-        return { description, qty, location, notes };
+        return {
+          description: description,
+          qty: qty,
+          location: location,
+          notes: notes
+        };
       },
       buildSummary: function(fields) {
         return fields.description || 'Supplies request';
@@ -96,7 +101,13 @@ const REQUEST_TYPES = {
         const device = sanitizeString_(request && request.device);
         const urgency = normalizeUrgencyValue_(request && request.urgency);
         const details = sanitizeString_(request && request.details);
-        return { location, issue, device, urgency, details };
+        return {
+          location: location,
+          issue: issue,
+          device: device,
+          urgency: urgency,
+          details: details
+        };
       },
       buildSummary: function(fields) {
         return fields.issue || 'IT request';
@@ -130,7 +141,12 @@ const REQUEST_TYPES = {
         }
         const urgency = normalizeUrgencyValue_(request && request.urgency);
         const accessNotes = sanitizeString_(request && request.accessNotes);
-        return { location, issue, urgency, accessNotes };
+        return {
+          location: location,
+          issue: issue,
+          urgency: urgency,
+          accessNotes: accessNotes
+        };
       },
       buildSummary: function(fields) {
         return fields.issue || 'Maintenance request';
