@@ -4,7 +4,7 @@ This project ships a production-ready Google Apps Script web app with a refined 
 
 ## Core Expectations
 
-- **Only Apps Script runtime files** (`Code.gs`, `index.html`) are deployed. Support docs and Node-based tooling live alongside them for local development.
+- **Only Apps Script runtime files** (`Code.gs`, `index.html`, `print.html`, `scripts.html`, `styles.html`) are deployed. Support docs and Node-based tooling live alongside them for local development.
 - Keep the backend lean, fast (<5s per call), and always return JSON envelopes shaped as `{ ok, ... }`.
 - All server entry points must call `handleServerCall_` (or an equivalent guard) so that authorization, correlation IDs, and logging are consistent.
 - Frontend scripts should stay namespaced under `window.RequestsApp` / `window.RequestsAppHelpers` to avoid global leaks.
