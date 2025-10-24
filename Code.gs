@@ -35,8 +35,38 @@ const NEW_REQUEST_NOTIFICATION_RECIPIENTS = Object.freeze([
 const EMAIL_SENDER_NAME = 'Request Manager';
 const REQUEST_MANAGER_APP_URL = 'https://script.google.com/macros/s/AKfycbxf6fr9FKGjQCPE31Li-woofA6k8H7SqNcO09HayFdKfJBeSiQJXIfOd_bJ4MVfynoJag/exec';
 
-const REQUEST_TYPES = {
-    supplies: {
+const requestTypeRegistry_ = createRequestTypeRegistry_();
+const REQUEST_TYPES = requestTypeRegistry_.definitions;
+
+function resolveRequestType_(type) {
+  const normalized = String(type || '').trim().toLowerCase();
+  const def = requestTypeRegistry_.get(normalized);
+  if (!def) {
+    throw new Error('Unsupported request type: ' + type);
+  }
+  return { key: normalized, def: def };
+}
+
+function createRequestTypeDefinition_(config) {
+  if (!config || typeof config !== 'object') {
+    throw new Error('Request type definition requires a configuration object.');
+  }
+  const { sheetName, headers, normalize, buildSummary, buildDetails } = config;
+  if (!sheetName || !Array.isArray(headers)) {
+    throw new Error('Request type definitions must include a sheetName and headers.');
+  }
+  return Object.freeze({
+    sheetName: sheetName,
+    headers: headers.slice(),
+    normalize: normalize,
+    buildSummary: buildSummary,
+    buildDetails: buildDetails
+  });
+}
+
+function createRequestTypeRegistry_() {
+  const definitions = Object.freeze({
+    supplies: createRequestTypeDefinition_({
       sheetName: 'SuppliesRequests',
       headers: ['id', 'ts', 'requester', 'description', 'qty', 'location', 'notes', 'eta', 'status', 'approver'],
       normalize: function(request) {
@@ -88,8 +118,8 @@ const REQUEST_TYPES = {
         }
         return details;
       }
-    },
-    it: {
+    }),
+    it: createRequestTypeDefinition_({
       sheetName: 'ITRequests',
       headers: ['id', 'ts', 'requester', 'issue', 'device', 'urgency', 'details', 'status', 'approver', 'location'],
       normalize: function(request) {
@@ -129,8 +159,8 @@ const REQUEST_TYPES = {
         }
         return details;
       }
-    },
-    maintenance: {
+    }),
+    maintenance: createRequestTypeDefinition_({
       sheetName: 'MaintenanceRequests',
       headers: ['id', 'ts', 'requester', 'location', 'issue', 'urgency', 'accessNotes', 'status', 'approver'],
       normalize: function(request) {
@@ -165,8 +195,47 @@ const REQUEST_TYPES = {
         }
         return details;
       }
-    }
-};
+    })
+  });
+
+  const entries = Object.entries(definitions);
+
+  function normalizeType(type) {
+    return String(type || '').trim().toLowerCase();
+  }
+
+  function get(type) {
+    const key = normalizeType(type);
+    return definitions[key] || null;
+  }
+
+  function has(type) {
+    return Boolean(get(type));
+  }
+
+  function keys() {
+    return entries.map(entry => entry[0]);
+  }
+
+  function forEach(callback, thisArg) {
+    entries.forEach(entry => {
+      callback.call(thisArg, entry[1], entry[0]);
+    });
+  }
+
+  function map(callback, thisArg) {
+    return entries.map(entry => callback.call(thisArg, entry[1], entry[0]));
+  }
+
+  return Object.freeze({
+    definitions: definitions,
+    get: get,
+    has: has,
+    keys: keys,
+    forEach: forEach,
+    map: map
+  });
+}
 
 const LOG_HEADERS = ['ts', 'actor', 'fn', 'cid', 'message', 'stack', 'context'];
 const STATUS_LOG_HEADERS = ['ts', 'type', 'requestId', 'actor', 'status'];
@@ -273,8 +342,7 @@ function getRequestNotesMap_(type) {
 
 function getRequiredSheetDefinitions_() {
   const definitions = {};
-  Object.keys(REQUEST_TYPES).forEach(type => {
-    const def = REQUEST_TYPES[type];
+  requestTypeRegistry_.forEach(def => {
     definitions[def.sheetName] = def.headers.slice();
   });
   definitions[SHEETS.CATALOG] = ['sku', 'description', 'category', 'estimatedCost', 'supplier', 'archived'];
@@ -446,12 +514,11 @@ function getCatalogDescriptionIndex_() {
 }
 
 function getAllRequestsForType_(type) {
-  const def = REQUEST_TYPES[type];
-  if (!def) {
-    throw new Error('Unsupported request type.');
-  }
+  const resolved = resolveRequestType_(type);
+  const def = resolved.def;
+  const normalizedType = resolved.key;
   const cache = CacheService.getScriptCache();
-  const cacheKey = [CACHE_KEYS.REQUESTS_PREFIX, type, 'all'].join(':');
+  const cacheKey = [CACHE_KEYS.REQUESTS_PREFIX, normalizedType, 'all'].join(':');
   const cached = cache.get(cacheKey);
   if (cached) {
     try {
@@ -466,10 +533,10 @@ function getAllRequestsForType_(type) {
   }
   const sheet = getSheet_(def.sheetName, def.headers);
   const rows = readTable_(sheet, def.headers);
-  const notesMap = getRequestNotesMap_(type);
+  const notesMap = getRequestNotesMap_(normalizedType);
   const records = rows
     .map(row => {
-      const record = buildClientRequest_(type, row);
+      const record = buildClientRequest_(normalizedType, row);
       record.notes = Array.isArray(notesMap[record.id]) ? notesMap[record.id] : [];
       return record;
     })
@@ -535,7 +602,7 @@ function getDashboardMetrics(request) {
     const recordsByType = {};
     let totalRequests = 0;
     let outstandingRequests = 0;
-    Object.keys(REQUEST_TYPES).forEach(type => {
+    requestTypeRegistry_.forEach(function(_, type) {
       const records = getAllRequestsForType_(type);
       recordsByType[type] = records;
       const total = records.length;
@@ -771,7 +838,7 @@ function createRequest(request) {
       throw new Error('clientRequestId is required.');
     }
     const type = normalizeType_(request && request.type);
-    const def = REQUEST_TYPES[type];
+    const def = requestTypeRegistry_.get(type);
 
     const deviceId = normalizeDeviceId_(request && request.deviceId);
     if (!deviceId) {
@@ -895,7 +962,7 @@ function updateRequestStatus(request) {
       throw new Error('clientRequestId is required.');
     }
     const type = normalizeType_(request && request.type);
-    const def = REQUEST_TYPES[type];
+    const def = requestTypeRegistry_.get(type);
     const requestId = String(request && request.requestId || '').trim();
     if (!requestId) {
       throw new Error('requestId is required.');
@@ -1339,7 +1406,7 @@ function canEditEtaStatus_(currentStatus, nextStatus) {
 
 function normalizeType_(type) {
   const value = String(type || '').trim().toLowerCase();
-  if (!value || !REQUEST_TYPES[value]) {
+  if (!value || !requestTypeRegistry_.has(value)) {
     throw new Error('Unsupported request type.');
   }
   return value;
@@ -1360,9 +1427,10 @@ function invalidateCatalogCache_() {
 }
 
 function invalidateRequestCache_(type, key) {
+  const resolved = resolveRequestType_(type);
   const cache = CacheService.getScriptCache();
   const normalizedKey = key === 'all' ? 'all' : normalizeEmail_(key);
-  const cacheKey = [CACHE_KEYS.REQUESTS_PREFIX, type, normalizedKey].join(':');
+  const cacheKey = [CACHE_KEYS.REQUESTS_PREFIX, resolved.key, normalizedKey].join(':');
   cache.remove(cacheKey);
 }
 
@@ -1789,7 +1857,7 @@ function getRequestMilestoneTimesByType_() {
   return rows.reduce(
     (acc, row) => {
       const type = String(row && row.type || '').trim().toLowerCase();
-      if (!type || !REQUEST_TYPES[type]) {
+      if (!type || !requestTypeRegistry_.has(type)) {
         return acc;
       }
       const requestId = String(row && row.requestId || '').trim();
@@ -2252,7 +2320,9 @@ function buildSuppliesEstimatedCostDetail_(fields) {
 }
 
 function buildClientRequest_(type, row) {
-  const def = REQUEST_TYPES[type];
+  const resolved = resolveRequestType_(type);
+  const def = resolved.def;
+  const normalizedType = resolved.key;
   const fieldNames = getFieldNames_(def.headers);
   const fields = {};
   fieldNames.forEach(name => {
@@ -2267,7 +2337,7 @@ function buildClientRequest_(type, row) {
     requester: String(row.requester || ''),
     status: String(row.status || 'pending').toLowerCase() || 'pending',
     approver: String(row.approver || ''),
-    type: type,
+    type: normalizedType,
     fields: fields,
     notes: []
   };
@@ -2277,7 +2347,7 @@ function buildClientRequest_(type, row) {
   if (Object.prototype.hasOwnProperty.call(fields, 'urgency')) {
     fields.urgency = normalizeUrgencyValue_(fields.urgency);
   }
-  if (type === 'supplies') {
+  if (normalizedType === 'supplies') {
     enrichSuppliesFieldsFromCatalog_(fields);
   }
   record.summary = def.buildSummary(fields);
