@@ -36,30 +36,30 @@ const EMAIL_SENDER_NAME = 'Request Manager';
 const REQUEST_MANAGER_APP_URL = 'https://script.google.com/macros/s/AKfycbxf6fr9FKGjQCPE31Li-woofA6k8H7SqNcO09HayFdKfJBeSiQJXIfOd_bJ4MVfynoJag/exec';
 
 const REQUEST_TYPES = {
-  supplies: {
-    sheetName: 'SuppliesRequests',
-    headers: ['id', 'ts', 'requester', 'description', 'qty', 'location', 'notes', 'eta', 'status', 'approver'],
-    normalize(request) {
-      const location = normalizeLocation_(request && request.location);
-      const description = sanitizeString_(request && request.description);
-      if (!description) {
-        throw new Error('Description is required.');
-      }
-      const qty = parsePositiveInteger_(request && request.qty);
-      if (!qty) {
-        throw new Error('Quantity must be at least 1.');
-      }
-      const notes = sanitizeString_(request && request.notes);
-      return { description, qty, location, notes };
-    },
-    buildSummary(fields) {
-      return fields.description || 'Supplies request';
-    },
-    buildDetails(fields) {
-      const details = [];
-      if (fields.location) {
-        details.push(`Location: ${fields.location}`);
-      }
+    supplies: {
+      sheetName: 'SuppliesRequests',
+      headers: ['id', 'ts', 'requester', 'description', 'qty', 'location', 'notes', 'eta', 'status', 'approver'],
+      normalize: function(request) {
+        const location = normalizeLocation_(request && request.location);
+        const description = sanitizeString_(request && request.description);
+        if (!description) {
+          throw new Error('Description is required.');
+        }
+        const qty = parsePositiveInteger_(request && request.qty);
+        if (!qty) {
+          throw new Error('Quantity must be at least 1.');
+        }
+        const notes = sanitizeString_(request && request.notes);
+        return { description, qty, location, notes };
+      },
+      buildSummary: function(fields) {
+        return fields.description || 'Supplies request';
+      },
+      buildDetails: function(fields) {
+        const details = [];
+        if (fields.location) {
+          details.push(`Location: ${fields.location}`);
+        }
       if (fields.qty) {
         details.push(`Quantity: ${fields.qty}`);
       }
@@ -84,28 +84,28 @@ const REQUEST_TYPES = {
       return details;
     }
   },
-  it: {
-    sheetName: 'ITRequests',
-    headers: ['id', 'ts', 'requester', 'issue', 'device', 'urgency', 'details', 'status', 'approver', 'location'],
-    normalize(request) {
-      const location = normalizeLocation_(request && request.location);
-      const issue = sanitizeString_(request && request.issue);
-      if (!issue) {
-        throw new Error('Issue summary is required.');
-      }
-      const device = sanitizeString_(request && request.device);
-      const urgency = normalizeUrgencyValue_(request && request.urgency);
-      const details = sanitizeString_(request && request.details);
-      return { location, issue, device, urgency, details };
-    },
-    buildSummary(fields) {
-      return fields.issue || 'IT request';
-    },
-    buildDetails(fields) {
-      const details = [];
-      if (fields.location) {
-        details.push(`Location: ${fields.location}`);
-      }
+    it: {
+      sheetName: 'ITRequests',
+      headers: ['id', 'ts', 'requester', 'issue', 'device', 'urgency', 'details', 'status', 'approver', 'location'],
+      normalize: function(request) {
+        const location = normalizeLocation_(request && request.location);
+        const issue = sanitizeString_(request && request.issue);
+        if (!issue) {
+          throw new Error('Issue summary is required.');
+        }
+        const device = sanitizeString_(request && request.device);
+        const urgency = normalizeUrgencyValue_(request && request.urgency);
+        const details = sanitizeString_(request && request.details);
+        return { location, issue, device, urgency, details };
+      },
+      buildSummary: function(fields) {
+        return fields.issue || 'IT request';
+      },
+      buildDetails: function(fields) {
+        const details = [];
+        if (fields.location) {
+          details.push(`Location: ${fields.location}`);
+        }
       if (fields.device) {
         details.push(`Device/System: ${fields.device}`);
       }
@@ -119,27 +119,27 @@ const REQUEST_TYPES = {
       return details;
     }
   },
-  maintenance: {
-    sheetName: 'MaintenanceRequests',
-    headers: ['id', 'ts', 'requester', 'location', 'issue', 'urgency', 'accessNotes', 'status', 'approver'],
-    normalize(request) {
-      const location = normalizeLocation_(request && request.location);
-      const issue = sanitizeString_(request && request.issue);
-      if (!issue) {
-        throw new Error('Issue description is required.');
-      }
-      const urgency = normalizeUrgencyValue_(request && request.urgency);
-      const accessNotes = sanitizeString_(request && request.accessNotes);
-      return { location, issue, urgency, accessNotes };
-    },
-    buildSummary(fields) {
-      return fields.issue || 'Maintenance request';
-    },
-    buildDetails(fields) {
-      const details = [];
-      if (fields.location) {
-        details.push(`Location: ${fields.location}`);
-      }
+    maintenance: {
+      sheetName: 'MaintenanceRequests',
+      headers: ['id', 'ts', 'requester', 'location', 'issue', 'urgency', 'accessNotes', 'status', 'approver'],
+      normalize: function(request) {
+        const location = normalizeLocation_(request && request.location);
+        const issue = sanitizeString_(request && request.issue);
+        if (!issue) {
+          throw new Error('Issue description is required.');
+        }
+        const urgency = normalizeUrgencyValue_(request && request.urgency);
+        const accessNotes = sanitizeString_(request && request.accessNotes);
+        return { location, issue, urgency, accessNotes };
+      },
+      buildSummary: function(fields) {
+        return fields.issue || 'Maintenance request';
+      },
+      buildDetails: function(fields) {
+        const details = [];
+        if (fields.location) {
+          details.push(`Location: ${fields.location}`);
+        }
       if (fields.urgency) {
         const urgency = normalizeUrgencyValue_(fields.urgency);
         details.push(`Urgency: ${capitalize_(urgency)}`);
