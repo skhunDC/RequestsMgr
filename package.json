@@ -1,0 +1,8 @@
+{
+  "name": "requestsmgr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Requests Manager Google Apps Script project",
+  "scripts": {},
+  "license": "MIT"
+}
