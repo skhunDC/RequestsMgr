@@ -181,6 +181,16 @@ const DEFAULT_STATUS_APPROVER_EMAILS = Object.freeze([
   'brianmbutler77@gmail.com'
 ].map(normalizeEmail_));
 
+const WEBHOOK_CONFIG = Object.freeze({
+  defaultUrl: 'https://hook.us2.make.com/58evk8r7b5hm3rx148yswxhagphypc2h',
+  scriptPropKey: 'WEBHOOK_URL',
+  sourceSheets: Object.freeze(['IT Requests', 'Maintenance Requests']),
+  statusHeader: 'Webhook Status',
+  attemptHeader: 'Webhook Attempt',
+  errorSheetName: 'Webhook Errors',
+  maxAttemptsPerRun: 3
+});
+
 const CACHE_TTLS = {
   CATALOG: 300,
   REQUESTS: 180,
@@ -2229,4 +2239,340 @@ function capitalize_(value) {
     return '';
   }
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  const menu = ui.createMenu('Request Manager');
+  menu.addSubMenu(
+    ui.createMenu('Setup').addItem('Ensure Status Cols / Triggers', 'ensureWebhookSetup')
+  );
+  menu.addSubMenu(
+    ui
+      .createMenu('Test')
+      .addItem('Send last row (IT)', 'sendLastItRowToWebhook')
+      .addItem('Send last row (Maintenance)', 'sendLastMaintenanceRowToWebhook')
+  );
+  menu.addToUi();
+}
+
+function ensureWebhookSetup() {
+  ensureWebhookStatusColumns_();
+  ensureWebhookTriggers_();
+}
+
+function sendLastItRowToWebhook() {
+  sendLastRowToWebhook_(WEBHOOK_CONFIG.sourceSheets[0]);
+}
+
+function sendLastMaintenanceRowToWebhook() {
+  sendLastRowToWebhook_(WEBHOOK_CONFIG.sourceSheets[1]);
+}
+
+function notifyMakeAfterUiSubmit(sheetName, rowNumber) {
+  // Example: google.script.run.notifyMakeAfterUiSubmit('IT Requests', newRowNumber);
+  processRowForWebhook_(sheetName, rowNumber);
+}
+
+function handleFormSubmit(e) {
+  if (!e || !e.range) {
+    return;
+  }
+  const sheet = e.range.getSheet();
+  processRowForWebhook_(sheet && sheet.getName(), e.range.getRow(), e.source);
+}
+
+function handleSheetChange(e) {
+  if (!e || !e.range) {
+    return;
+  }
+  const sheet = e.range.getSheet();
+  if (!sheet) {
+    return;
+  }
+  const rowNumber = e.range.getRow();
+  if (rowNumber <= 1) {
+    return;
+  }
+  processRowForWebhook_(sheet.getName(), rowNumber, e.source);
+}
+
+function ensureWebhookStatusColumns_() {
+  const ss = getSpreadsheet_();
+  WEBHOOK_CONFIG.sourceSheets.forEach(name => {
+    const sheet = resolveWebhookSheet_(name, ss);
+    if (sheet) {
+      ensureWebhookStatusColumnsForSheet_(sheet);
+    }
+  });
+  ensureWebhookErrorSheet_(ss);
+}
+
+function ensureWebhookStatusColumnsForSheet_(sheet) {
+  const headers = getSheetHeaders_(sheet);
+  if (headers.length === 0) {
+    return;
+  }
+  let lastColumn = sheet.getLastColumn();
+  if (headers.indexOf(WEBHOOK_CONFIG.statusHeader) === -1) {
+    lastColumn += 1;
+    sheet.getRange(1, lastColumn).setValue(WEBHOOK_CONFIG.statusHeader);
+  }
+  if (headers.indexOf(WEBHOOK_CONFIG.attemptHeader) === -1) {
+    lastColumn = sheet.getLastColumn() + 1;
+    sheet.getRange(1, lastColumn).setValue(WEBHOOK_CONFIG.attemptHeader);
+    if (sheet.getMaxRows() > 1) {
+      sheet.getRange(2, lastColumn, sheet.getMaxRows() - 1, 1).setNumberFormat('0');
+    }
+  }
+}
+
+function ensureWebhookTriggers_() {
+  const ss = getSpreadsheet_();
+  const triggers = ScriptApp.getProjectTriggers();
+  let hasFormTrigger = false;
+  let hasEditTrigger = false;
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'handleFormSubmit') {
+      hasFormTrigger = true;
+    }
+    if (trigger.getHandlerFunction() === 'handleSheetChange') {
+      hasEditTrigger = true;
+    }
+  });
+  if (!hasFormTrigger) {
+    ScriptApp.newTrigger('handleFormSubmit').forSpreadsheet(ss).onFormSubmit().create();
+  }
+  if (!hasEditTrigger) {
+    ScriptApp.newTrigger('handleSheetChange').forSpreadsheet(ss).onEdit().create();
+  }
+}
+
+function ensureWebhookErrorSheet_(ss) {
+  let sheet = ss.getSheetByName(WEBHOOK_CONFIG.errorSheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(WEBHOOK_CONFIG.errorSheetName);
+  }
+  const headers = ['timestamp', 'sheetName', 'rowNumber', 'attempt', 'responseCode', 'message', 'payload'];
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    return;
+  }
+  const existing = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+  const needsUpdate = headers.some((header, idx) => existing[idx] !== header);
+  if (needsUpdate) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+}
+
+function sendLastRowToWebhook_(sheetName) {
+  const ss = getSpreadsheet_();
+  const sheet = resolveWebhookSheet_(sheetName, ss);
+  if (!sheet) {
+    throw new Error(`Sheet "${sheetName}" not found.`);
+  }
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    throw new Error(`Sheet "${sheet.getName()}" has no data rows to send.`);
+  }
+  processRowForWebhook_(sheet.getName(), lastRow, ss);
+}
+
+function processRowForWebhook_(sheetName, rowNumber, source) {
+  if (!isWebhookSourceSheet_(sheetName)) {
+    return;
+  }
+  if (!rowNumber || rowNumber <= 1) {
+    return;
+  }
+  const ss = source || getSpreadsheet_();
+  const sheet = resolveWebhookSheet_(sheetName, ss);
+  if (!sheet) {
+    return;
+  }
+  ensureWebhookStatusColumnsForSheet_(sheet);
+  const headers = getSheetHeaders_(sheet);
+  if (!headers.length) {
+    return;
+  }
+  const statusIndex = headers.indexOf(WEBHOOK_CONFIG.statusHeader);
+  const attemptIndex = headers.indexOf(WEBHOOK_CONFIG.attemptHeader);
+  if (statusIndex === -1 || attemptIndex === -1) {
+    return;
+  }
+  const statusCell = sheet.getRange(rowNumber, statusIndex + 1);
+  const currentStatus = statusCell.getValue();
+  if (currentStatus) {
+    return;
+  }
+  const rowValues = sheet.getRange(rowNumber, 1, 1, headers.length).getValues()[0];
+  const data = {};
+  headers.forEach((header, idx) => {
+    if (header) {
+      data[header] = rowValues[idx];
+    }
+  });
+  const payload = {
+    sheetName: sheet.getName(),
+    rowNumber,
+    spreadsheetId: sheet.getParent().getId(),
+    timestamp: new Date().toISOString(),
+    data
+  };
+  const attemptCell = sheet.getRange(rowNumber, attemptIndex + 1);
+  const existingAttempts = Number(attemptCell.getValue()) || 0;
+  const result = postToMakeWebhook_(payload, existingAttempts, attemptCell);
+  if (result.ok) {
+    statusCell.setValue('SENT');
+    return;
+  }
+  statusCell.setValue('FAILED');
+  logWebhookError_(
+    sheet.getName(),
+    rowNumber,
+    result.attempts,
+    result.error,
+    result.responseCode,
+    result.responseBody,
+    payload
+  );
+}
+
+function postToMakeWebhook_(payload, existingAttempts, attemptCell) {
+  const url = getWebhookUrl_();
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    muteHttpExceptions: true,
+    payload: JSON.stringify(payload)
+  };
+  let attempts = Number(existingAttempts) || 0;
+  let lastError = null;
+  let lastResponseCode = '';
+  let lastResponseBody = '';
+  for (let idx = 0; idx < WEBHOOK_CONFIG.maxAttemptsPerRun; idx += 1) {
+    attempts += 1;
+    attemptCell.setValue(attempts);
+    try {
+      const response = UrlFetchApp.fetch(url, options);
+      const code = response.getResponseCode();
+      lastResponseCode = code;
+      if (code >= 200 && code < 300) {
+        return { ok: true, attempts, responseCode: code };
+      }
+      lastResponseBody = response.getContentText();
+      lastError = new Error(`Webhook responded with HTTP ${code}`);
+      if (!shouldRetryWebhookResponse_(code)) {
+        break;
+      }
+    } catch (err) {
+      lastError = err;
+      lastResponseCode = err && err.responseCode ? err.responseCode : '';
+      lastResponseBody = err && err.responseBody ? err.responseBody : '';
+      if (!shouldRetryWebhookError_(err)) {
+        break;
+      }
+    }
+    if (idx < WEBHOOK_CONFIG.maxAttemptsPerRun - 1) {
+      Utilities.sleep(Math.pow(2, idx) * 1000);
+    }
+  }
+  return {
+    ok: false,
+    attempts,
+    error: lastError,
+    responseCode: lastResponseCode,
+    responseBody: lastResponseBody
+  };
+}
+
+function shouldRetryWebhookResponse_(code) {
+  if (!code) {
+    return false;
+  }
+  return code === 429 || code >= 500;
+}
+
+function shouldRetryWebhookError_() {
+  return true;
+}
+
+function logWebhookError_(sheetName, rowNumber, attempt, error, responseCode, responseBody, payload) {
+  const ss = getSpreadsheet_();
+  ensureWebhookErrorSheet_(ss);
+  const sheet = ss.getSheetByName(WEBHOOK_CONFIG.errorSheetName);
+  if (!sheet) {
+    return;
+  }
+  const message = error && error.message ? error.message : String(error || 'Unknown error');
+  const record = [
+    new Date().toISOString(),
+    sheetName,
+    rowNumber,
+    attempt,
+    responseCode || '',
+    message,
+    JSON.stringify({ responseBody: responseBody || '', payload })
+  ];
+  sheet.appendRow(record);
+}
+
+function getWebhookUrl_() {
+  const props = PropertiesService.getScriptProperties();
+  const stored = props && props.getProperty(WEBHOOK_CONFIG.scriptPropKey);
+  return stored || WEBHOOK_CONFIG.defaultUrl;
+}
+
+function getSheetHeaders_(sheet) {
+  const lastColumn = sheet.getLastColumn();
+  if (lastColumn === 0) {
+    return [];
+  }
+  const values = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+  return values.map(header => (typeof header === 'string' ? header.trim() : header));
+}
+
+function isWebhookSourceSheet_(sheetName) {
+  if (!sheetName) {
+    return false;
+  }
+  const normalized = normalizeWebhookSheetName_(sheetName);
+  return WEBHOOK_CONFIG.sourceSheets.some(name => {
+    return normalized === normalizeWebhookSheetName_(name);
+  });
+}
+
+function resolveWebhookSheet_(sheetName, ss) {
+  if (!sheetName) {
+    return null;
+  }
+  const spreadsheet = ss || getSpreadsheet_();
+  let sheet = spreadsheet.getSheetByName(sheetName);
+  if (sheet) {
+    return sheet;
+  }
+  const normalized = normalizeWebhookSheetName_(sheetName);
+  const fallback = WEBHOOK_CONFIG.sourceSheets.find(name => {
+    return normalized === normalizeWebhookSheetName_(name);
+  });
+  if (fallback) {
+    sheet = spreadsheet.getSheetByName(fallback);
+    if (sheet) {
+      return sheet;
+    }
+  }
+  const sheets = spreadsheet.getSheets();
+  for (let idx = 0; idx < sheets.length; idx += 1) {
+    const candidate = sheets[idx];
+    if (normalizeWebhookSheetName_(candidate.getName()) === normalized) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function normalizeWebhookSheetName_(value) {
+  return String(value || '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
 }
