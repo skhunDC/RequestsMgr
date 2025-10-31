@@ -1017,6 +1017,7 @@ function logClientError(request) {
   return withErrorHandling_('logClientError', request && request.cid, request, () => {
     ensureSetup_();
     const sheet = getSheet_(SHEETS.LOGS, LOG_HEADERS);
+    const payloadForLog = serializeForLogging_(request && request.payload);
     const entry = [
       toIsoString_(new Date()),
       normalizeEmail_(getActiveUserEmail_()),
@@ -1024,7 +1025,7 @@ function logClientError(request) {
       String(request && request.cid || ''),
       String(request && request.message || ''),
       String(request && request.stack || ''),
-      String(request && request.payload ? JSON.stringify(request.payload) : '')
+      payloadForLog
     ];
     withLock_(() => {
       sheet.appendRow(entry);
@@ -1440,6 +1441,25 @@ function parsePositiveInteger_(value) {
   return num > 0 ? num : 0;
 }
 
+function serializeForLogging_(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  try {
+    const serialized = JSON.stringify(value);
+    if (serialized !== undefined) {
+      return serialized;
+    }
+  } catch (err) {
+    // Fall through to string coercion below.
+  }
+  try {
+    return String(value);
+  } catch (stringErr) {
+    return '';
+  }
+}
+
 function parseCurrencyText_(value) {
   const text = sanitizeString_(value);
   if (!text) {
@@ -1706,9 +1726,9 @@ function logServerError_(fnName, cid, err, context) {
     cid: cid || '',
     message: err && err.message ? err.message : String(err),
     stack: err && err.stack ? err.stack : '',
-    context: context ? JSON.stringify(context) : ''
+    context: serializeForLogging_(context)
   };
-  Logger.log(JSON.stringify(payload));
+  Logger.log(serializeForLogging_(payload));
   try {
     const sheet = getSheet_(SHEETS.LOGS, LOG_HEADERS);
     withLock_(() => {
