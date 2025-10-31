@@ -36,35 +36,30 @@ const EMAIL_SENDER_NAME = 'Request Manager';
 const REQUEST_MANAGER_APP_URL = 'https://script.google.com/macros/s/AKfycbxf6fr9FKGjQCPE31Li-woofA6k8H7SqNcO09HayFdKfJBeSiQJXIfOd_bJ4MVfynoJag/exec';
 
 const REQUEST_TYPES = {
-    supplies: {
-      sheetName: 'SuppliesRequests',
-      headers: ['id', 'ts', 'requester', 'description', 'qty', 'location', 'notes', 'eta', 'status', 'approver'],
-      normalize: function(request) {
-        const location = normalizeLocation_(request && request.location);
-        const description = sanitizeString_(request && request.description);
-        if (!description) {
-          throw new Error('Description is required.');
-        }
-        const qty = parsePositiveInteger_(request && request.qty);
-        if (!qty) {
-          throw new Error('Quantity must be at least 1.');
-        }
-        const notes = sanitizeString_(request && request.notes);
-        return {
-          description: description,
-          qty: qty,
-          location: location,
-          notes: notes
-        };
-      },
-      buildSummary: function(fields) {
-        return fields.description || 'Supplies request';
-      },
-      buildDetails: function(fields) {
-        const details = [];
-        if (fields.location) {
-          details.push(`Location: ${fields.location}`);
-        }
+  supplies: {
+    sheetName: 'SuppliesRequests',
+    headers: ['id', 'ts', 'requester', 'description', 'qty', 'location', 'notes', 'eta', 'status', 'approver'],
+    normalize(request) {
+      const location = normalizeLocation_(request && request.location);
+      const description = sanitizeString_(request && request.description);
+      if (!description) {
+        throw new Error('Description is required.');
+      }
+      const qty = parsePositiveInteger_(request && request.qty);
+      if (!qty) {
+        throw new Error('Quantity must be at least 1.');
+      }
+      const notes = sanitizeString_(request && request.notes);
+      return { description, qty, location, notes };
+    },
+    buildSummary(fields) {
+      return fields.description || 'Supplies request';
+    },
+    buildDetails(fields) {
+      const details = [];
+      if (fields.location) {
+        details.push(`Location: ${fields.location}`);
+      }
       if (fields.qty) {
         details.push(`Quantity: ${fields.qty}`);
       }
@@ -89,34 +84,28 @@ const REQUEST_TYPES = {
       return details;
     }
   },
-    it: {
-      sheetName: 'ITRequests',
-      headers: ['id', 'ts', 'requester', 'issue', 'device', 'urgency', 'details', 'status', 'approver', 'location'],
-      normalize: function(request) {
-        const location = normalizeLocation_(request && request.location);
-        const issue = sanitizeString_(request && request.issue);
-        if (!issue) {
-          throw new Error('Issue summary is required.');
-        }
-        const device = sanitizeString_(request && request.device);
-        const urgency = normalizeUrgencyValue_(request && request.urgency);
-        const details = sanitizeString_(request && request.details);
-          return {
-            location: location,
-            issue: issue,
-            device: device,
-            urgency: urgency,
-            details: details
-          };
-      },
-      buildSummary: function(fields) {
-        return fields.issue || 'IT request';
-      },
-      buildDetails: function(fields) {
-        const details = [];
-        if (fields.location) {
-          details.push(`Location: ${fields.location}`);
-        }
+  it: {
+    sheetName: 'ITRequests',
+    headers: ['id', 'ts', 'requester', 'issue', 'device', 'urgency', 'details', 'status', 'approver', 'location'],
+    normalize(request) {
+      const location = normalizeLocation_(request && request.location);
+      const issue = sanitizeString_(request && request.issue);
+      if (!issue) {
+        throw new Error('Issue summary is required.');
+      }
+      const device = sanitizeString_(request && request.device);
+      const urgency = normalizeUrgencyValue_(request && request.urgency);
+      const details = sanitizeString_(request && request.details);
+      return { location, issue, device, urgency, details };
+    },
+    buildSummary(fields) {
+      return fields.issue || 'IT request';
+    },
+    buildDetails(fields) {
+      const details = [];
+      if (fields.location) {
+        details.push(`Location: ${fields.location}`);
+      }
       if (fields.device) {
         details.push(`Device/System: ${fields.device}`);
       }
@@ -130,32 +119,27 @@ const REQUEST_TYPES = {
       return details;
     }
   },
-    maintenance: {
-      sheetName: 'MaintenanceRequests',
-      headers: ['id', 'ts', 'requester', 'location', 'issue', 'urgency', 'accessNotes', 'status', 'approver'],
-      normalize: function(request) {
-        const location = normalizeLocation_(request && request.location);
-        const issue = sanitizeString_(request && request.issue);
-        if (!issue) {
-          throw new Error('Issue description is required.');
-        }
-        const urgency = normalizeUrgencyValue_(request && request.urgency);
-        const accessNotes = sanitizeString_(request && request.accessNotes);
-          return {
-            location: location,
-            issue: issue,
-            urgency: urgency,
-            accessNotes: accessNotes
-          };
-      },
-      buildSummary: function(fields) {
-        return fields.issue || 'Maintenance request';
-      },
-      buildDetails: function(fields) {
-        const details = [];
-        if (fields.location) {
-          details.push(`Location: ${fields.location}`);
-        }
+  maintenance: {
+    sheetName: 'MaintenanceRequests',
+    headers: ['id', 'ts', 'requester', 'location', 'issue', 'urgency', 'accessNotes', 'status', 'approver'],
+    normalize(request) {
+      const location = normalizeLocation_(request && request.location);
+      const issue = sanitizeString_(request && request.issue);
+      if (!issue) {
+        throw new Error('Issue description is required.');
+      }
+      const urgency = normalizeUrgencyValue_(request && request.urgency);
+      const accessNotes = sanitizeString_(request && request.accessNotes);
+      return { location, issue, urgency, accessNotes };
+    },
+    buildSummary(fields) {
+      return fields.issue || 'Maintenance request';
+    },
+    buildDetails(fields) {
+      const details = [];
+      if (fields.location) {
+        details.push(`Location: ${fields.location}`);
+      }
       if (fields.urgency) {
         const urgency = normalizeUrgencyValue_(fields.urgency);
         details.push(`Urgency: ${capitalize_(urgency)}`);
@@ -196,16 +180,6 @@ const DEFAULT_STATUS_APPROVER_EMAILS = Object.freeze([
   'rbrown5940@gmail.com',
   'brianmbutler77@gmail.com'
 ].map(normalizeEmail_));
-
-const WEBHOOK_CONFIG = Object.freeze({
-  defaultUrl: 'https://hook.us2.make.com/58evk8r7b5hm3rx148yswxhagphypc2h',
-  scriptPropKey: 'WEBHOOK_URL',
-  sourceSheets: Object.freeze(['IT Requests', 'Maintenance Requests']),
-  statusHeader: 'Webhook Status',
-  attemptHeader: 'Webhook Attempt',
-  errorSheetName: 'Webhook Errors',
-  maxAttemptsPerRun: 3
-});
 
 const CACHE_TTLS = {
   CATALOG: 300,
@@ -252,7 +226,7 @@ function getRequestNotesMap_(type) {
     }
     map[requestId].push({
       ts: tsValue,
-      actor: actor,
+      actor,
       note: noteText
     });
   });
@@ -275,10 +249,9 @@ function getRequiredSheetDefinitions_() {
   return definitions;
 }
 
-function doGet(e) {
+function doGet() {
   ensureSetup_();
-  const view = e && e.parameter && e.parameter.view === 'print' ? 'print' : 'index';
-  const template = HtmlService.createTemplateFromFile(view);
+  const template = HtmlService.createTemplateFromFile('index');
   const auth = getStatusAuthContext_();
   template.session = {
     email: auth.email,
@@ -291,13 +264,7 @@ function doGet(e) {
       allowlistSize: auth.allowlistSize
     }
   };
-  template.view = view;
-  const title = view === 'print' ? 'Request Manager – Print' : 'Request Manager';
-  return template.evaluate().setTitle(title);
-}
-
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+  return template.evaluate().setTitle('Request Manager');
 }
 
 function listCatalog(request) {
@@ -313,7 +280,7 @@ function listCatalog(request) {
     return {
       ok: true,
       items: slice,
-      nextToken: nextToken
+      nextToken
     };
   });
 }
@@ -353,11 +320,11 @@ function buildCatalogItemsFromSheet_() {
       const usageCount = usageCounts[usageKey] || 0;
       return {
         sku: sanitizeString_(row.sku),
-        description: description,
+        description,
         category: sanitizeString_(row.category),
         estimatedCost: sanitizeString_(row.estimatedCost),
         supplier: sanitizeString_(row.supplier),
-        usageCount: usageCount
+        usageCount
       };
     })
     .sort((a, b) => {
@@ -506,13 +473,13 @@ function listRequests(request) {
 
     const slice = scopedRecords.slice(startIndex, startIndex + pageSize);
     const nextToken = startIndex + slice.length < scopedRecords.length ? String(startIndex + slice.length) : '';
-      return {
-        ok: true,
-        type: type,
-        scope: scope,
-        requests: slice,
-        nextToken: nextToken
-      };
+    return {
+      ok: true,
+      type,
+      scope,
+      requests: slice,
+      nextToken
+    };
   });
 }
 
@@ -574,14 +541,14 @@ function getDashboardMetrics(request) {
       const avgCompletionMs = completionCount > 0 ? completionMsTotal / completionCount : 0;
       const avgStartMs = startCount > 0 ? startMsTotal / startCount : 0;
       metrics[type] = {
-        total: total,
-        outstanding: outstanding,
-        avgCompletionMs: avgCompletionMs,
-        completionCount: completionCount,
-        avgStartMs: avgStartMs,
-        startCount: startCount,
-        deniedCount: deniedCount,
-        approvedCount: approvedCount
+        total,
+        outstanding,
+        avgCompletionMs,
+        completionCount,
+        avgStartMs,
+        startCount,
+        deniedCount,
+        approvedCount
       };
       totalRequests += total;
       outstandingRequests += outstanding;
@@ -589,12 +556,12 @@ function getDashboardMetrics(request) {
     const insights = computeDashboardTopInsights_(recordsByType);
     return {
       ok: true,
-      metrics: metrics,
+      metrics,
       totals: {
-        totalRequests: totalRequests,
-        outstandingRequests: outstandingRequests
+        totalRequests,
+        outstandingRequests
       },
-      insights: insights,
+      insights,
       generatedAt: toIsoString_(new Date())
     };
   });
@@ -661,7 +628,7 @@ function summarizeSuppliesByLocation_(records) {
     const key = [location.toLowerCase(), itemKey].join('::');
     if (!acc[key]) {
       acc[key] = {
-        location: location,
+        location,
         item: description || fallbackLabel || '—',
         catalogSku: fallbackLabel,
         quantity: 0,
@@ -727,12 +694,7 @@ function summarizeTechnicalByLocation_(itRecords, maintenanceRecords) {
         return;
       }
       if (!counts[location]) {
-        counts[location] = {
-          location: location,
-          count: 0,
-          itCount: 0,
-          maintenanceCount: 0
-        };
+        counts[location] = { location, count: 0, itCount: 0, maintenanceCount: 0 };
       }
       counts[location].count += 1;
       if (type === 'it') {
@@ -799,8 +761,8 @@ function createRequest(request) {
       requester: requesterIdentity,
       status: 'pending',
       approver: '',
-      type: type,
-      fields: fields
+      type,
+      fields
     };
 
     const rowValues = def.headers.map(header => {
@@ -1097,18 +1059,18 @@ function submitAppFeedback(request) {
     const isAnonymous = !providedName && !contact && !fromEmail;
     const htmlBody = buildFeedbackEmailBody_({
       type: typeLabel,
-      summary: summary,
+      summary,
       message: details,
-      contact: contact,
+      contact,
       name: friendlyName,
-      fromEmail: fromEmail,
-      isAnonymous: isAnonymous,
+      fromEmail,
+      isAnonymous,
       submittedAt: formatTimestampForEmail_(new Date())
     });
     MailApp.sendEmail({
       to: PRIMARY_NOTIFICATION_EMAIL,
-      subject: subject,
-      htmlBody: htmlBody,
+      subject,
+      htmlBody,
       name: EMAIL_SENDER_NAME
     });
     return { ok: true };
@@ -1406,7 +1368,7 @@ function getAuthorizedStatusEmails_() {
 
   const normalized = emails.map(normalizeEmail_).filter(Boolean);
   const uniqueEmails = Array.from(new Set(normalized));
-  const payload = { emails: uniqueEmails, allowlistSource: allowlistSource };
+  const payload = { emails: uniqueEmails, allowlistSource };
   cache.put(CACHE_KEYS.STATUS_EMAILS, JSON.stringify(payload), CACHE_TTLS.STATUS_EMAILS);
   return payload;
 }
@@ -1444,9 +1406,9 @@ function getStatusAuthContext_() {
     reason = 'not_listed';
   }
   return {
-    email: email,
-    authorized: authorized,
-    reason: reason,
+    email,
+    authorized,
+    reason,
     allowlistSource: allowlist.allowlistSource,
     allowlistSize: allowlist.emails.length
   };
@@ -1498,12 +1460,7 @@ function parseCurrencyText_(value) {
   const prefix = prefixMatch ? prefixMatch[0] : '';
   const suffixMatch = text.match(/[^0-9.,-]*$/);
   const suffix = suffixMatch ? suffixMatch[0] : '';
-    return {
-      amount: amount,
-      decimals: decimals,
-      prefix: prefix,
-      suffix: suffix
-    };
+  return { amount, decimals, prefix, suffix };
 }
 
 function formatAmountWithGrouping_(amount, decimals) {
@@ -1707,9 +1664,9 @@ function evaluateDeviceRateLimit_(deviceId, nowMs, props) {
   }
   return {
     allowed: true,
-    key: key,
-    count: count,
-    resetAt: resetAt
+    key,
+    count,
+    resetAt
   };
 }
 
@@ -1722,7 +1679,7 @@ function commitDeviceRateLimitUsage_(state, props, nowMs) {
   }
   props.setProperty(state.key, JSON.stringify({
     count: nextCount,
-    resetAt: resetAt
+    resetAt
   }));
 }
 
@@ -1865,13 +1822,13 @@ function sendNewRequestNotification_(type, record) {
     const htmlBody = buildNewRequestEmailBody_(type, record);
     MailApp.sendEmail({
       to: NEW_REQUEST_NOTIFICATION_RECIPIENTS.join(','),
-      subject: subject,
-      htmlBody: htmlBody,
+      subject,
+      htmlBody,
       name: EMAIL_SENDER_NAME
     });
   } catch (err) {
     logServerError_('sendNewRequestNotification', record && record.id, err, {
-      type: type,
+      type,
       requestId: record && record.id
     });
   }
@@ -1998,8 +1955,8 @@ function sendSuppliesSummaryEmail_(records) {
   const htmlBody = buildSuppliesSummaryEmailBody_(Array.isArray(records) ? records : []);
   MailApp.sendEmail({
     to: PRIMARY_NOTIFICATION_EMAIL,
-    subject: subject,
-    htmlBody: htmlBody,
+    subject,
+    htmlBody,
     name: EMAIL_SENDER_NAME
   });
 }
@@ -2233,8 +2190,8 @@ function buildClientRequest_(type, row) {
     requester: String(row.requester || ''),
     status: String(row.status || 'pending').toLowerCase() || 'pending',
     approver: String(row.approver || ''),
-    type: type,
-    fields: fields,
+    type,
+    fields,
     notes: []
   };
   if (Object.prototype.hasOwnProperty.call(fields, 'eta')) {
@@ -2272,328 +2229,4 @@ function capitalize_(value) {
     return '';
   }
   return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function onOpen() {
-  const ui = SpreadsheetApp.getUi();
-  const menu = ui.createMenu('Request Manager');
-  menu.addSubMenu(
-    ui.createMenu('Setup').addItem('Ensure Status Cols / Triggers', 'ensureWebhookSetup')
-  );
-  menu.addSubMenu(
-    ui
-      .createMenu('Test')
-      .addItem('Send last row (IT)', 'sendLastItRowToWebhook')
-      .addItem('Send last row (Maintenance)', 'sendLastMaintenanceRowToWebhook')
-  );
-  menu.addToUi();
-}
-
-function ensureWebhookSetup() {
-  ensureWebhookStatusColumns_();
-  ensureWebhookTriggers_();
-}
-
-function sendLastItRowToWebhook() {
-  sendLastRowToWebhook_(WEBHOOK_CONFIG.sourceSheets[0]);
-}
-
-function sendLastMaintenanceRowToWebhook() {
-  sendLastRowToWebhook_(WEBHOOK_CONFIG.sourceSheets[1]);
-}
-
-function notifyMakeAfterUiSubmit(sheetName, rowNumber) {
-  // Example: google.script.run.notifyMakeAfterUiSubmit('IT Requests', newRowNumber);
-  processRowForWebhook_(sheetName, rowNumber);
-}
-
-function handleFormSubmit(e) {
-  if (!e || !e.range) {
-    return;
-  }
-  const sheet = e.range.getSheet();
-  processRowForWebhook_(sheet && sheet.getName(), e.range.getRow(), e.source);
-}
-
-function handleSheetChange(e) {
-  if (!e || !e.range) {
-    return;
-  }
-  const sheet = e.range.getSheet();
-  if (!sheet) {
-    return;
-  }
-  const rowNumber = e.range.getRow();
-  if (rowNumber <= 1) {
-    return;
-  }
-  processRowForWebhook_(sheet.getName(), rowNumber, e.source);
-}
-
-function ensureWebhookStatusColumns_() {
-  const ss = getSpreadsheet_();
-  WEBHOOK_CONFIG.sourceSheets.forEach(name => {
-    const sheet = resolveWebhookSheet_(name, ss);
-    if (sheet) {
-      ensureWebhookStatusColumnsForSheet_(sheet);
-    }
-  });
-  ensureWebhookErrorSheet_(ss);
-}
-
-function ensureWebhookStatusColumnsForSheet_(sheet) {
-  const headers = getSheetHeaders_(sheet);
-  if (headers.length === 0) {
-    return;
-  }
-  let lastColumn = sheet.getLastColumn();
-  if (headers.indexOf(WEBHOOK_CONFIG.statusHeader) === -1) {
-    lastColumn += 1;
-    sheet.getRange(1, lastColumn).setValue(WEBHOOK_CONFIG.statusHeader);
-  }
-  if (headers.indexOf(WEBHOOK_CONFIG.attemptHeader) === -1) {
-    lastColumn = sheet.getLastColumn() + 1;
-    sheet.getRange(1, lastColumn).setValue(WEBHOOK_CONFIG.attemptHeader);
-    if (sheet.getMaxRows() > 1) {
-      sheet.getRange(2, lastColumn, sheet.getMaxRows() - 1, 1).setNumberFormat('0');
-    }
-  }
-}
-
-function ensureWebhookTriggers_() {
-  const ss = getSpreadsheet_();
-  const triggers = ScriptApp.getProjectTriggers();
-  let hasFormTrigger = false;
-  let hasEditTrigger = false;
-  triggers.forEach(trigger => {
-    if (trigger.getHandlerFunction() === 'handleFormSubmit') {
-      hasFormTrigger = true;
-    }
-    if (trigger.getHandlerFunction() === 'handleSheetChange') {
-      hasEditTrigger = true;
-    }
-  });
-  if (!hasFormTrigger) {
-    ScriptApp.newTrigger('handleFormSubmit').forSpreadsheet(ss).onFormSubmit().create();
-  }
-  if (!hasEditTrigger) {
-    ScriptApp.newTrigger('handleSheetChange').forSpreadsheet(ss).onEdit().create();
-  }
-}
-
-function ensureWebhookErrorSheet_(ss) {
-  let sheet = ss.getSheetByName(WEBHOOK_CONFIG.errorSheetName);
-  if (!sheet) {
-    sheet = ss.insertSheet(WEBHOOK_CONFIG.errorSheetName);
-  }
-  const headers = ['timestamp', 'sheetName', 'rowNumber', 'attempt', 'responseCode', 'message', 'payload'];
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(headers);
-    return;
-  }
-  const existing = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
-  const needsUpdate = headers.some((header, idx) => existing[idx] !== header);
-  if (needsUpdate) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  }
-}
-
-function sendLastRowToWebhook_(sheetName) {
-  const ss = getSpreadsheet_();
-  const sheet = resolveWebhookSheet_(sheetName, ss);
-  if (!sheet) {
-    throw new Error(`Sheet "${sheetName}" not found.`);
-  }
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) {
-    throw new Error(`Sheet "${sheet.getName()}" has no data rows to send.`);
-  }
-  processRowForWebhook_(sheet.getName(), lastRow, ss);
-}
-
-function processRowForWebhook_(sheetName, rowNumber, source) {
-  if (!isWebhookSourceSheet_(sheetName)) {
-    return;
-  }
-  if (!rowNumber || rowNumber <= 1) {
-    return;
-  }
-  const ss = source || getSpreadsheet_();
-  const sheet = resolveWebhookSheet_(sheetName, ss);
-  if (!sheet) {
-    return;
-  }
-  ensureWebhookStatusColumnsForSheet_(sheet);
-  const headers = getSheetHeaders_(sheet);
-  if (!headers.length) {
-    return;
-  }
-  const statusIndex = headers.indexOf(WEBHOOK_CONFIG.statusHeader);
-  const attemptIndex = headers.indexOf(WEBHOOK_CONFIG.attemptHeader);
-  if (statusIndex === -1 || attemptIndex === -1) {
-    return;
-  }
-  const statusCell = sheet.getRange(rowNumber, statusIndex + 1);
-  const currentStatus = statusCell.getValue();
-  if (currentStatus) {
-    return;
-  }
-  const rowValues = sheet.getRange(rowNumber, 1, 1, headers.length).getValues()[0];
-  const data = {};
-  headers.forEach((header, idx) => {
-    if (header) {
-      data[header] = rowValues[idx];
-    }
-  });
-  const payload = {
-    sheetName: sheet.getName(),
-    rowNumber: rowNumber,
-    spreadsheetId: sheet.getParent().getId(),
-    timestamp: new Date().toISOString(),
-    data: data
-  };
-  const attemptCell = sheet.getRange(rowNumber, attemptIndex + 1);
-  const existingAttempts = Number(attemptCell.getValue()) || 0;
-  const result = postToMakeWebhook_(payload, existingAttempts, attemptCell);
-  if (result.ok) {
-    statusCell.setValue('SENT');
-    return;
-  }
-  statusCell.setValue('FAILED');
-  logWebhookError_(
-    sheet.getName(),
-    rowNumber,
-    result.attempts,
-    result.error,
-    result.responseCode,
-    result.responseBody,
-    payload
-  );
-}
-
-function postToMakeWebhook_(payload, existingAttempts, attemptCell) {
-  const url = getWebhookUrl_();
-  const options = {
-    method: 'post',
-    contentType: 'application/json',
-    muteHttpExceptions: true,
-    payload: JSON.stringify(payload)
-  };
-  let attempts = Number(existingAttempts) || 0;
-  let lastError = null;
-  let lastResponseCode = '';
-  let lastResponseBody = '';
-  for (let idx = 0; idx < WEBHOOK_CONFIG.maxAttemptsPerRun; idx += 1) {
-    attempts += 1;
-    attemptCell.setValue(attempts);
-    try {
-      const response = UrlFetchApp.fetch(url, options);
-      const code = response.getResponseCode();
-      lastResponseCode = code;
-      if (code >= 200 && code < 300) {
-        return {
-          ok: true,
-          attempts: attempts,
-          responseCode: code
-        };
-      }
-      lastResponseBody = response.getContentText();
-      lastError = new Error(`Webhook responded with HTTP ${code}`);
-      if (!shouldRetryWebhookResponse_(code)) {
-        break;
-      }
-    } catch (err) {
-      lastError = err;
-      lastResponseCode = err && err.responseCode ? err.responseCode : '';
-      lastResponseBody = err && err.responseBody ? err.responseBody : '';
-      if (!shouldRetryWebhookError_(err)) {
-        break;
-      }
-    }
-    if (idx < WEBHOOK_CONFIG.maxAttemptsPerRun - 1) {
-      Utilities.sleep(Math.pow(2, idx) * 1000);
-    }
-  }
-  return {
-    ok: false,
-    attempts: attempts,
-    error: lastError,
-    responseCode: lastResponseCode,
-    responseBody: lastResponseBody
-  };
-}
-
-function shouldRetryWebhookResponse_(code) {
-  if (!code) {
-    return false;
-  }
-  return code === 429 || code >= 500;
-}
-
-function shouldRetryWebhookError_() {
-  return true;
-}
-
-function logWebhookError_(sheetName, rowNumber, attempt, error, responseCode, responseBody, payload) {
-  const ss = getSpreadsheet_();
-  ensureWebhookErrorSheet_(ss);
-  const sheet = ss.getSheetByName(WEBHOOK_CONFIG.errorSheetName);
-  if (!sheet) {
-    return;
-  }
-  const message = error && error.message ? error.message : String(error || 'Unknown error');
-  const record = [
-    new Date().toISOString(),
-    sheetName,
-    rowNumber,
-    attempt,
-    responseCode || '',
-    message,
-    JSON.stringify({ responseBody: responseBody || '', payload: payload })
-  ];
-  sheet.appendRow(record);
-}
-
-function getWebhookUrl_() {
-  const props = PropertiesService.getScriptProperties();
-  const stored = props && props.getProperty(WEBHOOK_CONFIG.scriptPropKey);
-  return stored || WEBHOOK_CONFIG.defaultUrl;
-}
-
-function getSheetHeaders_(sheet) {
-  const lastColumn = sheet.getLastColumn();
-  if (lastColumn === 0) {
-    return [];
-  }
-  const values = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
-  return values.map(header => (typeof header === 'string' ? header.trim() : header));
-}
-
-function isWebhookSourceSheet_(sheetName) {
-  if (!sheetName) {
-    return false;
-  }
-  const normalized = String(sheetName).replace(/\s+/g, '').toLowerCase();
-  return WEBHOOK_CONFIG.sourceSheets.some(name => {
-    return normalized === String(name).replace(/\s+/g, '').toLowerCase();
-  });
-}
-
-function resolveWebhookSheet_(sheetName, ss) {
-  if (!sheetName) {
-    return null;
-  }
-  const spreadsheet = ss || getSpreadsheet_();
-  let sheet = spreadsheet.getSheetByName(sheetName);
-  if (sheet) {
-    return sheet;
-  }
-  const normalized = String(sheetName).replace(/\s+/g, '').toLowerCase();
-  const fallback = WEBHOOK_CONFIG.sourceSheets.find(name => {
-    return normalized === String(name).replace(/\s+/g, '').toLowerCase();
-  });
-  if (fallback) {
-    sheet = spreadsheet.getSheetByName(fallback);
-  }
-  return sheet;
 }

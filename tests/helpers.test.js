@@ -9,14 +9,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 function loadHelpers() {
-  const scriptsPath = join(__dirname, "..", "scripts.html");
-  const html = readFileSync(scriptsPath, "utf8");
+  const indexPath = join(__dirname, "..", "index.html");
+  const html = readFileSync(indexPath, "utf8");
   const startMarker = "function sanitizeText";
   const endMarker = "window.RequestsAppHelpers = {";
   const startIndex = html.indexOf(startMarker);
   const endIndex = html.indexOf(endMarker);
   if (startIndex === -1 || endIndex === -1) {
-    throw new Error("Unable to locate helper functions in scripts.html");
+    throw new Error("Unable to locate helper functions in index.html");
   }
   const closingIndex = html.indexOf("};", endIndex);
   const block = html.slice(startIndex, closingIndex + 2);

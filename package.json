@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "lint": "eslint Code.gs index.html print.html scripts.html tests/**/*.js",
-    "format": "prettier --write Code.gs index.html print.html scripts.html styles.html README.md AGENTS.md docs/**/*.md tests/**/*.js",
-    "test": "npm --prefix tests test"
+    "lint": "eslint Code.gs index.html tests/**/*.js",
+    "format": "prettier --write Code.gs index.html README.md AGENTS.md tests/**/*.js",
+    "test": "node --test tests/*.test.js"
   },
   "devDependencies": {
     "@html-eslint/eslint-plugin": "^0.22.0",
