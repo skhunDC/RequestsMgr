@@ -39,7 +39,7 @@ const REQUEST_TYPES = {
   supplies: {
     sheetName: 'SuppliesRequests',
     headers: ['id', 'ts', 'requester', 'description', 'qty', 'location', 'notes', 'eta', 'status', 'approver'],
-    normalize(request) {
+    normalize: function(request) {
       const location = normalizeLocation_(request && request.location);
       const description = sanitizeString_(request && request.description);
       if (!description) {
@@ -52,10 +52,10 @@ const REQUEST_TYPES = {
       const notes = sanitizeString_(request && request.notes);
       return { description, qty, location, notes };
     },
-    buildSummary(fields) {
+    buildSummary: function(fields) {
       return fields.description || 'Supplies request';
     },
-    buildDetails(fields) {
+    buildDetails: function(fields) {
       const details = [];
       if (fields.location) {
         details.push(`Location: ${fields.location}`);
@@ -87,7 +87,7 @@ const REQUEST_TYPES = {
   it: {
     sheetName: 'ITRequests',
     headers: ['id', 'ts', 'requester', 'issue', 'device', 'urgency', 'details', 'status', 'approver', 'location'],
-    normalize(request) {
+    normalize: function(request) {
       const location = normalizeLocation_(request && request.location);
       const issue = sanitizeString_(request && request.issue);
       if (!issue) {
@@ -98,10 +98,10 @@ const REQUEST_TYPES = {
       const details = sanitizeString_(request && request.details);
       return { location, issue, device, urgency, details };
     },
-    buildSummary(fields) {
+    buildSummary: function(fields) {
       return fields.issue || 'IT request';
     },
-    buildDetails(fields) {
+    buildDetails: function(fields) {
       const details = [];
       if (fields.location) {
         details.push(`Location: ${fields.location}`);
@@ -122,7 +122,7 @@ const REQUEST_TYPES = {
   maintenance: {
     sheetName: 'MaintenanceRequests',
     headers: ['id', 'ts', 'requester', 'location', 'issue', 'urgency', 'accessNotes', 'status', 'approver'],
-    normalize(request) {
+    normalize: function(request) {
       const location = normalizeLocation_(request && request.location);
       const issue = sanitizeString_(request && request.issue);
       if (!issue) {
@@ -132,10 +132,10 @@ const REQUEST_TYPES = {
       const accessNotes = sanitizeString_(request && request.accessNotes);
       return { location, issue, urgency, accessNotes };
     },
-    buildSummary(fields) {
+    buildSummary: function(fields) {
       return fields.issue || 'Maintenance request';
     },
-    buildDetails(fields) {
+    buildDetails: function(fields) {
       const details = [];
       if (fields.location) {
         details.push(`Location: ${fields.location}`);
