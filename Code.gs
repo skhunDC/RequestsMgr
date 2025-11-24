@@ -191,9 +191,12 @@ const CACHE_TTLS = {
 const INCLUDE_PARTIALS = Object.freeze(['styles', 'scripts']);
 
 function include(filename) {
-  const normalized = sanitizeString_(filename).replace(/\.html$/i, '').toLowerCase();
+  const normalized = sanitizeString_(filename)
+    .replace(/[?#].*$/, '')
+    .replace(/\.html$/i, '')
+    .toLowerCase();
   if (!normalized || INCLUDE_PARTIALS.indexOf(normalized) === -1) {
-    throw new Error('Invalid include target.');
+    throw new Error(`Invalid include target: ${normalized || 'missing filename'}`);
   }
   return HtmlService.createTemplateFromFile(normalized).getRawContent();
 }
