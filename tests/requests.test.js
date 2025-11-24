@@ -11,13 +11,13 @@ const __dirname = dirname(__filename);
 function loadServerFunctions() {
   const scriptPath = join(__dirname, "..", "Code.gs");
   const contents = readFileSync(scriptPath, "utf8");
-  const script = `${contents}\nmodule.exports = { buildClientRequest_ };`;
+  const script = `${contents}\nmodule.exports = { buildClientRequest_, DEFAULT_STATUS_APPROVER_EMAILS };`;
   const context = { module: {}, console };
   vm.runInNewContext(script, context);
   return context.module.exports;
 }
 
-const { buildClientRequest_ } = loadServerFunctions();
+const { buildClientRequest_, DEFAULT_STATUS_APPROVER_EMAILS } = loadServerFunctions();
 
 test("buildClientRequest_ normalizes legacy supplies locations", () => {
   const row = {
@@ -52,4 +52,9 @@ test("buildClientRequest_ normalizes legacy maintenance locations", () => {
   const record = buildClientRequest_("maintenance", row);
   assert.equal(record.fields.location, "Frantz Rd.");
   assert(record.details.includes("Location: Frantz Rd."));
+});
+
+test("DEFAULT_STATUS_APPROVER_EMAILS includes the full manager allowlist", () => {
+  assert.ok(DEFAULT_STATUS_APPROVER_EMAILS.includes("rbrown@dublincleaners.com"));
+  assert.ok(!DEFAULT_STATUS_APPROVER_EMAILS.includes("rbown@dublincleaners.com"));
 });

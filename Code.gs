@@ -174,7 +174,7 @@ const DEVICE_RATE_LIMIT = Object.freeze({
 const DEFAULT_STATUS_APPROVER_EMAILS = Object.freeze([
   'skhun@dublincleaners.com',
   'ss.sku@protonmail.com',
-  'rbown@dublincleaners.com',
+  'rbrown@dublincleaners.com',
   'bbutler@dublincleaners.com',
   'mlackey@dublincleaners.com',
   'rbrown5940@gmail.com',
