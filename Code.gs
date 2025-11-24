@@ -188,8 +188,14 @@ const CACHE_TTLS = {
   STATUS_EMAILS: 300
 };
 
+const INCLUDE_PARTIALS = Object.freeze(['styles', 'scripts']);
+
 function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+  const normalized = sanitizeString_(filename).replace(/\.html$/i, '').toLowerCase();
+  if (!normalized || INCLUDE_PARTIALS.indexOf(normalized) === -1) {
+    throw new Error('Invalid include target.');
+  }
+  return HtmlService.createTemplateFromFile(normalized).getRawContent();
 }
 
 let runtimeCatalogItems_ = null;
