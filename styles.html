@@ -1,0 +1,106 @@
+<style>
+  .brand-ribbon {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1.25rem;
+    align-items: center;
+    padding: 0.9rem 1.2rem;
+    margin: 0 clamp(1rem, 4vw, 2.25rem);
+    border: 1px solid rgba(11, 87, 208, 0.12);
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(11, 87, 208, 0.08), rgba(15, 157, 88, 0.08));
+    box-shadow: 0 12px 40px -28px rgba(20, 36, 63, 0.6);
+  }
+
+  .brand-ribbon__logo {
+    display: grid;
+    gap: 0.45rem;
+    align-items: center;
+    justify-items: start;
+    min-width: 210px;
+  }
+
+  .brand-ribbon__logo img {
+    width: clamp(92px, 20vw, 140px);
+    height: auto;
+    display: block;
+  }
+
+  .brand-ribbon__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(11, 87, 208, 0.12);
+    color: #0b57d0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .brand-ribbon__meta {
+    display: grid;
+    gap: 0.4rem;
+    color: #1f2733;
+    font-size: 0.98rem;
+  }
+
+  .brand-ribbon__meta p {
+    margin: 0;
+    color: #2b3645;
+  }
+
+  .brand-ribbon__pills {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.72);
+    color: #1f2733;
+  }
+
+  .pill.is-affirmative {
+    border-color: rgba(15, 157, 88, 0.35);
+    background: rgba(15, 157, 88, 0.12);
+    color: #0b8043;
+  }
+
+  .pill.is-soft {
+    border-color: rgba(11, 87, 208, 0.2);
+    background: rgba(11, 87, 208, 0.08);
+    color: #0a47ac;
+  }
+
+  @media (max-width: 720px) {
+    .brand-ribbon {
+      grid-template-columns: 1fr;
+      margin: 0 1rem;
+    }
+
+    .brand-ribbon__logo {
+      justify-items: start;
+    }
+
+    .brand-ribbon__badge {
+      font-size: 0.82rem;
+    }
+
+    .brand-ribbon__meta {
+      font-size: 0.92rem;
+    }
+  }
+</style>

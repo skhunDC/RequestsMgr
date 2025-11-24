@@ -188,6 +188,10 @@ const CACHE_TTLS = {
   STATUS_EMAILS: 300
 };
 
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
 let runtimeCatalogItems_ = null;
 let runtimeCatalogDescriptionIndex_ = null;
 
@@ -250,26 +254,26 @@ function getRequiredSheetDefinitions_() {
 }
 
 function doGet() {
-  ensureSetup_();
-  const template = HtmlService.createTemplateFromFile('index');
-  const auth = getStatusAuthContext_();
-  template.session = {
-    email: auth.email,
-    canManageStatuses: auth.authorized,
-    statusAuth: {
+  return handleServerCall_('doGet', { cid: 'page-load' }, () => {
+    const template = HtmlService.createTemplateFromFile('index');
+    const auth = getStatusAuthContext_();
+    template.session = {
       email: auth.email,
-      authorized: auth.authorized,
-      reason: auth.reason,
-      allowlistSource: auth.allowlistSource,
-      allowlistSize: auth.allowlistSize
-    }
-  };
-  return template.evaluate().setTitle('Request Manager');
+      canManageStatuses: auth.authorized,
+      statusAuth: {
+        email: auth.email,
+        authorized: auth.authorized,
+        reason: auth.reason,
+        allowlistSource: auth.allowlistSource,
+        allowlistSize: auth.allowlistSize
+      }
+    };
+    return template.evaluate().setTitle('Request Manager');
+  }, { allowHtmlOutput: true });
 }
 
 function listCatalog(request) {
-  return withErrorHandling_('listCatalog', request && request.cid, request, () => {
-    ensureSetup_();
+  return handleServerCall_('listCatalog', request, () => {
     const fetchAll = Boolean(request && request.fetchAll);
     const pageSize = clamp_(Number(request && request.pageSize) || 20, 1, MAX_PAGE_SIZE);
     const startIndex = fetchAll ? 0 : Number(request && request.nextToken) || 0;
@@ -437,8 +441,7 @@ function getAllRequestsForType_(type) {
 }
 
 function listRequests(request) {
-  return withErrorHandling_('listRequests', request && request.cid, request, () => {
-    ensureSetup_();
+  return handleServerCall_('listRequests', request, () => {
     const type = normalizeType_(request && request.type);
     const scope = normalizeScope_(request && request.scope);
     const pageSize = clamp_(Number(request && request.pageSize) || 15, 1, MAX_PAGE_SIZE);
@@ -484,8 +487,7 @@ function listRequests(request) {
 }
 
 function getDashboardMetrics(request) {
-  return withErrorHandling_('getDashboardMetrics', request && request.cid, request, () => {
-    ensureSetup_();
+  return handleServerCall_('getDashboardMetrics', request, () => {
     const milestoneTimesByType = getRequestMilestoneTimesByType_();
     const completionTimesByType = milestoneTimesByType && milestoneTimesByType.completion ? milestoneTimesByType.completion : {};
     const inProgressTimesByType = milestoneTimesByType && milestoneTimesByType.inProgress ? milestoneTimesByType.inProgress : {};
@@ -722,8 +724,7 @@ function summarizeTechnicalByLocation_(itRecords, maintenanceRecords) {
 }
 
 function createRequest(request) {
-  return withErrorHandling_('createRequest', request && request.cid, request, () => {
-    ensureSetup_();
+  return handleServerCall_('createRequest', request, () => {
     const rid = String(request && request.clientRequestId || '').trim();
     if (!rid) {
       throw new Error('clientRequestId is required.');
@@ -830,8 +831,7 @@ function createRequest(request) {
 }
 
 function sendWeeklySuppliesSummary() {
-  const result = withErrorHandling_('sendWeeklySuppliesSummary', '', {}, () => {
-    ensureSetup_();
+  const result = handleServerCall_('sendWeeklySuppliesSummary', {}, () => {
     const records = getAllRequestsForType_('supplies');
     const outstanding = records.filter(record => {
       const statusKey = toStatusKey_(record.status);
@@ -846,8 +846,7 @@ function sendWeeklySuppliesSummary() {
 }
 
 function updateRequestStatus(request) {
-  return withErrorHandling_('updateRequestStatus', request && request.cid, request, () => {
-    ensureSetup_();
+  return handleServerCall_('updateRequestStatus', request, () => {
     const rid = String(request && request.clientRequestId || '').trim();
     if (!rid) {
       throw new Error('clientRequestId is required.');
@@ -945,8 +944,7 @@ function updateRequestStatus(request) {
 }
 
 function addRequestNote(request) {
-  return withErrorHandling_('addRequestNote', request && request.cid, request, () => {
-    ensureSetup_();
+  return handleServerCall_('addRequestNote', request, () => {
     const rid = String(request && request.clientRequestId || '').trim();
     if (!rid) {
       throw new Error('clientRequestId is required.');
@@ -1014,8 +1012,7 @@ function addRequestNote(request) {
 }
 
 function logClientError(request) {
-  return withErrorHandling_('logClientError', request && request.cid, request, () => {
-    ensureSetup_();
+  return handleServerCall_('logClientError', request, () => {
     const sheet = getSheet_(SHEETS.LOGS, LOG_HEADERS);
     const payloadForLog = serializeForLogging_(request && request.payload);
     const entry = [
@@ -1035,8 +1032,7 @@ function logClientError(request) {
 }
 
 function submitAppFeedback(request) {
-  return withErrorHandling_('submitAppFeedback', request && request.cid, request, () => {
-    ensureSetup_();
+  return handleServerCall_('submitAppFeedback', request, () => {
     const feedback = request && request.feedback ? request.feedback : request;
     const typeValue = sanitizeString_(feedback && feedback.type);
     const summary = sanitizeString_(feedback && feedback.summary);
@@ -1078,6 +1074,48 @@ function submitAppFeedback(request) {
   });
 }
 
+function buildCorrelationId_() {
+  try {
+    return Utilities.getUuid();
+  } catch (err) {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+}
+
+function handleServerCall_(fnName, request, handler, options) {
+  const cid = request && request.cid ? String(request.cid) : buildCorrelationId_();
+  const context = Object.assign({ request: serializeForLogging_(request) }, options || {});
+  const allowHtmlOutput = Boolean(options && options.allowHtmlOutput);
+
+  const runner = () => {
+    ensureSetup_();
+    const result = handler();
+    if (allowHtmlOutput) {
+      return result;
+    }
+    if (result && typeof result === 'object') {
+      if (!Object.prototype.hasOwnProperty.call(result, 'ok')) {
+        result.ok = true;
+      }
+      if (!Object.prototype.hasOwnProperty.call(result, 'cid')) {
+        result.cid = cid;
+      }
+    }
+    return result;
+  };
+
+  if (allowHtmlOutput) {
+    try {
+      return runner();
+    } catch (err) {
+      logServerError_(fnName, cid, err, context);
+      return HtmlService.createHtmlOutput('<p>We could not load the Request Manager. Please try again or contact support.</p>');
+    }
+  }
+
+  return withErrorHandling_(fnName, cid, context, runner);
+}
+
 function withErrorHandling_(fnName, cid, context, fn) {
   try {
     return fn();
@@ -1086,7 +1124,8 @@ function withErrorHandling_(fnName, cid, context, fn) {
     return {
       ok: false,
       code: 'SERVER_ERROR',
-      message: err && err.message ? err.message : 'Unexpected error.'
+      message: err && err.message ? err.message : 'Unexpected error.',
+      cid
     };
   }
 }

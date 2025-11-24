@@ -1,0 +1,19 @@
+<script>
+  (function(app) {
+    const RequestsApp = app || (window.RequestsApp = {});
+    RequestsApp.refreshStorageBanner = function refreshStorageBanner() {
+      const banner = document.querySelector('[data-storage-proof]');
+      if (!banner) return;
+      const tzTarget = banner.querySelector('[data-tz]');
+      if (tzTarget) {
+        try {
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local time';
+          tzTarget.textContent = `Timezone aware • ${tz}`;
+        } catch (err) {
+          tzTarget.textContent = 'Timezone aware';
+        }
+      }
+    };
+    document.addEventListener('DOMContentLoaded', RequestsApp.refreshStorageBanner);
+  })(window.RequestsApp);
+</script>
