@@ -2242,6 +2242,7 @@
       }
     }
   </style>
+  <?!= include('styles'); ?>
 </head>
 <body data-active-tab="supplies">
   <div
@@ -2255,6 +2256,22 @@
     aria-hidden="true"
   >
     <div class="page-loading-bar-progress"></div>
+  </div>
+  <div class="brand-ribbon" data-storage-proof>
+    <div class="brand-ribbon__logo">
+      <img src="https://www.dublincleaners.com/wp-content/uploads/2024/12/Dublin-Logos-stacked.png" alt="Dublin Cleaners" />
+      <div class="brand-ribbon__badge">Dublin Cleaners Request Manager</div>
+    </div>
+    <div class="brand-ribbon__meta">
+      <p>
+        Requests, notes, and approvals automatically save to Google Sheets. If no workbook exists, we'll provision one on the
+        fly and keep headers aligned for every team.
+      </p>
+      <div class="brand-ribbon__pills">
+        <span class="pill is-affirmative">Sheets-backed</span>
+        <span class="pill is-soft" data-tz></span>
+      </div>
+    </div>
   </div>
   <header>
     <div class="hero-inner">
@@ -2831,6 +2848,8 @@
   </main>
   </div>
   <div id="toast" role="status" aria-live="polite"></div>
+
+  <?!= include('scripts'); ?>
 
   <script>
     const SESSION = <?!= JSON.stringify(session) ?>;
