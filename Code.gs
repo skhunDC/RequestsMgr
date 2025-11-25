@@ -33,8 +33,6 @@ const NEW_REQUEST_NOTIFICATION_RECIPIENTS = Object.freeze([
   'brianmbutler77@dublincleaners.com'
 ].map(normalizeEmail_));
 const EMAIL_SENDER_NAME = 'Request Manager';
-const REQUEST_MANAGER_APP_URL = 'https://script.google.com/macros/s/AKfycbxf6fr9FKGjQCPE31Li-woofA6k8H7SqNcO09HayFdKfJBeSiQJXIfOd_bJ4MVfynoJag/exec';
-
 const REQUEST_TYPES = {
   supplies: {
     sheetName: 'SuppliesRequests',
@@ -1933,7 +1931,7 @@ function buildNewRequestEmailBody_(type, record) {
     )
     .join('');
   const trackerUrl = getSpreadsheetUrlSafe_();
-  const appUrl = sanitizeString_(REQUEST_MANAGER_APP_URL);
+  const appUrl = getAppUrlSafe_();
   const appLinkHtml = appUrl
     ? `<p style="margin:20px 0 0;">Open this request in the <a style="color:#1d72b8;" href="${escapeHtml_(appUrl)}" target="_blank" rel="noopener">Request Manager app</a>.</p>`
     : '';
@@ -2165,6 +2163,16 @@ function getSpreadsheetUrlSafe_() {
   try {
     const ss = getSpreadsheet_();
     return ss && typeof ss.getUrl === 'function' ? ss.getUrl() : '';
+  } catch (err) {
+    return '';
+  }
+}
+
+function getAppUrlSafe_() {
+  try {
+    const service = ScriptApp.getService();
+    const url = service && typeof service.getUrl === 'function' ? service.getUrl() : '';
+    return sanitizeString_(url);
   } catch (err) {
     return '';
   }
