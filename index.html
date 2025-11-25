@@ -2851,8 +2851,26 @@
 
   <?!= include('scripts'); ?>
 
+  <script id="sessionData" type="application/json">
+    <?!= JSON.stringify(session) ?>
+  </script>
   <script>
-    const SESSION = <?!= JSON.stringify(session) ?>;
+    const SESSION = (() => {
+      const script = document.getElementById('sessionData');
+      if (!script) {
+        return {};
+      }
+      const raw = (script.textContent || '').trim();
+      if (!raw || raw.startsWith('<')) {
+        return {};
+      }
+      try {
+        return JSON.parse(raw);
+      } catch (err) {
+        console.warn('SESSION payload is invalid. Falling back to anonymous session.', err);
+        return {};
+      }
+    })();
   </script>
   <script>
     (function () {

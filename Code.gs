@@ -1,4 +1,5 @@
 /* eslint-env googleappsscript */
+/* global ScriptApp */
 
 const SCRIPT_PROP_SHEET_ID = 'SUPPLIES_TRACKING_SHEET_ID';
 const SCRIPT_PROP_SETUP_VERSION = 'SUPPLIES_TRACKING_SETUP_VERSION';
