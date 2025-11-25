@@ -190,16 +190,20 @@ const CACHE_TTLS = {
 
 const INCLUDE_PARTIALS = Object.freeze(['styles', 'scripts']);
 
-function include(filename) {
-  const normalized = sanitizeString_(filename)
-    .replace(/[?#].*$/, '')
-    .replace(/\.html$/i, '')
-    .toLowerCase();
-  if (!normalized || INCLUDE_PARTIALS.indexOf(normalized) === -1) {
-    throw new Error(`Invalid include target: ${normalized || 'missing filename'}`);
+  function include(filename) {
+    const normalized = sanitizeString_(filename)
+      .replace(/[?#].*$/, '')
+      .replace(/\.html$/i, '')
+      .toLowerCase();
+    if (!normalized) {
+      console.warn('include called without a filename; skipping include.');
+      return '';
+    }
+    if (INCLUDE_PARTIALS.indexOf(normalized) === -1) {
+      throw new Error(`Invalid include target: ${normalized}`);
+    }
+    return HtmlService.createTemplateFromFile(normalized).getRawContent();
   }
-  return HtmlService.createTemplateFromFile(normalized).getRawContent();
-}
 
 let runtimeCatalogItems_ = null;
 let runtimeCatalogDescriptionIndex_ = null;
